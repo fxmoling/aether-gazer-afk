@@ -1,0 +1,152 @@
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Windows shortcuts
+*.lnk
+
+# Windows Registry files
+*.reg
+
+# Windows Installer files
+*.msi
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Temporary folders
+tmp/
+temp/
+
+# Game-specific
+screenshots/
+debug_images/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# But keep MaaFw resource images (needed for template matching)
+!assets/*/resource/image/*.png
+
+# Watchdog files
+.watchdog-prompt.md
+.watchdog-done
+.tmp_readme.txt
+.harness/
+
+# Config files that might contain sensitive data
+config.json
+settings.json
+user_config.json
+
+# Claude Code workspace (contains sensitive project info)
+.claude/
+
+# Project documentation maintenance files
+CLAUDE.md
+README.md
+!./README.md
+
+.references/
+
+# Directory README files (except root)
+src/README.md
+tests/README.md
+assets/README.md
+docs/README.md
+.references/README.md

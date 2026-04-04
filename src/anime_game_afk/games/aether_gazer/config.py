@@ -11,6 +11,8 @@ AETHER_GAZER_CONFIG = GameConfig(
     window_title="AetherGazer",
     resource_path=Path("assets/aether_gazer/resource"),
     screencap_method=MaaWin32ScreencapMethodEnum.Background,
-    mouse_method=MaaWin32InputMethodEnum.SendMessage,
-    keyboard_method=MaaWin32InputMethodEnum.SendMessage,
+    # SendMessageWithCursorPos: 先移动物理光标再发消息，Unity 游戏兼容性更好
+    # M9A (重返未来1999) 也使用此方法
+    mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
+    keyboard_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
 )

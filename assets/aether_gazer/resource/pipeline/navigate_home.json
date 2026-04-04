@@ -1,0 +1,91 @@
+{
+    "NavigateHome": {
+        "doc": "Entry node: detect current page and navigate back to main hub",
+        "recognition": "TemplateMatch",
+        "template": "feature_bottom_nav_bar.png",
+        "roi": [600, 800, 950, 100],
+        "threshold": 0.7,
+        "action": "DoNothing",
+        "next": [
+            "AlreadyAtHub"
+        ],
+        "timeout": 3000,
+        "on_error": [
+            "TryEscapeToHub"
+        ]
+    },
+
+    "AlreadyAtHub": {
+        "doc": "Bottom nav bar detected — already at main hub, done",
+        "recognition": "TemplateMatch",
+        "template": "feature_bottom_nav_bar.png",
+        "roi": [600, 800, 950, 100],
+        "threshold": 0.7,
+        "action": "DoNothing"
+    },
+
+    "TryEscapeToHub": {
+        "doc": "Not at hub — press ESC to go back, then re-check",
+        "recognition": "DirectHit",
+        "action": "Key",
+        "key": 27,
+        "post_delay": 1500,
+        "next": [
+            "CheckAfterEscape"
+        ]
+    },
+
+    "CheckAfterEscape": {
+        "doc": "After ESC, check if we reached the hub",
+        "recognition": "TemplateMatch",
+        "template": "feature_bottom_nav_bar.png",
+        "roi": [600, 800, 950, 100],
+        "threshold": 0.7,
+        "action": "DoNothing",
+        "next": [
+            "AlreadyAtHub"
+        ],
+        "timeout": 3000,
+        "on_error": [
+            "ClickBackButton"
+        ]
+    },
+
+    "ClickBackButton": {
+        "doc": "ESC didn't work — try clicking back arrow at (35, 35)",
+        "recognition": "TemplateMatch",
+        "template": "btn_back_arrow.png",
+        "roi": [0, 0, 80, 80],
+        "threshold": 0.6,
+        "action": "Click",
+        "target": [10, 10, 50, 50],
+        "post_delay": 1500,
+        "next": [
+            "VerifyAtHub"
+        ],
+        "on_error": [
+            "FallbackEsc"
+        ]
+    },
+
+    "FallbackEsc": {
+        "doc": "Back arrow not found — press ESC as last resort",
+        "recognition": "DirectHit",
+        "action": "Key",
+        "key": 27,
+        "post_delay": 2000,
+        "next": [
+            "VerifyAtHub"
+        ]
+    },
+
+    "VerifyAtHub": {
+        "doc": "Final verification that we are at the main hub",
+        "recognition": "TemplateMatch",
+        "template": "feature_bottom_nav_bar.png",
+        "roi": [600, 800, 950, 100],
+        "threshold": 0.7,
+        "action": "DoNothing",
+        "timeout": 5000
+    }
+}

@@ -89,7 +89,19 @@ class GameSession:
             raise ConnectionError(f"创建控制器失败: {e}") from e
 
         self._controller.post_connection().wait()
-        logger.info("控制器已连接")
+
+        # 使用原始分辨率截图，确保截图像素坐标 = 点击坐标
+        # 不做内部缩放，避免坐标映射问题
+        self._controller.set_screenshot_use_raw_size(True)
+
+        # 关键: MaaFw 的 resolution 在首次截图前为 (0,0)
+        # 这会导致 post_click 坐标映射错误
+        # 必须在 connect 后立即做一次截图来初始化 resolution
+        self._controller.post_screencap().wait()
+        logger.info(
+            "控制器已连接 (原始分辨率模式, resolution={})",
+            self._controller.resolution,
+        )
 
         # 加载资源
         resource_path = self._config.resource_path
