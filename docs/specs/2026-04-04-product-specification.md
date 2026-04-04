@@ -14,10 +14,11 @@
 - 用户可正常使用电脑进行其他工作
 
 **技术实现策略**：
-- 输入模拟：优先使用 `PostMessage/SendMessage` 直接向游戏窗口发送消息
-- 截图获取：使用 `BitBlt` 或 `Windows Graphics Capture` 后台截图
-- 窗口管理：通过窗口句柄操作，不改变窗口状态
-- 坐标系统：基于游戏窗口的相对坐标系统
+- **核心引擎**：基于MaaFramework，工业级图像识别和输入模拟
+- **输入模拟**：MaaFramework PostMessage后台输入，支持最小化窗口
+- **截图获取**：MaaFramework多策略截图（DXGI、BitBlt、GDI回退）
+- **窗口管理**：通过窗口句柄操作，完全不影响用户操作
+- **任务编排**：JSON声明式管线 + Python业务逻辑扩展
 
 ### 2. 智能定时任务系统 🕒 **重要能力**
 
@@ -50,39 +51,47 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│         用户界面层                        │
-│    (任务编排界面 + 监控面板)               │
+│         Python 应用层                    │
+│  (GUI, 任务编排, 游戏适配, 扩展功能)      │
 ├─────────────────────────────────────────┤
-│         任务调度层                        │
-│  (定时任务 + 跨游戏编排 + 资源管理)        │
+│       Python 业务逻辑层                  │
+│ (定时任务, 多游戏编排, 系统服务集成)      │
 ├─────────────────────────────────────────┤
-│         游戏适配层                        │
-│   (游戏A引擎 + 游戏B引擎 + 通用适配器)    │
+│      MaaFramework 绑定层                 │
+│    (Python API封装, 数据转换)            │
 ├─────────────────────────────────────────┤
-│         核心引擎层                        │
-│   (后台图像识别 + 后台输入模拟)           │
+│      MaaFramework 核心引擎               │
+│ (图像识别, 输入模拟, 任务管线, 错误恢复)  │
 ├─────────────────────────────────────────┤
 │         系统抽象层                        │
-│ (后台截图 + 窗口管理 + 系统服务)          │
+│  (Win32 API, 硬件驱动, 系统服务)         │
 └─────────────────────────────────────────┘
 ```
 
 ### 核心组件设计
 
-#### 1. 后台运行引擎 (BackgroundEngine)
+#### 1. MaaFramework 集成引擎
 
 ```python
-class BackgroundEngine:
-    def capture_window_background(self, hwnd) -> np.ndarray
-    def send_input_background(self, hwnd, action) -> bool  
-    def is_window_responsive(self, hwnd) -> bool
-    def get_window_bounds(self, hwnd) -> Rect
+from maa.framework import Controller, Resource, Instance
+
+class MaaBackgroundEngine:
+    def __init__(self):
+        self.controller = Controller()
+        self.resource = Resource() 
+        self.instance = Instance()
+    
+    def setup_background_mode(self, hwnd: int) -> bool
+    def execute_pipeline(self, pipeline: str, params: dict) -> TaskResult
+    def capture_window_background(self, hwnd: int) -> np.ndarray
+    def send_input_background(self, hwnd: int, action: dict) -> bool
 ```
 
 **关键特性**：
-- 使用窗口句柄而非屏幕坐标
-- PostMessage优先，SendMessage回退
-- 支持最小化窗口的内容捕获
+- 基于MaaFramework工业级引擎
+- 多策略图像识别（模板匹配+特征匹配+OCR）
+- PostMessage后台输入，支持最小化窗口
+- JSON声明式任务管线，错误恢复机制
 - 完全不影响前台用户操作
 
 #### 2. 定时任务管理器 (ScheduleManager)
