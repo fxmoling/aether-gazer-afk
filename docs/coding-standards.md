@@ -1,636 +1,300 @@
-# Python 企业级代码规范与最佳实践
+# Python 编码规范
 
-## 概述
+本项目的编码规范。务实优先，不搞花架子。
 
-本文档汇集了Python开发中的行业优秀标准和最佳实践，作为项目开发的强制性技术规范。所有代码必须严格遵循这些标准。
+## 1. 类型标注
 
-## 代码质量标准
-
-### 1. 类型系统 (Type System)
-
-**参考标准**: PEP 484, 585, 586, 612, 613
-**工具**: mypy, pyright, pyre
+**强制**: 所有公共函数、类属性必须有类型标注。用 `mypy --strict` 检查。
 
 ```python
-# ✅ 正确：详尽的类型标注
-from typing import Protocol, TypeVar, Generic, Optional, Union, Literal
-from collections.abc import Sequence, Mapping
+# ✅ 
+def match_template(
+    image: np.ndarray,
+    template: str,
+    threshold: float = 0.8,
+    roi: tuple[int, int, int, int] | None = None,
+) -> MatchResult: ...
 
-T = TypeVar('T')
-P = TypeVar('P', bound='Processable')
+# ✅ 用标准库类型，不用 typing.List/Dict
+def get_tasks(names: list[str]) -> dict[str, Task]: ...
 
-class Repository(Generic[T]):
-    def get_by_id(self, id: int) -> Optional[T]: ...
-    def save(self, entity: T) -> T: ...
-
-class Processable(Protocol):
-    def process(self) -> bool: ...
-
-# ❌ 错误：缺少类型标注
-def process_data(data):
-    return data.transform()
+# ❌ 
+def match_template(image, template, threshold=0.8):
+    ...
 ```
 
-**强制要求**:
-- 使用 `mypy --strict --disallow-any-generics` 检查
-- 所有公共API必须有完整类型标注
-- 使用 `typing_extensions` 获得最新类型特性
-- 优先使用标准库类型（如 `list[T]` 而非 `List[T]`）
+**要点**:
+- Python 3.11+，用 `list[T]` 不用 `List[T]`，用 `X | None` 不用 `Optional[X]`
+- 内部小函数、lambda 可以省略标注，mypy 能推断的不强求
+- `TypeVar` 和 `Generic` 按需使用，不为泛型而泛型
 
-### 2. 错误处理 (Error Handling)
+## 2. 错误处理
 
-**参考标准**: PEP 654 (Exception Groups), Railway Pattern
-**最佳实践**: Result类型、异常链、结构化错误
+**原则**: 用异常，不用 Result 模式。Python 社区惯例就是异常，不要对抗语言。
 
 ```python
-# ✅ 正确：Result模式错误处理
-from typing import Union, Generic, TypeVar
-from dataclasses import dataclass
-from enum import Enum
+# ✅ 自定义异常层次
+class AutomationError(Exception):
+    """所有自动化错误的基类"""
 
-T = TypeVar('T')
-E = TypeVar('E')
+class RecognitionError(AutomationError):
+    """图像识别失败"""
 
-@dataclass(frozen=True)
-class Ok(Generic[T]):
-    value: T
+class WindowNotFoundError(AutomationError):
+    """找不到游戏窗口"""
 
-@dataclass(frozen=True) 
-class Err(Generic[E]):
-    error: E
+class PipelineError(AutomationError):
+    """管线执行错误"""
 
-Result = Union[Ok[T], Err[E]]
-
-class VisionError(Enum):
-    TEMPLATE_NOT_FOUND = "template_not_found"
-    MATCHING_FAILED = "matching_failed"
-    INVALID_IMAGE = "invalid_image"
-
-def match_template(image: np.ndarray, template: str) -> Result[MatchResult, VisionError]:
+# ✅ 捕获具体异常，包装后抛出
+def find_game_window(title: str) -> int:
     try:
-        if not Path(template).exists():
-            return Err(VisionError.TEMPLATE_NOT_FOUND)
-        # ... matching logic
-        return Ok(match_result)
+        hwnd = win32gui.FindWindow(None, title)
     except Exception as e:
-        logger.exception("Template matching failed")
-        return Err(VisionError.MATCHING_FAILED)
+        raise WindowNotFoundError(f"查找窗口失败: {title}") from e
+    if hwnd == 0:
+        raise WindowNotFoundError(f"窗口不存在: {title}")
+    return hwnd
 
-# ❌ 错误：裸露的异常传播
-def match_template(image, template):
-    result = cv2.matchTemplate(image, template)  # 可能抛出任何异常
-    return result
+# ❌ 裸 except
+try:
+    do_something()
+except:
+    pass
+
+# ❌ 吞掉异常信息
+except Exception:
+    raise RuntimeError("failed")  # 丢失了原始异常链
 ```
 
-### 3. 数据类和不可变性 (Data Classes & Immutability)
+**要点**:
+- 每个模块定义自己的异常类，继承 `AutomationError`
+- 用 `raise ... from e` 保留异常链
+- 只在最顶层（入口/调度器）做兜底 `except Exception`
+- 不要用 `assert` 做业务校验，`assert` 只用于开发期不变量检查
 
-**参考标准**: PEP 557 (Data Classes), PEP 622 (Structural Pattern Matching)
+## 3. 数据类
 
 ```python
-# ✅ 正确：不可变数据类
-from dataclasses import dataclass, field
-from typing import FrozenSet
+from dataclasses import dataclass
 
-@dataclass(frozen=True, slots=True)
+# ✅ 配置类用 frozen，运行时数据不用
+@dataclass(frozen=True)
 class GameConfig:
     name: str
     window_title: str
-    resolution: tuple[int, int]
-    templates: FrozenSet[str] = field(default_factory=frozenset)
-    
-    def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("Game name cannot be empty")
-        if self.resolution[0] <= 0 or self.resolution[1] <= 0:
-            raise ValueError("Resolution must be positive")
+    resolution: tuple[int, int] = (1280, 720)
 
-# ✅ 正确：使用模式匹配
-def handle_result(result: Result[str, VisionError]) -> str:
-    match result:
-        case Ok(value):
-            return f"Success: {value}"
-        case Err(VisionError.TEMPLATE_NOT_FOUND):
-            return "Template file not found"
-        case Err(error):
-            return f"Error: {error.value}"
+# ✅ 运行时状态用普通 dataclass
+@dataclass
+class TaskState:
+    current_step: str = ""
+    retry_count: int = 0
+    started_at: float = 0.0
 ```
 
-### 4. 异步编程 (Async Programming)
+**要点**:
+- 配置/值对象用 `@dataclass(frozen=True)`
+- 可变状态用普通 `@dataclass`
+- 不需要 `slots=True` 除非有性能瓶颈的实测数据
+- 简单数据传递用 `dataclass`，不用 `dict`，不用 `Pydantic`（除非需要复杂校验）
 
-**参考标准**: PEP 492, 525, 530
-**最佳实践**: asyncio, 结构化并发
+## 4. 接口与依赖注入
+
+**Protocol 用于需要可替换的组件**，不是所有东西都要抽接口。
 
 ```python
-# ✅ 正确：结构化异步代码
+from typing import Protocol
+
+# ✅ MaaFramework 绑定层需要可替换（测试 mock、未来换引擎）
+class ScreenCapture(Protocol):
+    def capture(self, hwnd: int) -> np.ndarray: ...
+
+class InputSender(Protocol):
+    def click(self, hwnd: int, x: int, y: int) -> None: ...
+    def key_press(self, hwnd: int, key: int) -> None: ...
+
+# ✅ 构造函数注入，不需要框架
+class TaskRunner:
+    def __init__(self, capture: ScreenCapture, input: InputSender) -> None:
+        self._capture = capture
+        self._input = input
+
+# ❌ 不需要 Protocol 的场景：内部工具函数、只有一个实现的类
+```
+
+**什么时候用 Protocol**:
+- 核心引擎接口（截图、输入、识别）→ 用，因为要 mock 测试和未来替换
+- 游戏适配器基类 → 用 `ABC`，因为是同一体系的继承
+- 其他 → 不用，直接依赖具体类
+
+## 5. 异步
+
+**原则**: 不急着上 async。MaaFramework 本身是同步回调模型，Python 层按需异步。
+
+```python
+# ✅ IO 密集操作用 async
+async def wait_for_window(title: str, timeout: float = 10.0) -> int:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        hwnd = find_game_window_optional(title)
+        if hwnd:
+            return hwnd
+        await asyncio.sleep(0.5)
+    raise WindowNotFoundError(f"等待窗口超时: {title}")
+
+# ✅ CPU 密集操作保持同步，需要时用 run_in_executor
+def match_template_sync(image: np.ndarray, template: np.ndarray) -> MatchResult:
+    result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+    ...
+```
+
+**要点**:
+- 任务调度、窗口轮询、多游戏编排 → async
+- 图像处理、MaaFramework 调用 → sync（必要时 executor）
+- 不要 async 传染：不是所有函数都要 async，只在需要并发的地方用
+
+## 6. 代码组织
+
+**文件大小**:
+- 单个文件不超过 **300 行**（超了就拆）
+- 单个函数不超过 **40 行**（过长说明该提取子函数）
+- 单个类不超过 **150 行**（过大说明职责过多）
+
+**模块依赖方向**（严格单向）:
+```
+ui → task → game → core → types
+            ↓       ↓
+          config → utils
+```
+- `types` 和 `utils` 不依赖任何业务模块
+- `core` 不依赖 `game`、`task`、`ui`
+- 违反方向 = 架构问题，必须重构
+
+**导入规范**:
+```python
+# 标准库
 import asyncio
-from typing import AsyncContextManager
-from contextlib import asynccontextmanager
-
-class AsyncVisionEngine:
-    @asynccontextmanager
-    async def capture_session(self, hwnd: WindowHandle) -> AsyncContextManager[CaptureSession]:
-        session = await CaptureSession.create(hwnd)
-        try:
-            yield session
-        finally:
-            await session.cleanup()
-    
-    async def batch_recognize(self, tasks: list[RecognitionTask]) -> list[RecognitionResult]:
-        async with asyncio.TaskGroup() as tg:  # PEP 654
-            task_futures = [tg.create_task(self._recognize_single(task)) for task in tasks]
-        
-        return [future.result() for future in task_futures]
-```
-
-### 5. 依赖注入与接口设计 (DI & Interface Design)
-
-**参考标准**: PEP 544 (Protocols), SOLID原则
-**最佳实践**: Protocol-based design, Dependency Inversion
-
-```python
-# ✅ 正确：协议定义接口
-from typing import Protocol, runtime_checkable
-
-@runtime_checkable
-class ImageRecognizer(Protocol):
-    async def recognize(self, image: np.ndarray, config: RecognitionConfig) -> RecognitionResult: ...
-
-@runtime_checkable  
-class InputSimulator(Protocol):
-    async def execute_action(self, action: InputAction, target: WindowHandle) -> ActionResult: ...
-
-# ✅ 正确：依赖注入
-@dataclass
-class GameAutomationEngine:
-    recognizer: ImageRecognizer
-    input_sim: InputSimulator
-    logger: logging.Logger
-    
-    @classmethod
-    def create(
-        cls,
-        recognizer: ImageRecognizer,
-        input_sim: InputSimulator,
-        config: EngineConfig
-    ) -> 'GameAutomationEngine':
-        logger = get_logger(f"{cls.__name__}")
-        return cls(recognizer, input_sim, logger)
-```
-
-## 架构模式最佳实践
-
-### 1. 六边形架构 (Hexagonal Architecture)
-
-```python
-# 核心业务逻辑不依赖外部实现
-class GameAutomationService:
-    def __init__(
-        self,
-        vision_port: VisionPort,
-        input_port: InputPort,
-        storage_port: StoragePort
-    ):
-        self._vision = vision_port
-        self._input = input_port
-        self._storage = storage_port
-
-# 适配器实现具体技术
-class OpenCVVisionAdapter(VisionPort):
-    def recognize(self, image: np.ndarray) -> RecognitionResult:
-        # OpenCV specific implementation
-        pass
-
-class Win32InputAdapter(InputPort):
-    def execute_action(self, action: InputAction) -> ActionResult:
-        # Win32 specific implementation  
-        pass
-```
-
-### 2. CQRS模式 (Command Query Responsibility Segregation)
-
-```python
-# 命令和查询分离
-@dataclass(frozen=True)
-class ExecuteTaskCommand:
-    task_name: str
-    target_window: WindowHandle
-    parameters: dict[str, Any]
-
-@dataclass(frozen=True)
-class GetTaskStatusQuery:
-    task_id: str
-
-class TaskCommandHandler:
-    async def handle(self, command: ExecuteTaskCommand) -> TaskExecutionResult: ...
-
-class TaskQueryHandler:
-    async def handle(self, query: GetTaskStatusQuery) -> TaskStatus: ...
-```
-
-### 3. Event Sourcing模式
-
-```python
-@dataclass(frozen=True)
-class TaskStartedEvent:
-    task_id: str
-    task_name: str
-    timestamp: datetime
-    window_handle: WindowHandle
-
-@dataclass(frozen=True)
-class RecognitionCompletedEvent:
-    task_id: str
-    result: RecognitionResult
-    timestamp: datetime
-
-class EventStore:
-    async def append_events(self, stream_id: str, events: list[Event]) -> None: ...
-    async def get_events(self, stream_id: str) -> list[Event]: ...
-```
-
-## 性能优化最佳实践
-
-### 1. 内存管理
-
-```python
-# ✅ 正确：使用slots节省内存
-@dataclass
-class Point:
-    __slots__ = ('x', 'y')
-    x: int
-    y: int
-
-# ✅ 正确：对象池模式
-from queue import Queue
-from contextlib import contextmanager
-
-class ImagePool:
-    def __init__(self, pool_size: int = 10):
-        self._pool: Queue[np.ndarray] = Queue(maxsize=pool_size)
-        self._create_initial_images(pool_size)
-    
-    @contextmanager
-    def get_image(self, shape: tuple[int, int, int]) -> np.ndarray:
-        try:
-            image = self._pool.get_nowait()
-        except:
-            image = np.zeros(shape, dtype=np.uint8)
-        
-        try:
-            yield image
-        finally:
-            if not self._pool.full():
-                self._pool.put(image)
-```
-
-### 2. 并发控制
-
-```python
-# ✅ 正确：信号量控制并发
-import asyncio
-from typing import AsyncGenerator
-
-class ConcurrentVisionEngine:
-    def __init__(self, max_concurrent: int = 4):
-        self._semaphore = asyncio.Semaphore(max_concurrent)
-        
-    async def recognize_batch(
-        self, 
-        tasks: list[RecognitionTask]
-    ) -> AsyncGenerator[RecognitionResult, None]:
-        async def process_task(task: RecognitionTask) -> RecognitionResult:
-            async with self._semaphore:
-                return await self._process_single(task)
-        
-        tasks_futures = [asyncio.create_task(process_task(task)) for task in tasks]
-        
-        for future in asyncio.as_completed(tasks_futures):
-            result = await future
-            yield result
-```
-
-### 3. 缓存策略
-
-```python
-# ✅ 正确：LRU缓存和过期策略  
-from functools import lru_cache
-from threading import RLock
-import time
-
-class TimedLRUCache(Generic[K, V]):
-    def __init__(self, maxsize: int = 128, ttl: float = 300.0):
-        self._cache: dict[K, tuple[V, float]] = {}
-        self._maxsize = maxsize
-        self._ttl = ttl
-        self._lock = RLock()
-        
-    def get(self, key: K) -> Optional[V]:
-        with self._lock:
-            if key not in self._cache:
-                return None
-                
-            value, timestamp = self._cache[key]
-            if time.time() - timestamp > self._ttl:
-                del self._cache[key]
-                return None
-                
-            return value
-    
-    def put(self, key: K, value: V) -> None:
-        with self._lock:
-            # LRU eviction logic
-            if len(self._cache) >= self._maxsize:
-                oldest_key = min(self._cache.keys(), 
-                               key=lambda k: self._cache[k][1])
-                del self._cache[oldest_key]
-                
-            self._cache[key] = (value, time.time())
-```
-
-## 测试最佳实践
-
-### 1. 测试金字塔
-
-```python
-# 单元测试 - 快速、隔离
-class TestVisionEngine:
-    @pytest.fixture
-    def mock_image(self) -> np.ndarray:
-        return np.zeros((600, 800, 3), dtype=np.uint8)
-    
-    def test_template_matching_success(self, vision_engine, mock_image):
-        # Given
-        template = np.ones((50, 50, 3), dtype=np.uint8)
-        config = TemplateMatchConfig(threshold=0.8)
-        
-        # When  
-        result = vision_engine.match_template(mock_image, template, config)
-        
-        # Then
-        assert result.success is True
-        assert result.confidence >= config.threshold
-
-# 集成测试 - 验证组件交互
-class TestGameAutomationIntegration:
-    async def test_full_recognition_pipeline(self, automation_engine):
-        # Given: 真实游戏窗口
-        hwnd = await automation_engine.find_game_window("Test Game")
-        task = RecognitionTask(template="login_button.png")
-        
-        # When: 执行完整识别流程
-        result = await automation_engine.execute_recognition(hwnd, task)
-        
-        # Then: 验证端到端结果
-        assert result.success
-        assert result.execution_time < 1.0
-```
-
-### 2. 属性测试 (Property Testing)
-
-```python
-from hypothesis import given, strategies as st
-
-class TestGeometryTypes:
-    @given(
-        x=st.integers(min_value=0, max_value=1920),
-        y=st.integers(min_value=0, max_value=1080),
-        w=st.integers(min_value=1, max_value=1920),
-        h=st.integers(min_value=1, max_value=1080)
-    )
-    def test_rect_center_property(self, x: int, y: int, w: int, h: int):
-        """矩形的中心点应该在矩形内。"""
-        rect = Rect(x, y, w, h)
-        center = rect.center
-        assert rect.contains(center)
-```
-
-### 3. 快照测试 (Snapshot Testing)
-
-```python
-def test_recognition_result_serialization(snapshot):
-    """确保识别结果序列化格式稳定。"""
-    result = RecognitionResult(
-        success=True,
-        matches=[MatchResult(True, 0.95, Point(100, 200), Rect(90, 190, 20, 20))],
-        execution_time=0.05
-    )
-    
-    serialized = result.to_dict()
-    snapshot.assert_match(serialized, "recognition_result.json")
-```
-
-## 安全性最佳实践
-
-### 1. 输入验证
-
-```python
-from typing import NewType
-import re
-
-# 类型安全的ID
-WindowHandle = NewType('WindowHandle', int)
-TaskId = NewType('TaskId', str)
-
-def validate_task_id(task_id: str) -> TaskId:
-    """验证任务ID格式。"""
-    if not re.match(r'^[a-zA-Z0-9_-]+$', task_id):
-        raise ValueError(f"Invalid task ID format: {task_id}")
-    if len(task_id) > 64:
-        raise ValueError(f"Task ID too long: {len(task_id)}")
-    return TaskId(task_id)
-
-# 路径遍历防护
-def safe_template_path(template_name: str, base_dir: Path) -> Path:
-    """安全的模板路径构造。"""
-    # 防止路径遍历攻击
-    safe_name = Path(template_name).name
-    if '..' in safe_name or '/' in template_name or '\\' in template_name:
-        raise ValueError(f"Invalid template name: {template_name}")
-    
-    full_path = base_dir / safe_name
-    return full_path.resolve()
-```
-
-### 2. 权限控制
-
-```python
-import ctypes
-from ctypes import wintypes
-
-def check_admin_privileges() -> bool:
-    """检查是否具有管理员权限。"""
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
-    except Exception:
-        return False
-
-def require_privileges(required: bool = True):
-    """装饰器：要求特定权限。"""
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            if required and not check_admin_privileges():
-                raise PermissionError("This operation requires administrator privileges")
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-```
-
-## 监控和可观测性
-
-### 1. 结构化日志
-
-```python
-import json
-from typing import Any
-from datetime import datetime
-
-class StructuredLogger:
-    def __init__(self, logger: logging.Logger):
-        self._logger = logger
-    
-    def info(self, message: str, **context: Any) -> None:
-        log_data = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': 'INFO',
-            'message': message,
-            'context': context
-        }
-        self._logger.info(json.dumps(log_data))
-    
-    def error(self, message: str, error: Exception, **context: Any) -> None:
-        log_data = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': 'ERROR', 
-            'message': message,
-            'error': {
-                'type': type(error).__name__,
-                'message': str(error),
-                'traceback': traceback.format_exc()
-            },
-            'context': context
-        }
-        self._logger.error(json.dumps(log_data))
-```
-
-### 2. 指标收集
-
-```python
-from dataclasses import dataclass, field
-from typing import Counter
-import time
-
-@dataclass
-class PerformanceMetrics:
-    operation_counts: Counter[str] = field(default_factory=Counter)
-    execution_times: list[tuple[str, float]] = field(default_factory=list)
-    error_counts: Counter[str] = field(default_factory=Counter)
-    
-    def record_operation(self, name: str, duration: float) -> None:
-        self.operation_counts[name] += 1
-        self.execution_times.append((name, duration))
-        
-    def record_error(self, error_type: str) -> None:
-        self.error_counts[error_type] += 1
-        
-    def get_average_time(self, operation: str) -> float:
-        times = [t for op, t in self.execution_times if op == operation]
-        return sum(times) / len(times) if times else 0.0
-
-def measure_performance(operation_name: str):
-    """装饰器：测量函数执行时间。"""
-    def decorator(func):
-        async def async_wrapper(*args, **kwargs):
-            start_time = time.time()
-            try:
-                result = await func(*args, **kwargs)
-                duration = time.time() - start_time
-                metrics.record_operation(operation_name, duration)
-                return result
-            except Exception as e:
-                metrics.record_error(type(e).__name__)
-                raise
-        
-        def sync_wrapper(*args, **kwargs):
-            start_time = time.time()
-            try:
-                result = func(*args, **kwargs)
-                duration = time.time() - start_time
-                metrics.record_operation(operation_name, duration)
-                return result
-            except Exception as e:
-                metrics.record_error(type(e).__name__)
-                raise
-        
-        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
-    return decorator
-```
-
-## 部署和CI/CD最佳实践
-
-### 1. 配置管理
-
-```python
 from pathlib import Path
-import os
-from typing import Optional
 
-@dataclass(frozen=True)
-class AppConfig:
-    # 从环境变量读取配置
-    debug: bool = field(default_factory=lambda: os.getenv('DEBUG', 'false').lower() == 'true')
-    log_level: str = field(default_factory=lambda: os.getenv('LOG_LEVEL', 'INFO'))
-    max_workers: int = field(default_factory=lambda: int(os.getenv('MAX_WORKERS', '4')))
-    
-    # 敏感配置从文件或密钥管理系统读取
-    @classmethod
-    def from_file(cls, config_path: Path) -> 'AppConfig':
-        if not config_path.exists():
-            return cls()  # 使用默认值
-        
-        with open(config_path) as f:
-            config_data = json.load(f)
-        
-        return cls(**config_data)
+# 第三方
+import numpy as np
+import cv2
+
+# 本项目
+from anime_game_afk.core.capture import ScreenCapture
+from anime_game_afk.types.base import MatchResult
 ```
 
-### 2. 健康检查
+## 7. 日志
+
+用 `loguru`，直接用，不封装。
 
 ```python
-from enum import Enum
-from typing import Dict, List
+from loguru import logger
 
-class HealthStatus(Enum):
-    HEALTHY = "healthy"
-    DEGRADED = "degraded" 
-    UNHEALTHY = "unhealthy"
+# ✅
+logger.info("开始识别: task={}", task_name)
+logger.debug("匹配结果: confidence={:.2f}, pos=({}, {})", conf, x, y)
+logger.error("管线执行失败: {}", e)
 
-@dataclass
-class HealthCheck:
-    name: str
-    status: HealthStatus
-    message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
-
-class HealthChecker:
-    def __init__(self):
-        self._checks: List[Callable[[], HealthCheck]] = []
-    
-    def register_check(self, check_func: Callable[[], HealthCheck]) -> None:
-        self._checks.append(check_func)
-    
-    async def run_all_checks(self) -> Dict[str, HealthCheck]:
-        results = {}
-        for check_func in self._checks:
-            try:
-                result = await check_func()
-                results[result.name] = result
-            except Exception as e:
-                results[check_func.__name__] = HealthCheck(
-                    name=check_func.__name__,
-                    status=HealthStatus.UNHEALTHY,
-                    message=str(e)
-                )
-        return results
+# ❌ 不要自己包装 logger
+# ❌ 不要 JSON 结构化日志（不是微服务）
+# ❌ 不要每个类都创建自己的 logger 实例
 ```
 
-这些标准和最佳实践确保代码质量、性能、安全性和可维护性达到企业级水准。
+## 8. 测试
+
+```python
+import pytest
+from unittest.mock import Mock
+
+# ✅ 简单直接的单元测试
+def test_find_window_returns_handle():
+    with mock_win32_api(FindWindow=lambda _, t: 12345):
+        hwnd = find_game_window("深空之眼")
+        assert hwnd == 12345
+
+def test_find_window_raises_on_not_found():
+    with mock_win32_api(FindWindow=lambda _, t: 0):
+        with pytest.raises(WindowNotFoundError):
+            find_game_window("不存在的游戏")
+
+# ✅ fixture 用于共享的测试资源
+@pytest.fixture
+def sample_screenshot() -> np.ndarray:
+    return np.zeros((720, 1280, 3), dtype=np.uint8)
+```
+
+**要点**:
+- 覆盖率目标: **核心模块 70%+**，整体不强求
+- 优先测试：错误路径、边界条件、核心业务逻辑
+- 不测试：简单的 getter/setter、纯委托调用、第三方库行为
+- Mock：只 mock 外部依赖（Win32 API、MaaFramework），不 mock 内部类
+
+## 9. 命名
+
+```python
+# 模块名: snake_case
+window_manager.py
+task_runner.py
+
+# 类名: PascalCase
+class GameAdapter: ...
+class TaskRunner: ...
+
+# 函数/变量: snake_case  
+def find_game_window(title: str) -> int: ...
+current_step = "login"
+
+# 常量: UPPER_SNAKE_CASE
+DEFAULT_THRESHOLD = 0.8
+MAX_RETRY_COUNT = 3
+
+# 私有: 单下划线前缀
+def _parse_result(raw: dict) -> MatchResult: ...
+self._connected = False
+```
+
+## 10. 不做的事
+
+以下模式在本项目中**不使用**，不要引入：
+
+- ❌ CQRS / Event Sourcing — 不是分布式系统
+- ❌ 六边形架构术语（Port/Adapter） — Protocol + DI 够了
+- ❌ 手写缓存/对象池 — 用标准库或第三方库
+- ❌ 健康检查系统 — 不是微服务
+- ❌ Result/Either 单子 — Python 用异常
+- ❌ 过度抽象（接口只有一个实现）— YAGNI
+- ❌ `Pydantic` 做内部数据类 — `dataclass` 够用
+- ❌ `hypothesis` 属性测试 — 优先级极低
+- ❌ 预提交钩子 — 开发初期不需要，CI 检查就够
+
+## 工具配置
+
+```toml
+# pyproject.toml 相关配置
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+```
+
+**工具选择**:
+- 格式化 + lint: `ruff`（替代 black + isort + flake8，更快更统一）
+- 类型检查: `mypy --strict`
+- 测试: `pytest` + `pytest-asyncio`
+- 日志: `loguru`
