@@ -196,3 +196,194 @@ workflow:
 5. **稳定可靠**：长期无人值守运行的稳定性
 
 这个产品规格是否符合你的设想？特别是第1点的后台运行能力设计？
+
+## 技术实现约束
+
+### 代码质量标准
+
+**Python类型系统**：
+- 必须使用详尽的类型标注，当做强类型语言使用
+- 所有函数参数、返回值、类属性都要有类型标注
+- 使用 `mypy --strict` 进行类型检查
+- 复杂类型使用 `typing` 和 `typing_extensions`
+
+```python
+from typing import Dict, List, Optional, Protocol, TypeVar, Generic
+from dataclasses import dataclass
+
+@dataclass
+class MatchResult:
+    success: bool
+    confidence: float
+    position: tuple[int, int]
+    region: tuple[int, int, int, int]
+
+class VisionEngine:
+    def __init__(self, config: VisionConfig) -> None: ...
+    
+    def match_template(
+        self, 
+        image: np.ndarray, 
+        template: str | np.ndarray,
+        threshold: float = 0.8,
+        roi: Optional[tuple[int, int, int, int]] = None
+    ) -> MatchResult: ...
+```
+
+**模块化架构**：
+- `src/` 目录下每个子目录代表一个独立模块
+- 每个模块必须有 `README.md` 说明职责和接口
+- 模块间依赖方向严格控制，避免循环依赖
+- 每个文件专注单一职责，通常一个类一个文件
+
+**代码规模控制**：
+- 单个函数不超过30行（复杂业务逻辑除外）
+- 单个类不超过200行，超过则拆分
+- 单个文件不超过500行，优先拆分为多个文件
+- 复杂逻辑通过组合模式而非继承实现
+
+### 项目结构规范
+
+```
+src/anime_game_afk/
+├── __init__.py                 # 包入口和版本信息
+├── types/                      # 类型定义模块
+│   ├── __init__.py
+│   ├── README.md              # 类型系统说明
+│   ├── base.py               # 基础数据类型
+│   ├── vision.py             # 视觉相关类型
+│   ├── input.py              # 输入相关类型
+│   └── task.py               # 任务相关类型
+├── core/                       # 核心引擎模块
+│   ├── __init__.py
+│   ├── README.md              # 核心功能说明
+│   ├── vision_engine.py       # 图像识别引擎
+│   ├── input_engine.py        # 输入模拟引擎
+│   ├── background_engine.py   # 后台运行引擎
+│   └── window_manager.py      # 窗口管理器
+├── task/                       # 任务编排模块
+│   ├── __init__.py
+│   ├── README.md              # 任务系统说明
+│   ├── scheduler.py           # 任务调度器
+│   ├── pipeline.py            # 管线执行器
+│   ├── workflow.py            # 工作流编排
+│   └── actions/               # 动作定义子模块
+│       ├── __init__.py
+│       ├── base.py           # 基础动作类
+│       ├── click.py          # 点击动作
+│       └── wait.py           # 等待动作
+├── game/                       # 游戏适配模块
+│   ├── __init__.py
+│   ├── README.md              # 游戏适配说明
+│   ├── adapter_base.py        # 适配器基类
+│   ├── detector.py            # 游戏检测器
+│   └── adapters/              # 具体游戏适配器
+│       ├── __init__.py
+│       └── example_game/      # 示例游戏适配
+│           ├── __init__.py
+│           ├── adapter.py
+│           └── config.py
+├── system/                     # 系统集成模块
+│   ├── __init__.py
+│   ├── README.md              # 系统功能说明
+│   ├── scheduler.py           # 系统任务调度
+│   ├── service.py             # 系统服务管理
+│   ├── display.py             # 虚拟显示器
+│   └── power.py               # 电源管理
+├── config/                     # 配置管理模块
+│   ├── __init__.py
+│   ├── README.md              # 配置系统说明
+│   ├── loader.py              # 配置加载器
+│   ├── validator.py           # 配置验证器
+│   └── models.py              # 配置数据模型
+├── utils/                      # 工具函数模块
+│   ├── __init__.py
+│   ├── README.md              # 工具函数说明
+│   ├── logger.py              # 日志工具
+│   ├── file.py                # 文件操作
+│   └── time.py                # 时间处理
+└── ui/                         # 用户界面模块（可选）
+    ├── __init__.py
+    ├── README.md              # 界面设计说明
+    ├── main_window.py         # 主窗口
+    ├── task_editor.py         # 任务编辑器
+    └── monitor.py             # 监控面板
+```
+
+### 依赖关系约束
+
+**严格的依赖方向**：
+```
+ui → task → game → core → types
+     ↓       ↓       ↓
+   system → config → utils
+```
+
+**禁止的依赖关系**：
+- `core` 模块不得依赖 `game`、`task`、`system`、`ui`
+- `types` 模块不得依赖任何其他业务模块
+- `utils` 模块不得依赖任何业务模块
+- 同层模块间应尽量避免直接依赖
+
+### 接口设计原则
+
+**协议优于继承**：
+```python
+from typing import Protocol
+
+class Recognizable(Protocol):
+    def recognize(self, image: np.ndarray) -> MatchResult: ...
+
+class Actionable(Protocol):  
+    def execute(self, params: dict[str, Any]) -> ActionResult: ...
+```
+
+**依赖注入**：
+```python
+class TaskEngine:
+    def __init__(
+        self,
+        vision: Recognizable,
+        input_device: Actionable,
+        config: TaskConfig
+    ) -> None:
+        self._vision = vision
+        self._input = input_device
+        self._config = config
+```
+
+### 质量保障工具
+
+**必需工具配置**：
+```toml
+# pyproject.toml
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=src --cov-report=html --cov-report=term"
+```
+
+**预提交检查**：
+- `mypy` 类型检查必须通过
+- `black` + `isort` 代码格式化
+- `flake8` 代码风格检查  
+- `pytest` 单元测试覆盖率 > 80%
+
+这些严格的代码质量标准将确保项目的长期可维护性和扩展性。
