@@ -33,7 +33,7 @@ from anime_game_afk.games.aether_gazer.ops.interact.skip_cutscene import (
 from anime_game_afk.games.aether_gazer.ops.interact.advance_dialogue import (
     AdvanceDialogueOp,
 )
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 
 class CombatStateMachine:

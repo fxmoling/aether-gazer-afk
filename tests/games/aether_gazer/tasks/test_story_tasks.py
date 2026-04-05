@@ -1,11 +1,11 @@
-"""Tests for tasks_v2.story_tasks — NavigateToChapter, SelectLatestStage."""
+"""Tests for tasks.story_tasks — NavigateToChapter, SelectLatestStage."""
 import asyncio
 from dataclasses import dataclass, field
 
 import numpy as np
 
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks_v2.story_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.story_tasks import (
     NavigateToChapter,
     SelectLatestStage,
 )

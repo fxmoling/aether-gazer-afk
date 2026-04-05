@@ -10,7 +10,7 @@ from anime_game_afk.games.aether_gazer.ops.navigate.return_to_hub import (
     ReturnToHubOp,
 )
 from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageOp
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 
 class ReturnToHub:

@@ -1,12 +1,12 @@
-"""Tests for tasks_v2.mail_tasks — CollectAllMail."""
+"""Tests for tasks.mail_tasks — CollectAllMail."""
 import asyncio
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE, VK_H
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks_v2.mail_tasks import CollectAllMail
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.mail_tasks import CollectAllMail
 
 
 @dataclass

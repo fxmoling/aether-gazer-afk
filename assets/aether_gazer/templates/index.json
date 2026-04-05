@@ -1,0 +1,432 @@
+{
+  "main_hub": [
+    {
+      "name": "hub_navbar",
+      "path": "assets\\aether_gazer\\templates\\main_hub__hub_navbar.png",
+      "size": [
+        940,
+        50
+      ],
+      "crop": [
+        620,
+        825,
+        1560,
+        875
+      ],
+      "search": [
+        500,
+        800,
+        1600,
+        900
+      ]
+    }
+  ],
+  "character": [
+    {
+      "name": "char_right_icons",
+      "path": "assets\\aether_gazer\\templates\\character__char_right_icons.png",
+      "size": [
+        55,
+        378
+      ],
+      "crop": [
+        185,
+        82,
+        240,
+        460
+      ],
+      "search": [
+        150,
+        50,
+        300,
+        500
+      ]
+    },
+    {
+      "name": "char_bottom_bar",
+      "path": "assets\\aether_gazer\\templates\\character__char_bottom_bar.png",
+      "size": [
+        720,
+        40
+      ],
+      "crop": [
+        130,
+        852,
+        850,
+        892
+      ],
+      "search": [
+        100,
+        830,
+        900,
+        900
+      ]
+    }
+  ],
+  "gacha": [
+    {
+      "name": "gacha_banner_list",
+      "path": "assets\\aether_gazer\\templates\\gacha__gacha_banner_list.png",
+      "size": [
+        180,
+        270
+      ],
+      "crop": [
+        10,
+        30,
+        190,
+        300
+      ],
+      "search": [
+        0,
+        0,
+        250,
+        400
+      ]
+    }
+  ],
+  "shop": [
+    {
+      "name": "shop_bottom_tabs",
+      "path": "assets\\aether_gazer\\templates\\shop__shop_bottom_tabs.png",
+      "size": [
+        390,
+        52
+      ],
+      "crop": [
+        60,
+        840,
+        450,
+        892
+      ],
+      "search": [
+        0,
+        810,
+        500,
+        900
+      ]
+    }
+  ],
+  "guild": [
+    {
+      "name": "guild_info_header",
+      "path": "assets\\aether_gazer\\templates\\guild__guild_info_header.png",
+      "size": [
+        245,
+        95
+      ],
+      "crop": [
+        30,
+        5,
+        275,
+        100
+      ],
+      "search": [
+        0,
+        0,
+        350,
+        150
+      ]
+    },
+    {
+      "name": "guild_bottom_nav",
+      "path": "assets\\aether_gazer\\templates\\guild__guild_bottom_nav.png",
+      "size": [
+        670,
+        50
+      ],
+      "crop": [
+        850,
+        848,
+        1520,
+        898
+      ],
+      "search": [
+        800,
+        830,
+        1600,
+        900
+      ]
+    }
+  ],
+  "inventory": [
+    {
+      "name": "inv_left_tabs",
+      "path": "assets\\aether_gazer\\templates\\inventory__inv_left_tabs.png",
+      "size": [
+        115,
+        272
+      ],
+      "crop": [
+        25,
+        48,
+        140,
+        320
+      ],
+      "search": [
+        0,
+        20,
+        200,
+        400
+      ]
+    }
+  ],
+  "amusement": [
+    {
+      "name": "amuse_bottom_bar",
+      "path": "assets\\aether_gazer\\templates\\amusement__amuse_bottom_bar.png",
+      "size": [
+        480,
+        53
+      ],
+      "crop": [
+        1020,
+        845,
+        1500,
+        898
+      ],
+      "search": [
+        900,
+        820,
+        1600,
+        900
+      ]
+    }
+  ],
+  "battle_select": [
+    {
+      "name": "battle_tab_bar",
+      "path": "assets\\aether_gazer\\templates\\battle_select__battle_tab_bar.png",
+      "size": [
+        810,
+        65
+      ],
+      "crop": [
+        110,
+        835,
+        920,
+        900
+      ],
+      "search": [
+        50,
+        810,
+        1000,
+        900
+      ]
+    }
+  ],
+  "daily_tasks": [
+    {
+      "name": "daily_left_tabs",
+      "path": "assets\\aether_gazer\\templates\\daily_tasks__daily_left_tabs.png",
+      "size": [
+        205,
+        172
+      ],
+      "crop": [
+        5,
+        58,
+        210,
+        230
+      ],
+      "search": [
+        0,
+        30,
+        260,
+        280
+      ]
+    },
+    {
+      "name": "daily_score_bar",
+      "path": "assets\\aether_gazer\\templates\\daily_tasks__daily_score_bar.png",
+      "size": [
+        685,
+        45
+      ],
+      "crop": [
+        95,
+        55,
+        780,
+        100
+      ],
+      "search": [
+        50,
+        30,
+        850,
+        130
+      ]
+    }
+  ],
+  "mail": [
+    {
+      "name": "mail_header",
+      "path": "assets\\aether_gazer\\templates\\mail__mail_header.png",
+      "size": [
+        207,
+        60
+      ],
+      "crop": [
+        28,
+        28,
+        235,
+        88
+      ],
+      "search": [
+        0,
+        0,
+        300,
+        120
+      ]
+    }
+  ],
+  "settings_panel": [
+    {
+      "name": "settings_grid",
+      "path": "assets\\aether_gazer\\templates\\settings_panel__settings_grid.png",
+      "size": [
+        430,
+        300
+      ],
+      "crop": [
+        1100,
+        170,
+        1530,
+        470
+      ],
+      "search": [
+        1000,
+        100,
+        1600,
+        550
+      ]
+    }
+  ],
+  "tactics": [
+    {
+      "name": "tactics_level_bar",
+      "path": "assets\\aether_gazer\\templates\\tactics__tactics_level_bar.png",
+      "size": [
+        455,
+        53
+      ],
+      "crop": [
+        145,
+        82,
+        600,
+        135
+      ],
+      "search": [
+        100,
+        50,
+        700,
+        170
+      ]
+    },
+    {
+      "name": "tactics_contract_labels",
+      "path": "assets\\aether_gazer\\templates\\tactics__tactics_contract_labels.png",
+      "size": [
+        160,
+        195
+      ],
+      "crop": [
+        170,
+        225,
+        330,
+        420
+      ],
+      "search": [
+        100,
+        180,
+        400,
+        480
+      ]
+    }
+  ],
+  "training": [
+    {
+      "name": "training_left_tabs",
+      "path": "assets\\aether_gazer\\templates\\training__training_left_tabs.png",
+      "size": [
+        180,
+        315
+      ],
+      "crop": [
+        0,
+        35,
+        180,
+        350
+      ],
+      "search": [
+        0,
+        10,
+        220,
+        400
+      ]
+    },
+    {
+      "name": "training_reward_area",
+      "path": "assets\\aether_gazer\\templates\\training__training_reward_area.png",
+      "size": [
+        210,
+        300
+      ],
+      "crop": [
+        600,
+        80,
+        810,
+        380
+      ],
+      "search": [
+        500,
+        50,
+        900,
+        420
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "events_left_tabs",
+      "path": "assets\\aether_gazer\\templates\\events__events_left_tabs.png",
+      "size": [
+        170,
+        260
+      ],
+      "crop": [
+        5,
+        30,
+        175,
+        290
+      ],
+      "search": [
+        0,
+        10,
+        220,
+        350
+      ]
+    }
+  ],
+  "player_info": [
+    {
+      "name": "player_collection_stats",
+      "path": "assets\\aether_gazer\\templates\\player_info__player_collection_stats.png",
+      "size": [
+        400,
+        87
+      ],
+      "crop": [
+        175,
+        388,
+        575,
+        475
+      ],
+      "search": [
+        100,
+        350,
+        650,
+        520
+      ]
+    }
+  ]
+}

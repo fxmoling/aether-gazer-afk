@@ -4,11 +4,11 @@ Collects mail, claims free stamina, completes daily checklist.
 """
 from __future__ import annotations
 
-from anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import (
     ReturnToHub,
 )
-from anime_game_afk.games.aether_gazer.tasks_v2.mail_tasks import CollectAllMail
-from anime_game_afk.games.aether_gazer.tasks_v2.shop_tasks import ClaimFreeStamina
+from anime_game_afk.games.aether_gazer.tasks.mail_tasks import CollectAllMail
+from anime_game_afk.games.aether_gazer.tasks.shop_tasks import ClaimFreeStamina
 from anime_game_afk.games.aether_gazer.processes.base import (
     ProcessContext,
     ProcessResult,

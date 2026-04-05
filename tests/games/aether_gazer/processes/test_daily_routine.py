@@ -7,7 +7,7 @@ import numpy as np
 
 from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
 from anime_game_afk.games.aether_gazer.processes.daily_routine import DailyRoutine
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskResult
 
 
 @dataclass

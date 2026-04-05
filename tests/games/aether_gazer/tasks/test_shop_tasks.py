@@ -1,4 +1,4 @@
-"""Tests for tasks_v2.shop_tasks — ClaimFreeStamina."""
+"""Tests for tasks.shop_tasks — ClaimFreeStamina."""
 import asyncio
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, patch
@@ -7,8 +7,8 @@ import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import OpResult
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks_v2.shop_tasks import ClaimFreeStamina
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.shop_tasks import ClaimFreeStamina
 
 
 @dataclass
@@ -36,7 +36,7 @@ def test_claim_free_stamina_success():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.shop_tasks.GotoPageOp.run",
+        "anime_game_afk.games.aether_gazer.tasks.shop_tasks.GotoPageOp.run",
         AsyncMock(
             return_value=OpResult(success=True, data={"page_id": "shop"})
         ),
@@ -53,7 +53,7 @@ def test_claim_free_stamina_fails_if_no_shop():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.shop_tasks.GotoPageOp.run",
+        "anime_game_afk.games.aether_gazer.tasks.shop_tasks.GotoPageOp.run",
         AsyncMock(return_value=OpResult(success=False, error="no route")),
     ):
         result = _run(ClaimFreeStamina().execute(ctx))
@@ -68,7 +68,7 @@ def test_claim_free_stamina_presses_escape_to_dismiss():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.shop_tasks.GotoPageOp.run",
+        "anime_game_afk.games.aether_gazer.tasks.shop_tasks.GotoPageOp.run",
         AsyncMock(
             return_value=OpResult(success=True, data={"page_id": "shop"})
         ),

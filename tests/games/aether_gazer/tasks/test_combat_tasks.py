@@ -1,4 +1,4 @@
-"""Tests for tasks_v2.combat_tasks — CombatStateMachine, ClearSingleStage."""
+"""Tests for tasks.combat_tasks — CombatStateMachine, ClearSingleStage."""
 import asyncio
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import GameState, OpResult
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
-from anime_game_afk.games.aether_gazer.tasks_v2.combat_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.combat_tasks import (
     ClearSingleStage,
     CombatStateMachine,
 )
@@ -213,7 +213,7 @@ def test_clear_single_stage_presses_enter_first():
 
     # Mock the inner CombatStateMachine by patching its execute
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.combat_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.combat_tasks"
         ".CombatStateMachine.execute",
         AsyncMock(return_value=TaskResult(status="success")),
     ):
@@ -230,7 +230,7 @@ def test_clear_single_stage_propagates_failure():
     stage = ClearSingleStage()
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.combat_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.combat_tasks"
         ".CombatStateMachine.execute",
         AsyncMock(
             return_value=TaskResult(status="failed", message="Mission failed")

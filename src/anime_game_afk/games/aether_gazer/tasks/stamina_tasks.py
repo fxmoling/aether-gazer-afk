@@ -6,7 +6,7 @@ uses stamina packs if below a threshold.
 from __future__ import annotations
 
 from anime_game_afk.games.aether_gazer.knowledge.constants import STAMINA_CAP
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 # Threshold below which we consider a refill
 _REFILL_THRESHOLD = 60

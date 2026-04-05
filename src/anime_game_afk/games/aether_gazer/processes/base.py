@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
 
 
 @dataclass

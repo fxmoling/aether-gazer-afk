@@ -1,12 +1,12 @@
-"""Tests for tasks_v2.stamina_tasks — CheckAndRefillStamina."""
+"""Tests for tasks.stamina_tasks — CheckAndRefillStamina."""
 import asyncio
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.knowledge.constants import STAMINA_CAP
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks_v2.stamina_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.stamina_tasks import (
     CheckAndRefillStamina,
 )
 

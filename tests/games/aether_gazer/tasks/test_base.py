@@ -1,11 +1,11 @@
-"""Tests for tasks_v2.base — TaskResult, TaskContext, Task protocol."""
+"""Tests for tasks.base — TaskResult, TaskContext, Task protocol."""
 import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
-from anime_game_afk.games.aether_gazer.tasks_v2.base import (
+from anime_game_afk.games.aether_gazer.tasks.base import (
     Task,
     TaskContext,
     TaskResult,

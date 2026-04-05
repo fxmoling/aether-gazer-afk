@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 # Approximate row height between chapter entries in the stage select scroll list
 _CHAPTER_ROW_HEIGHT = 80

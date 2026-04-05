@@ -1,4 +1,4 @@
-"""Tests for tasks_v2.navigation_tasks — ReturnToHub, EnterMainStory."""
+"""Tests for tasks.navigation_tasks — ReturnToHub, EnterMainStory."""
 import asyncio
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, patch
@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import OpResult
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
+from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import (
     EnterMainStory,
     ReturnToHub,
 )
@@ -40,7 +40,7 @@ def test_return_to_hub_success():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
         ".ReturnToHubOp.run",
         AsyncMock(return_value=OpResult(success=True)),
     ):
@@ -55,7 +55,7 @@ def test_return_to_hub_failure():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
         ".ReturnToHubOp.run",
         AsyncMock(return_value=OpResult(success=False, error="no hub")),
     ):
@@ -79,7 +79,7 @@ def test_enter_main_story_success():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
         ".GotoPageOp.run",
         AsyncMock(
             return_value=OpResult(
@@ -100,7 +100,7 @@ def test_enter_main_story_fails_if_cannot_reach_battle_select():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
         ".GotoPageOp.run",
         AsyncMock(return_value=OpResult(success=False, error="nav failed")),
     ):
@@ -122,7 +122,7 @@ def test_enter_main_story_clicks_story_tabs():
     ctx = TaskContext(device=device)
 
     with patch(
-        "anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks"
+        "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
         ".GotoPageOp.run",
         AsyncMock(
             return_value=OpResult(success=True, data={"page_id": "battle_select"})

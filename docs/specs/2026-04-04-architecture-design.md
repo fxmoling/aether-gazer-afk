@@ -1,4 +1,8 @@
-# 架构设计
+# 架构设计 (SUPERSEDED)
+
+> **⚠️ This document is superseded by the 9-layer architecture redesign.**
+> See: `docs/superpowers/specs/2026-04-05-architecture-redesign-design.md`
+> The principles below are still valid but the structure has been replaced.
 
 ## 核心原则
 

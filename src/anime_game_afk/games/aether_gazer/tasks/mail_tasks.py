@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_H, VK_ESCAPE
-from anime_game_afk.games.aether_gazer.tasks_v2.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 
 class CollectAllMail:

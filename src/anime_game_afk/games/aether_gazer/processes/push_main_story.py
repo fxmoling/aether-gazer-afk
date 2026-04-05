@@ -5,11 +5,11 @@ This replaces the monolithic scripts/ch6_battle.py.
 """
 from __future__ import annotations
 
-from anime_game_afk.games.aether_gazer.tasks_v2.navigation_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import (
     ReturnToHub,
     EnterMainStory,
 )
-from anime_game_afk.games.aether_gazer.tasks_v2.combat_tasks import (
+from anime_game_afk.games.aether_gazer.tasks.combat_tasks import (
     ClearSingleStage,
 )
 from anime_game_afk.games.aether_gazer.processes.base import (
