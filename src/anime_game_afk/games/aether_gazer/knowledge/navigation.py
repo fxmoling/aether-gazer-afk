@@ -1,7 +1,7 @@
 """Navigation graph for AetherGazer.
 
 Defines page-to-page edges with action sequences.
-Hub-centric topology: all routes go through main_hub.
+Supports both hub-level navigation and sub-page drill-down.
 Pure data — no cv2, no device, no vision imports.
 """
 from __future__ import annotations
@@ -57,8 +57,9 @@ def _esc(wait: float = 1.5) -> NavAction:
     return NavAction(NavMethod.ESC, key_code=VK_ESCAPE, wait_after=wait)
 
 
-# Forward navigation: hub -> page
-_FORWARD_EDGES: list[NavEdge] = [
+# ── Hub-level navigation ──
+
+_HUB_FORWARD: list[NavEdge] = [
     NavEdge("main_hub", "character",      _click(675, 850)),
     NavEdge("main_hub", "gacha",          _click(790, 850)),
     NavEdge("main_hub", "shop",           _click(910, 850)),
@@ -75,8 +76,7 @@ _FORWARD_EDGES: list[NavEdge] = [
     NavEdge("main_hub", "settings_panel", _key(VK_TAB)),
 ]
 
-# Backward navigation: page -> hub
-_BACKWARD_EDGES: list[NavEdge] = [
+_HUB_BACKWARD: list[NavEdge] = [
     NavEdge("character",      "main_hub", _click(35, 35, 1.5)),
     NavEdge("gacha",          "main_hub", _esc()),
     NavEdge("shop",           "main_hub", _click(35, 35, 1.5)),
@@ -93,17 +93,45 @@ _BACKWARD_EDGES: list[NavEdge] = [
     NavEdge("settings_panel", "main_hub", _esc()),
 ]
 
+# ── Sub-page navigation (parent → child) ──
+
+_SUB_FORWARD: list[NavEdge] = [
+    # Shop sub-pages
+    NavEdge("shop",              "shop_trade",        _click(89, 817)),
+    NavEdge("shop",              "shop_supply",       _click(399, 816)),
+    NavEdge("shop_trade",        "shop_daily",        _click(130, 125)),
+    NavEdge("shop_trade",        "shop_trade_center", _click(130, 225)),
+    NavEdge("shop_supply",       "shop_daily_supply", _click(560, 130)),
+    # Battle sub-pages
+    NavEdge("battle_select",     "battle_intel",      _click(195, 860)),
+    NavEdge("battle_intel",      "main_story_map",    _click(533, 450)),
+]
+
+_SUB_BACKWARD: list[NavEdge] = [
+    # Shop back to parent (all use back arrow to shop overview)
+    NavEdge("shop_trade",        "shop",    _click(35, 35, 1.5)),
+    NavEdge("shop_daily",        "shop",    _click(35, 35, 1.5)),
+    NavEdge("shop_trade_center", "shop",    _click(35, 35, 1.5)),
+    NavEdge("shop_supply",       "shop",    _click(35, 35, 1.5)),
+    NavEdge("shop_daily_supply", "shop",    _click(35, 35, 1.5)),
+    # Battle back
+    NavEdge("battle_intel",      "battle_select", _click(35, 35, 1.5)),
+    NavEdge("main_story_map",    "battle_select", _click(35, 35, 1.5)),
+]
+
+_ALL_EDGES = _HUB_FORWARD + _HUB_BACKWARD + _SUB_FORWARD + _SUB_BACKWARD
+
 
 class NavGraph:
-    """Navigation graph with route finding.
+    """Navigation graph with multi-hop route finding.
 
-    Hub-centric: all routes go through main_hub.
-    Any page -> hub -> any page = at most 2 edges.
+    Supports hub-level pages and sub-page drill-down.
+    find_route uses BFS to find shortest path between any two pages.
     """
 
     def __init__(self) -> None:
         self._edges: dict[tuple[str, str], NavEdge] = {}
-        for edge in _FORWARD_EDGES + _BACKWARD_EDGES:
+        for edge in _ALL_EDGES:
             self._edges[(edge.source, edge.target)] = edge
 
     def get_edge(self, source: str, target: str) -> NavEdge | None:
@@ -111,10 +139,10 @@ class NavGraph:
         return self._edges.get((source, target))
 
     def find_route(self, source: str, target: str) -> list[NavEdge] | None:
-        """Find route from source to target.
+        """Find shortest route from source to target using BFS.
 
         Returns list of edges, or None if no route exists.
-        Routes are at most 2 hops (source->hub->target).
+        Handles multi-hop paths (e.g. main_hub → shop → shop_trade → shop_daily).
         """
         if source == target:
             return []
@@ -124,11 +152,23 @@ class NavGraph:
         if direct is not None:
             return [direct]
 
-        # Via hub: source -> hub -> target
-        to_hub = self.get_edge(source, "main_hub")
-        from_hub = self.get_edge("main_hub", target)
-        if to_hub is not None and from_hub is not None:
-            return [to_hub, from_hub]
+        # BFS for shortest path
+        from collections import deque
+        visited: set[str] = {source}
+        # Queue: (current_page, path_of_edges)
+        queue: deque[tuple[str, list[NavEdge]]] = deque()
+        for edge in self.outgoing(source):
+            queue.append((edge.target, [edge]))
+            visited.add(edge.target)
+
+        while queue:
+            current, path = queue.popleft()
+            if current == target:
+                return path
+            for edge in self.outgoing(current):
+                if edge.target not in visited:
+                    visited.add(edge.target)
+                    queue.append((edge.target, path + [edge]))
 
         return None
 

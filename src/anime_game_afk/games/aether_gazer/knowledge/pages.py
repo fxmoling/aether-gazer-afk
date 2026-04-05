@@ -38,7 +38,7 @@ P = Point
 E = PageElement
 
 # ============================================================
-# Page definitions — 15 pages, 1600x900 design resolution
+# Page definitions — 23 pages, 1600x900 design resolution
 # ============================================================
 
 MAIN_HUB = PageDef(
@@ -88,10 +88,69 @@ SHOP = PageDef(
     page_id="shop", name="商店", name_en="Shop",
     elements=(
         E("返回", "Back", P(35, 35), "main_hub"),
-        E("交易区", "Trade", P(170, 860)),
-        E("补给区", "Supply", P(350, 860)),
+        E("交易区", "Trade", P(89, 817), "shop_trade"),
+        E("补给区", "Supply", P(399, 816), "shop_supply"),
         E("前往查看", "View", P(1450, 870)),
     ),
+)
+
+# ── Shop sub-pages (verified coordinates from memory) ──
+
+SHOP_TRADE = PageDef(
+    page_id="shop_trade", name="交易区", name_en="Shop Trade",
+    elements=(
+        E("返回", "Back", P(35, 35), "shop"),
+        E("每日采购", "Daily Purchase", P(130, 125), "shop_daily"),
+        E("交易中心", "Trade Center", P(130, 225), "shop_trade_center"),
+        E("凭证置换", "Voucher Exchange", P(130, 325)),
+        E("刻印研发", "Engrave R&D", P(130, 430)),
+    ),
+    parent_page="shop",
+)
+
+SHOP_DAILY = PageDef(
+    page_id="shop_daily", name="每日采购", name_en="Shop Daily Purchase",
+    # Items here are dynamic (情报, 刻印商品, 物资商品).
+    # Use OCR to locate items, not fixed coordinates.
+    elements=(
+        E("返回", "Back", P(35, 35), "shop"),
+        E("刷新", "Refresh", P(210, 850)),
+    ),
+    parent_page="shop_trade",
+)
+
+SHOP_TRADE_CENTER = PageDef(
+    page_id="shop_trade_center", name="交易中心", name_en="Shop Trade Center",
+    elements=(
+        E("返回", "Back", P(35, 35), "shop"),
+        E("辉芒商店", "Radiance Shop", P(411, 130)),
+        E("合作商店", "Coop Shop", P(643, 130)),
+        E("情报兑换", "Intel Exchange", P(874, 130)),
+        E("矩阵供应", "Matrix Supply", P(1106, 130)),
+        E("同调轨迹", "Sync Track", P(1339, 130)),
+    ),
+    parent_page="shop_trade",
+)
+
+SHOP_SUPPLY = PageDef(
+    page_id="shop_supply", name="补给区", name_en="Shop Supply",
+    elements=(
+        E("返回", "Back", P(35, 35), "shop"),
+        E("日常补给", "Daily Supply", P(560, 130), "shop_daily_supply"),
+    ),
+    parent_page="shop",
+    safe=False,  # Contains paid items
+)
+
+SHOP_DAILY_SUPPLY = PageDef(
+    page_id="shop_daily_supply", name="日常补给", name_en="Shop Daily Supply",
+    # Free stamina pack is the leftmost item; position may vary.
+    # Use OCR to confirm "免费" or "冷却" text before clicking.
+    elements=(
+        E("返回", "Back", P(35, 35), "shop"),
+        E("免费冷却包", "Free Stamina Pack", P(350, 290)),
+    ),
+    parent_page="shop_supply",
 )
 
 GUILD = PageDef(
@@ -129,12 +188,35 @@ BATTLE_SELECT = PageDef(
     page_id="battle_select", name="作战选择", name_en="Battle Select",
     elements=(
         E("返回", "Back", P(35, 35), "main_hub"),
-        E("情报", "Intel", P(195, 860)),
+        E("情报", "Intel", P(195, 860), "battle_intel"),
         E("常驻", "Permanent", P(360, 860)),
         E("物资", "Resources", P(530, 860)),
         E("刻印", "Engravings", P(700, 860)),
         E("挑战", "Challenge", P(870, 860)),
     ),
+)
+
+# ── Battle sub-pages ──
+
+BATTLE_INTEL = PageDef(
+    page_id="battle_intel", name="情报", name_en="Battle Intel",
+    elements=(
+        E("返回", "Back", P(35, 35), "battle_select"),
+        E("主线剧情", "Main Story", P(533, 450), "main_story_map"),
+        E("支线", "Side Story", P(1010, 625)),
+    ),
+    parent_page="battle_select",
+)
+
+MAIN_STORY_MAP = PageDef(
+    page_id="main_story_map", name="主线地图", name_en="Main Story Map",
+    # Stage nodes are dynamic — use OCR/template matching to find them.
+    # "准备作战" button is at bottom-right when a node is selected.
+    elements=(
+        E("返回", "Back", P(35, 35), "battle_intel"),
+        E("准备作战", "Prep Battle", P(1350, 840)),
+    ),
+    parent_page="battle_intel",
 )
 
 DAILY_TASKS = PageDef(
@@ -216,8 +298,12 @@ PLAYER_INFO = PageDef(
 
 ALL_PAGES: dict[str, PageDef] = {
     p.page_id: p for p in [
-        MAIN_HUB, CHARACTER, GACHA, SHOP, GUILD, INVENTORY,
-        AMUSEMENT, BATTLE_SELECT, DAILY_TASKS, MAIL,
+        MAIN_HUB, CHARACTER, GACHA,
+        SHOP, SHOP_TRADE, SHOP_DAILY, SHOP_TRADE_CENTER,
+        SHOP_SUPPLY, SHOP_DAILY_SUPPLY,
+        GUILD, INVENTORY, AMUSEMENT,
+        BATTLE_SELECT, BATTLE_INTEL, MAIN_STORY_MAP,
+        DAILY_TASKS, MAIL,
         SETTINGS_PANEL, TACTICS, TRAINING, EVENTS, PLAYER_INFO,
     ]
 }

@@ -7,7 +7,7 @@ from anime_game_afk.games.aether_gazer.knowledge.navigation import (
 
 def test_edge_count():
     """14 forward + 14 backward = 28 edges."""
-    assert NAV_GRAPH.edge_count == 28
+    assert NAV_GRAPH.edge_count == 42
 
 
 def test_direct_forward_edge():

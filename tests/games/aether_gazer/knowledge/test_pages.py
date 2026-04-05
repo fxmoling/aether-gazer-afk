@@ -9,8 +9,8 @@ from anime_game_afk.games.aether_gazer.knowledge.pages import (
 
 
 def test_total_page_count():
-    """All 15 pages defined."""
-    assert len(ALL_PAGES) == 15
+    """All 22 pages defined (15 top-level + 7 sub-pages)."""
+    assert len(ALL_PAGES) == 22
 
 
 def test_main_hub_exists():
