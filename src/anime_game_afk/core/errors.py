@@ -1,29 +1,33 @@
-"""自动化异常层次"""
+"""Automation exception hierarchy."""
 
 
 class AutomationError(Exception):
-    """所有自动化错误的基类"""
+    """Base class for all automation errors."""
 
 
-class WindowNotFoundError(AutomationError):
-    """找不到游戏窗口"""
+class DeviceError(AutomationError):
+    """Base class for device-related failures (window, connection, screenshot)."""
 
 
-class ConnectionError(AutomationError):
-    """连接游戏窗口失败"""
+class WindowNotFoundError(DeviceError):
+    """Game window could not be found."""
 
 
-class ScreenshotError(AutomationError):
-    """截图失败"""
+class ConnectionError(DeviceError):
+    """Failed to connect to the game window."""
+
+
+class ScreenshotError(DeviceError):
+    """Failed to capture a screenshot."""
 
 
 class PipelineError(AutomationError):
-    """管线执行失败"""
+    """Pipeline execution failed."""
 
 
 class RecognitionError(AutomationError):
-    """图像识别失败"""
+    """Image recognition failed."""
 
 
 class GameNotRunningError(AutomationError):
-    """游戏未运行"""
+    """Game process is not running."""
