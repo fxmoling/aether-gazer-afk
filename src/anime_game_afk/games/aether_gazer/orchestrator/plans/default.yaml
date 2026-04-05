@@ -1,0 +1,43 @@
+# Default automation plan for AetherGazer (深空之眼)
+#
+# Copy this file and customize it for your daily run.
+# Set enabled: false to skip a process.
+# Each process has an optional 'config' section for fine-tuning.
+#
+# Usage:
+#   python scripts/run.py --plan path/to/your_plan.yaml
+
+game: aether_gazer
+
+processes:
+  # Complete daily tasks: sign-in, daily missions, collect rewards
+  - name: daily_routine
+    enabled: true
+
+  # Push main story from current progress
+  - name: push_main_story
+    enabled: true
+    config:
+      # "current" = continue from last completed chapter
+      target_chapter: current
+      # Maximum number of stages to attempt per run
+      max_stages: 20
+
+  # Clear 梦境再构 (Dream Realm)
+  - name: dream_realm
+    enabled: false
+
+  # Spend stamina on resource farming stages
+  - name: farm_resources
+    enabled: true
+    config:
+      # Stage names to farm (Chinese names as they appear in-game)
+      stages:
+        - "模拟作战"
+        - "极限萃取"
+      # Maximum total runs across all stages
+      max_runs: 6
+
+  # Clear weekly boss stages
+  - name: weekly_bosses
+    enabled: false

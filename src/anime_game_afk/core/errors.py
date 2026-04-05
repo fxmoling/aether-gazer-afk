@@ -5,6 +5,16 @@ class AutomationError(Exception):
     """Base class for all automation errors."""
 
 
+class InfrastructureError(AutomationError):
+    """Infrastructure-level failure that may be recoverable by the pipeline.
+
+    Examples: device disconnected, window lost, screenshot timeout, game crash,
+    session expired. These are caught by the orchestrator (Layer 8) and trigger
+    recovery strategies. Game-level failures (battle failed, stamina empty) use
+    plain AutomationError or return failed ProcessResult instead.
+    """
+
+
 class DeviceError(AutomationError):
     """Base class for device-related failures (window, connection, screenshot)."""
 

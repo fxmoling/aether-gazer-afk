@@ -1,37 +1,28 @@
-"""页面模块"""
+"""DEPRECATED: This module has been migrated.
 
-from anime_game_afk.games.aether_gazer.pages.definitions import (
-    ALL_PAGES,
-    SAFE_PAGES_FROM_HUB,
-    UNSAFE_PAGES,
-    Coord,
-    InteractiveElement,
-    NavAction,
-    NavMethod,
-    PageDef,
-    Region,
-    TextFeature,
-    TextReliability,
-)
-from anime_game_afk.games.aether_gazer.pages.identifier import (
-    check_bottom_nav_present,
-    identify_page,
-    is_on_page,
-)
+Page definitions → knowledge/pages.py
+Page identification → ops/perception/identify_page.py
+Template identification → ops/perception/identify_page.py
 
-__all__ = [
-    "ALL_PAGES",
-    "SAFE_PAGES_FROM_HUB",
-    "UNSAFE_PAGES",
-    "Coord",
-    "InteractiveElement",
-    "NavAction",
-    "NavMethod",
-    "PageDef",
-    "Region",
-    "TextFeature",
-    "TextReliability",
-    "check_bottom_nav_present",
-    "identify_page",
-    "is_on_page",
-]
+This wrapper exists temporarily so old imports produce clear errors.
+Remove after all references have been updated.
+"""
+import warnings
+
+
+def __getattr__(name: str) -> object:
+    """Raise clear deprecation error for any attribute access."""
+    warnings.warn(
+        f"anime_game_afk.games.aether_gazer.pages is DEPRECATED. "
+        f"Attribute '{name}' has been migrated:\n"
+        f"  Page definitions → knowledge/pages.py\n"
+        f"  Page identification → ops/perception/identify_page.py\n"
+        f"  Template matching → ops/perception/identify_page.py\n"
+        f"Update your imports accordingly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    raise ImportError(
+        f"Module 'pages' is deprecated. '{name}' has moved. "
+        f"See deprecation warning for new locations."
+    )
