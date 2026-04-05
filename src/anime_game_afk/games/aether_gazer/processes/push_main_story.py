@@ -43,8 +43,12 @@ class PushMainStory:
 
         # Step 3: Clear stages in loop
         while stages_cleared < max_stages:
-            stage = ClearSingleStage()
-            result = await stage.execute(ctx)
+            try:
+                stage = ClearSingleStage()
+                result = await stage.execute(ctx)
+            except Exception as exc:
+                ctx.logger.error(f"Stage crashed: {exc}")
+                break
 
             if result.status == "success":
                 stages_cleared += 1
@@ -60,7 +64,8 @@ class PushMainStory:
         # Step 4: Return to hub
         await hub.execute(ctx)
 
+        status = "success" if stages_cleared > 0 else "failed"
         return ProcessResult(
-            status="success",
+            status=status,
             data={"stages_cleared": stages_cleared},
         )

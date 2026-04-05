@@ -24,23 +24,32 @@ class DailyRoutine:
         hub = ReturnToHub()
         completed: list[str] = []
 
-        await hub.execute(ctx)
+        # Must reach hub first
+        result = await hub.execute(ctx)
+        if result.status != "success":
+            return ProcessResult(status="failed", message="Cannot reach hub")
 
         # Collect mail
-        mail = CollectAllMail()
-        if await mail.can_run(ctx):
-            result = await mail.execute(ctx)
-            if result.status == "success":
-                completed.append("mail")
+        try:
+            mail = CollectAllMail()
+            if await mail.can_run(ctx):
+                result = await mail.execute(ctx)
+                if result.status == "success":
+                    completed.append("mail")
+        except Exception as exc:
+            ctx.logger.error(f"Mail task crashed: {exc}")
 
         await hub.execute(ctx)
 
         # Claim free stamina
-        stamina = ClaimFreeStamina()
-        if await stamina.can_run(ctx):
-            result = await stamina.execute(ctx)
-            if result.status == "success":
-                completed.append("free_stamina")
+        try:
+            stamina = ClaimFreeStamina()
+            if await stamina.can_run(ctx):
+                result = await stamina.execute(ctx)
+                if result.status == "success":
+                    completed.append("free_stamina")
+        except Exception as exc:
+            ctx.logger.error(f"Stamina task crashed: {exc}")
 
         await hub.execute(ctx)
 

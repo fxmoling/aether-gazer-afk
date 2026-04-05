@@ -107,7 +107,7 @@ def test_push_main_story_fails_if_story_unreachable():
 
 
 def test_push_main_story_stops_on_stage_failure():
-    """If stage clear fails, stops loop and returns however many cleared."""
+    """If first stage fails immediately, returns 'failed' with 0 cleared."""
     device = MockDevice()
     ctx = ProcessContext(device=device, config={"max_stages": 5})
 
@@ -126,7 +126,7 @@ def test_push_main_story_stops_on_stage_failure():
     ):
         result = _run(PushMainStory().execute(ctx))
 
-    assert result.status == "success"
+    assert result.status == "failed"
     assert result.data["stages_cleared"] == 0
 
 
