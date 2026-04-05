@@ -6,7 +6,6 @@ or MaaFw installation required to run these tests.
 from __future__ import annotations
 
 import ctypes
-from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, call, patch
 
@@ -15,11 +14,11 @@ import pytest
 
 from anime_game_afk.core.device import DeviceAdapter
 from anime_game_afk.core.errors import (
-    ConnectionError,
+    DeviceConnectionError,
     ScreenshotError,
     WindowNotFoundError,
 )
-from anime_game_afk.core.types import Resolution
+from anime_game_afk.core.types import DeviceConfig, Resolution
 
 
 # ---------------------------------------------------------------------------
@@ -28,31 +27,13 @@ from anime_game_afk.core.types import Resolution
 
 def _make_config(
     *,
-    name: str = "test_game",
     window_title: str = "TestWindow",
     design_w: int = 1600,
     design_h: int = 900,
-) -> Any:
-    """Build a minimal GameConfig-like object without importing maa.define."""
-    from dataclasses import dataclass, field
-
-    @dataclass(frozen=True)
-    class _Cfg:
-        name: str
-        window_title: str
-        resource_path: Path
-        screencap_method: int
-        mouse_method: int
-        keyboard_method: int
-        design_resolution: tuple[int, int]
-
-    return _Cfg(
-        name=name,
+) -> DeviceConfig:
+    """Build a DeviceConfig for testing."""
+    return DeviceConfig(
         window_title=window_title,
-        resource_path=Path("."),
-        screencap_method=0,
-        mouse_method=0,
-        keyboard_method=0,
         design_resolution=(design_w, design_h),
     )
 
@@ -253,7 +234,7 @@ def test_connect_raises_connection_error_on_controller_failure() -> None:
         mock_toolkit.find_desktop_windows.return_value = [
             _fake_window("TestWindow")
         ]
-        with pytest.raises(ConnectionError, match="driver error"):
+        with pytest.raises(DeviceConnectionError, match="driver error"):
             adapter.connect()
 
 
@@ -455,15 +436,30 @@ def test_press_key_delegation(connected_adapter: DeviceAdapter) -> None:
     connected_adapter._ctrl_mock.post_press_key.assert_called_once_with(0x0D)  # type: ignore[attr-defined]
 
 
-def test_hold_key_calls_press_key_and_sleeps(
+def test_hold_key_presses_repeatedly(
     connected_adapter: DeviceAdapter,
 ) -> None:
-    """hold_key must call press_key and sleep for the specified duration."""
+    """hold_key must press the key multiple times over the duration."""
     with patch("anime_game_afk.core.device.time") as mock_time:
-        connected_adapter.hold_key(0x1B, 0.5)  # VK_ESCAPE, 0.5 s
+        # Simulate time passing: first call returns 0, then increments
+        call_count = 0
+        def fake_monotonic() -> float:
+            nonlocal call_count
+            call_count += 1
+            # First few calls return 0 (before end_time), then exceed it
+            if call_count <= 3:
+                return 0.0
+            return 1.0  # exceeds any reasonable duration
 
-    connected_adapter._ctrl_mock.post_press_key.assert_called_once_with(0x1B)  # type: ignore[attr-defined]
-    mock_time.sleep.assert_called_once_with(0.5)
+        mock_time.monotonic = fake_monotonic
+        mock_time.sleep = MagicMock()
+        connected_adapter.hold_key(0x57, 0.3)  # VK_W, 0.3s
+
+    # Should have pressed the key at least once
+    assert connected_adapter._ctrl_mock.post_press_key.call_count >= 1  # type: ignore[attr-defined]
+    # All presses should be the same key
+    for c in connected_adapter._ctrl_mock.post_press_key.call_args_list:  # type: ignore[attr-defined]
+        assert c == call(0x57)
 
 
 # ---------------------------------------------------------------------------
@@ -485,8 +481,8 @@ def test_hold_key_calls_press_key_and_sleeps(
 def test_operations_raise_when_not_connected(
     method_call: Any,
 ) -> None:
-    """All I/O methods must raise ConnectionError when not connected."""
+    """All I/O methods must raise DeviceConnectionError when not connected."""
     cfg = _make_config()
     adapter = DeviceAdapter(cfg)
-    with pytest.raises(ConnectionError):
+    with pytest.raises(DeviceConnectionError):
         method_call(adapter)

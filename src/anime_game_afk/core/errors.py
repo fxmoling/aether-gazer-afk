@@ -13,8 +13,15 @@ class WindowNotFoundError(DeviceError):
     """Game window could not be found."""
 
 
-class ConnectionError(DeviceError):
-    """Failed to connect to the game window."""
+class DeviceConnectionError(DeviceError):
+    """Failed to connect to the game window.
+
+    Named DeviceConnectionError to avoid shadowing builtins.ConnectionError.
+    """
+
+
+# Backward-compatible alias — will be removed after full migration.
+ConnectionError = DeviceConnectionError  # noqa: A001
 
 
 class ScreenshotError(DeviceError):

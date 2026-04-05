@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from loguru import logger as _loguru
+
 EventHandler = Callable[..., None]
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,15 @@ class EventBus:
     # ------------------------------------------------------------------
 
     def emit(self, event: str, **kwargs: Any) -> None:
-        """Call every handler registered for *event*, passing *kwargs*."""
+        """Call every handler registered for *event*, passing *kwargs*.
+
+        A failing handler is logged and skipped — it does NOT prevent
+        subsequent handlers from running.
+        """
         for handler in self._handlers.get(event, []):
-            handler(**kwargs)
+            try:
+                handler(**kwargs)
+            except Exception:
+                _loguru.opt(depth=1).exception(
+                    "Handler {!r} failed for event {!r}", handler, event
+                )

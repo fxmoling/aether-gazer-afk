@@ -20,13 +20,12 @@ from loguru import logger
 from maa.controller import Win32Controller
 from maa.toolkit import Toolkit
 
-from anime_game_afk.config.models import GameConfig
 from anime_game_afk.core.errors import (
-    ConnectionError,
+    DeviceConnectionError,
     ScreenshotError,
     WindowNotFoundError,
 )
-from anime_game_afk.core.types import Resolution
+from anime_game_afk.core.types import DeviceConfig, Resolution
 
 
 class DeviceAdapter:
@@ -37,8 +36,7 @@ class DeviceAdapter:
 
     Example::
 
-        config = GameConfig(name="game", window_title="MyGame",
-                            resource_path=Path("."))
+        config = DeviceConfig(window_title="MyGame")
         device = DeviceAdapter(config)
         device.connect()
         img = device.screenshot()          # design-res BGR ndarray
@@ -46,7 +44,7 @@ class DeviceAdapter:
         device.disconnect()
     """
 
-    def __init__(self, config: GameConfig) -> None:
+    def __init__(self, config: DeviceConfig) -> None:
         self._config = config
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
@@ -67,8 +65,8 @@ class DeviceAdapter:
         return self._controller is not None
 
     @property
-    def config(self) -> GameConfig:
-        """The :class:`GameConfig` this adapter was created with."""
+    def config(self) -> DeviceConfig:
+        """The :class:`DeviceConfig` this adapter was created with."""
         return self._config
 
     @property
@@ -115,7 +113,7 @@ class DeviceAdapter:
 
         Raises:
             WindowNotFoundError: Game window not found on the desktop.
-            ConnectionError: MaaFw controller could not be initialised.
+            DeviceConnectionError: MaaFw controller could not be initialised.
         """
         self._hwnd = self.find_window()
 
@@ -127,7 +125,7 @@ class DeviceAdapter:
                 keyboard_method=self._config.keyboard_method,
             )
         except RuntimeError as exc:
-            raise ConnectionError(
+            raise DeviceConnectionError(
                 f"Failed to create Win32Controller: {exc}"
             ) from exc
 
@@ -154,8 +152,8 @@ class DeviceAdapter:
             )
 
         logger.info(
-            "DeviceAdapter connected: name={!r} resolution={}x{}",
-            self._config.name, actual_w, actual_h,
+            "DeviceAdapter connected: window={!r} resolution={}x{}",
+            self._config.window_title, actual_w, actual_h,
         )
 
     def disconnect(self) -> None:
@@ -169,7 +167,7 @@ class DeviceAdapter:
         )
         self._scale_x = 1.0
         self._scale_y = 1.0
-        logger.info("DeviceAdapter disconnected: name={!r}", self._config.name)
+        logger.info("DeviceAdapter disconnected: window={!r}", self._config.window_title)
 
     # ------------------------------------------------------------------
     # Device I/O
@@ -183,7 +181,7 @@ class DeviceAdapter:
 
         Raises:
             ScreenshotError: Controller returned ``None`` for the image.
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -213,7 +211,7 @@ class DeviceAdapter:
 
         Raises:
             ScreenshotError: Controller returned ``None`` for the image.
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -233,7 +231,7 @@ class DeviceAdapter:
             y: Vertical position in design-resolution pixels.
 
         Raises:
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -261,7 +259,7 @@ class DeviceAdapter:
             duration: Swipe duration in milliseconds (default 500).
 
         Raises:
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -278,7 +276,7 @@ class DeviceAdapter:
             vk_code: Virtual-key code (Win32 VK_* constant).
 
         Raises:
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -289,28 +287,33 @@ class DeviceAdapter:
     def hold_key(self, vk_code: int, duration_s: float) -> None:
         """Simulate holding a key for a given duration.
 
-        .. note::
-            MaaFramework does not expose separate key-down / key-up
-            primitives.  This method approximates a hold by issuing a
-            ``press_key`` and then sleeping for *duration_s* seconds.
-            The key is released when the press-release cycle completes
-            (immediately), so the "hold" is a best-effort approximation
-            suitable for timing-insensitive interactions.
+        MaaFramework does not expose separate key-down / key-up primitives.
+        This method approximates a hold by rapidly pressing the key in a
+        loop for *duration_s* seconds (every ~100ms).  This produces
+        continuous movement for WASD exploration.
 
         Args:
             vk_code: Virtual-key code (Win32 VK_* constant).
-            duration_s: Nominal hold duration in seconds (used for sleep).
+            duration_s: How long to "hold" the key in seconds.
 
         Raises:
-            ConnectionError: Not connected.
+            DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
 
-        self._controller.post_press_key(vk_code).wait()
-        time.sleep(duration_s)
+        interval = 0.1  # press every 100ms
+        end_time = time.monotonic() + duration_s
+        presses = 0
+        while time.monotonic() < end_time:
+            self._controller.post_press_key(vk_code).wait()
+            presses += 1
+            remaining = end_time - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(interval, remaining))
         logger.debug(
-            "hold_key 0x{:02X} for {:.3f}s (simplified)", vk_code, duration_s
+            "hold_key 0x{:02X} for {:.2f}s ({} presses)",
+            vk_code, duration_s, presses,
         )
 
     # ------------------------------------------------------------------
@@ -318,6 +321,6 @@ class DeviceAdapter:
     # ------------------------------------------------------------------
 
     def _ensure_connected(self) -> None:
-        """Raise :exc:`ConnectionError` if not currently connected."""
+        """Raise :exc:`DeviceConnectionError` if not currently connected."""
         if not self.connected:
-            raise ConnectionError("DeviceAdapter is not connected")
+            raise DeviceConnectionError("DeviceAdapter is not connected")

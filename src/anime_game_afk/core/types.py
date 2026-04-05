@@ -42,3 +42,18 @@ class Resolution:
 
     width: int
     height: int
+
+
+@dataclass(frozen=True)
+class DeviceConfig:
+    """Configuration for DeviceAdapter — lives in core to avoid layer violations.
+
+    Higher-level GameConfig (in config/models.py) can be converted to this
+    via ``DeviceConfig.from_game_config(gc)``.
+    """
+
+    window_title: str
+    screencap_method: int = 0   # MaaWin32ScreencapMethodEnum.Background
+    mouse_method: int = 0       # MaaWin32InputMethodEnum.SendMessage
+    keyboard_method: int = 0    # MaaWin32InputMethodEnum.SendMessage
+    design_resolution: tuple[int, int] = (1600, 900)

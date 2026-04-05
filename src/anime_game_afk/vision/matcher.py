@@ -20,7 +20,10 @@ from anime_game_afk.vision.types import MatchResult
 _MIN_IS_BEST: frozenset[int] = frozenset({cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED})
 
 # A zero-score sentinel for cases where matching cannot proceed.
-_NO_MATCH = MatchResult(score=0.0, x=0, y=0, w=0, h=0, matched=False)
+# Use _no_match() factory to avoid returning a shared mutable instance.
+def _no_match() -> MatchResult:
+    """Return a fresh zero-score unmatched result."""
+    return MatchResult(score=0.0, x=0, y=0, w=0, h=0, matched=False)
 
 
 def _best_from_result(
@@ -96,9 +99,9 @@ def match_best(
     If *templates* is empty, returns an unmatched zero-score result.
     """
     if not templates:
-        return _NO_MATCH
+        return _no_match()
 
-    best: MatchResult = _NO_MATCH
+    best: MatchResult = _no_match()
     for tmpl in templates:
         candidate = match_template(image, tmpl, region=region, threshold=threshold)
         if candidate.score > best.score:
