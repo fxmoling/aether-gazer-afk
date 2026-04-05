@@ -12,6 +12,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from loguru import logger as _loguru
 
 from anime_game_afk.core.types import Rect
 from anime_game_afk.vision.matcher import match_template
@@ -43,8 +44,15 @@ def _load_templates() -> dict[str, list[dict]]:
     if not TEMPLATE_INDEX.exists():
         return _page_templates
 
-    with open(TEMPLATE_INDEX, encoding="utf-8") as f:
-        index = json.load(f)
+    try:
+        with open(TEMPLATE_INDEX, encoding="utf-8") as f:
+            index = json.load(f)
+    except (json.JSONDecodeError, ValueError) as exc:
+        _loguru.warning(
+            "Corrupt template index {}, starting with empty templates: {}",
+            TEMPLATE_INDEX, exc,
+        )
+        return _page_templates
 
     for page_id, templates in index.items():
         loaded = []

@@ -13,6 +13,7 @@ from anime_game_afk.games.aether_gazer.knowledge.constants import (
 )
 from anime_game_afk.games.aether_gazer.knowledge.navigation import (
     NAV_GRAPH,
+    NavAction,
     NavMethod,
 )
 from anime_game_afk.games.aether_gazer.knowledge.pages import ALL_PAGES
@@ -25,7 +26,7 @@ from anime_game_afk.games.aether_gazer.ops.perception.identify_page import (
 _MAX_RETRIES = 2
 
 
-def _execute_nav_action(ctx: OpContext, action) -> None:
+def _execute_nav_action(ctx: OpContext, action: NavAction) -> None:
     """Execute a single NavAction on the device."""
     if action.method == NavMethod.CLICK and action.coord:
         ctx.device.click(action.coord.x, action.coord.y)

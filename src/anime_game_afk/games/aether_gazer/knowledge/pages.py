@@ -223,16 +223,16 @@ ALL_PAGES: dict[str, PageDef] = {
 }
 
 # Pages safely reachable from hub (have nav action and are safe)
-SAFE_PAGES: list[str] = [
+SAFE_PAGES: tuple[str, ...] = tuple(
     pid for pid, p in ALL_PAGES.items()
     if p.safe and pid != "main_hub"
-]
+)
 
 # Pages marked unsafe (may cost resources)
-UNSAFE_PAGES: list[str] = [
+UNSAFE_PAGES: tuple[str, ...] = tuple(
     pid for pid, p in ALL_PAGES.items()
     if not p.safe
-]
+)
 
 
 def get_page(page_id: str) -> PageDef | None:
