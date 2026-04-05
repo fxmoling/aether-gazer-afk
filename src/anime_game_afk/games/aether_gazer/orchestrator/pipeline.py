@@ -192,10 +192,6 @@ class Pipeline:
         Returns:
             Aggregated PipelineResult.
         """
-        aborted = any(
-            r.infra_failure is not None and r.status == "error" for r in records
-        )
-
         # Deduplicate: if a process was retried after recovery,
         # keep only the final (most recent) attempt per name
         seen_names: set[str] = set()
@@ -205,6 +201,13 @@ class Pipeline:
                 seen_names.add(record.process_name)
                 unique_records.append(record)
         unique_records.reverse()
+
+        # Check abort using final records only — recovered failures
+        # should not count as aborted
+        aborted = any(
+            r.infra_failure is not None and r.status == "error"
+            for r in unique_records
+        )
 
         details = [
             {

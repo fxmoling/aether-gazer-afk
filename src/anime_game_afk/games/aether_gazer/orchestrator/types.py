@@ -116,9 +116,14 @@ def load_plan(source: "str | Path | dict[str, Any]") -> PlanConfig:
         if not path.exists():
             raise FileNotFoundError(f"Plan file not found: {path}")
         logger.info("Loading plan from {path}", path=str(path))
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Invalid YAML in plan file {path}: {exc}") from exc
 
+    if data is None:
+        raise ValueError("Plan file is empty")
     if not isinstance(data, dict):
         raise ValueError(f"Plan must be a YAML mapping, got {type(data).__name__}")
 
