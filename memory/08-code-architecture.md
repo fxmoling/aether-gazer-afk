@@ -4,7 +4,22 @@
 
 **Design spec**: `docs/superpowers/specs/2026-04-05-architecture-redesign-design.md` ✅ approved
 **Implementation plans**: `docs/superpowers/plans/2026-04-05-wave{1,2,3,4}*.md` ✅ all 4 waves written
-**Execution**: Wave 1 ✅ complete (231 tests), Wave 2 ✅ complete (284 tests), Wave 3 next
+**Execution**: ✅ ALL 4 WAVES COMPLETE — 409 tests passing
+
+## Architecture Summary (post-migration)
+
+```
+src/anime_game_afk/
+├── core/              # L1: types.py, device.py, errors.py (session.py deprecated)
+├── vision/            # L2: matcher.py, geometry.py, color.py, ocr.py, types.py
+├── runtime/           # L3: logger.py, config.py, state.py, clock.py, events.py, errors.py
+└── games/aether_gazer/
+    ├── knowledge/     # L4: constants.py, keys.py, resources.py, pages.py, navigation.py
+    ├── ops/           # L5: base.py + perception/ + navigate/ + interact/ + combat/
+    ├── tasks_v2/      # L6: base.py + combat_tasks.py + navigation_tasks.py + shop/mail/stamina/story
+    ├── processes/     # L7: base.py + push_main_story.py + daily_routine.py
+    └── orchestrator/  # L8: types.py + pipeline.py + executor.py + recovery.py + plans/
+```
 
 ## Target 9-Layer Architecture
 
