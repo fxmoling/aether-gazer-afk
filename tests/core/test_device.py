@@ -1,0 +1,492 @@
+"""Unit tests for DeviceAdapter.
+
+All MaaFramework dependencies are fully mocked — no real game window
+or MaaFw installation required to run these tests.
+"""
+from __future__ import annotations
+
+import ctypes
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, call, patch
+
+import numpy as np
+import pytest
+
+from anime_game_afk.core.device import DeviceAdapter
+from anime_game_afk.core.errors import (
+    ConnectionError,
+    ScreenshotError,
+    WindowNotFoundError,
+)
+from anime_game_afk.core.types import Resolution
+
+
+# ---------------------------------------------------------------------------
+# Helpers / fixtures
+# ---------------------------------------------------------------------------
+
+def _make_config(
+    *,
+    name: str = "test_game",
+    window_title: str = "TestWindow",
+    design_w: int = 1600,
+    design_h: int = 900,
+) -> Any:
+    """Build a minimal GameConfig-like object without importing maa.define."""
+    from dataclasses import dataclass, field
+
+    @dataclass(frozen=True)
+    class _Cfg:
+        name: str
+        window_title: str
+        resource_path: Path
+        screencap_method: int
+        mouse_method: int
+        keyboard_method: int
+        design_resolution: tuple[int, int]
+
+    return _Cfg(
+        name=name,
+        window_title=window_title,
+        resource_path=Path("."),
+        screencap_method=0,
+        mouse_method=0,
+        keyboard_method=0,
+        design_resolution=(design_w, design_h),
+    )
+
+
+def _fake_window(name: str, hwnd: int = 1) -> MagicMock:
+    """Return a mock desktop-window object."""
+    w = MagicMock()
+    w.window_name = name
+    w.hwnd = ctypes.c_void_p(hwnd)
+    w.class_name = "FakeClass"
+    return w
+
+
+def _make_controller_mock(
+    *,
+    resolution: tuple[int, int] = (1600, 900),
+    screencap_img: np.ndarray | None = None,
+) -> MagicMock:
+    """Return a fully-stubbed Win32Controller mock."""
+    ctrl = MagicMock()
+
+    # post_connection().wait() chain
+    ctrl.post_connection.return_value = MagicMock(
+        wait=MagicMock(return_value=None)
+    )
+    # set_screenshot_use_raw_size is a plain call
+    ctrl.set_screenshot_use_raw_size.return_value = None
+
+    # resolution property
+    type(ctrl).resolution = property(lambda self: resolution)
+
+    # screencap chain: post_screencap().wait().get()
+    if screencap_img is None:
+        screencap_img = np.zeros(
+            (resolution[1], resolution[0], 3), dtype=np.uint8
+        )
+    screencap_job = MagicMock()
+    screencap_job.wait.return_value = screencap_job
+    screencap_job.get.return_value = screencap_img
+    ctrl.post_screencap.return_value = screencap_job
+
+    # click / swipe / press_key chains
+    action_job = MagicMock()
+    action_job.wait.return_value = action_job
+    ctrl.post_click.return_value = action_job
+    ctrl.post_swipe.return_value = action_job
+    ctrl.post_press_key.return_value = action_job
+
+    return ctrl
+
+
+# ---------------------------------------------------------------------------
+# Construction
+# ---------------------------------------------------------------------------
+
+
+def test_initial_state_not_connected() -> None:
+    """A freshly created adapter must not be connected."""
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    assert not adapter.connected
+
+
+def test_initial_design_resolution() -> None:
+    """design_resolution must reflect what was passed in the config."""
+    cfg = _make_config(design_w=1280, design_h=720)
+    adapter = DeviceAdapter(cfg)
+    assert adapter.design_resolution == Resolution(1280, 720)
+
+
+def test_config_property() -> None:
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    assert adapter.config is cfg
+
+
+# ---------------------------------------------------------------------------
+# find_window
+# ---------------------------------------------------------------------------
+
+
+def test_find_window_success() -> None:
+    """find_window must return the HWND when a matching window exists."""
+    cfg = _make_config(window_title="TestWindow")
+    adapter = DeviceAdapter(cfg)
+
+    windows = [
+        _fake_window("OtherApp", hwnd=10),
+        _fake_window("TestWindow - Level 1", hwnd=42),
+    ]
+    with patch("anime_game_afk.core.device.Toolkit") as mock_toolkit:
+        mock_toolkit.find_desktop_windows.return_value = windows
+        hwnd = adapter.find_window()
+
+    # ctypes.c_void_p does not implement __eq__ by value; compare .value
+    assert hwnd.value == ctypes.c_void_p(42).value  # type: ignore[union-attr]
+
+
+def test_find_window_not_found() -> None:
+    """find_window must raise WindowNotFoundError when no window matches."""
+    cfg = _make_config(window_title="MissingGame")
+    adapter = DeviceAdapter(cfg)
+
+    with patch("anime_game_afk.core.device.Toolkit") as mock_toolkit:
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("SomeOtherApp")
+        ]
+        with pytest.raises(WindowNotFoundError, match="MissingGame"):
+            adapter.find_window()
+
+
+def test_find_window_empty_list() -> None:
+    cfg = _make_config(window_title="Game")
+    adapter = DeviceAdapter(cfg)
+
+    with patch("anime_game_afk.core.device.Toolkit") as mock_toolkit:
+        mock_toolkit.find_desktop_windows.return_value = []
+        with pytest.raises(WindowNotFoundError):
+            adapter.find_window()
+
+
+# ---------------------------------------------------------------------------
+# connect / disconnect state transitions
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def connected_adapter() -> DeviceAdapter:
+    """Return a DeviceAdapter that has been successfully connected."""
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(resolution=(1600, 900))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+
+    # Store the mock for assertion convenience
+    adapter._ctrl_mock = ctrl_mock  # type: ignore[attr-defined]
+    return adapter
+
+
+def test_connect_sets_connected_true(connected_adapter: DeviceAdapter) -> None:
+    assert connected_adapter.connected
+
+
+def test_connect_stores_actual_resolution(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """actual_resolution must be populated from the controller after connect."""
+    assert connected_adapter.actual_resolution == Resolution(1600, 900)
+
+
+def test_disconnect_sets_connected_false(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    connected_adapter.disconnect()
+    assert not connected_adapter.connected
+
+
+def test_disconnect_resets_actual_resolution(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """After disconnect, actual_resolution must equal design_resolution."""
+    connected_adapter.disconnect()
+    assert connected_adapter.actual_resolution == connected_adapter.design_resolution
+
+
+def test_connect_raises_when_window_missing() -> None:
+    cfg = _make_config(window_title="Ghost")
+    adapter = DeviceAdapter(cfg)
+
+    with patch("anime_game_afk.core.device.Toolkit") as mock_toolkit:
+        mock_toolkit.find_desktop_windows.return_value = []
+        with pytest.raises(WindowNotFoundError):
+            adapter.connect()
+
+
+def test_connect_raises_connection_error_on_controller_failure() -> None:
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            side_effect=RuntimeError("driver error"),
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        with pytest.raises(ConnectionError, match="driver error"):
+            adapter.connect()
+
+
+# ---------------------------------------------------------------------------
+# Coordinate scaling
+# ---------------------------------------------------------------------------
+
+
+def test_click_no_scaling() -> None:
+    """1:1 resolution — click coords must pass through unchanged."""
+    cfg = _make_config(design_w=1600, design_h=900)
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(resolution=(1600, 900))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        adapter.click(400, 300)
+
+    ctrl_mock.post_click.assert_called_once_with(400, 300)
+
+
+def test_click_with_scaling() -> None:
+    """2× resolution — click coords must be doubled."""
+    cfg = _make_config(design_w=800, design_h=450)
+    adapter = DeviceAdapter(cfg)
+    # Actual window is 1600×900 (2× design)
+    ctrl_mock = _make_controller_mock(resolution=(1600, 900))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        adapter.click(100, 50)
+
+    ctrl_mock.post_click.assert_called_once_with(200, 100)
+
+
+def test_swipe_with_scaling() -> None:
+    """Swipe endpoints must both be scaled."""
+    cfg = _make_config(design_w=800, design_h=450)
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(resolution=(1600, 900))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        adapter.swipe(0, 0, 400, 225, duration=300)
+
+    ctrl_mock.post_swipe.assert_called_once_with(0, 0, 800, 450, 300)
+
+
+# ---------------------------------------------------------------------------
+# Screenshot
+# ---------------------------------------------------------------------------
+
+
+def test_screenshot_returns_design_resolution_image() -> None:
+    """screenshot() must resize to design resolution when sizes differ."""
+    design_w, design_h = 1600, 900
+    actual_w, actual_h = 3200, 1800  # 2× resolution
+
+    actual_img = np.zeros((actual_h, actual_w, 3), dtype=np.uint8)
+    cfg = _make_config(design_w=design_w, design_h=design_h)
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(
+        resolution=(actual_w, actual_h), screencap_img=actual_img
+    )
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        img = adapter.screenshot()
+
+    assert img.shape == (design_h, design_w, 3)
+
+
+def test_screenshot_no_resize_when_sizes_match() -> None:
+    """screenshot() must NOT resize when actual == design resolution."""
+    img_data = np.ones((900, 1600, 3), dtype=np.uint8) * 127
+    cfg = _make_config(design_w=1600, design_h=900)
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(
+        resolution=(1600, 900), screencap_img=img_data
+    )
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        img = adapter.screenshot()
+
+    assert img.shape == (900, 1600, 3)
+    # Pixel values must be preserved (no resize distortion)
+    np.testing.assert_array_equal(img, img_data)
+
+
+def test_screenshot_raw_returns_actual_resolution_image() -> None:
+    """screenshot_raw() must return the image without resizing."""
+    actual_w, actual_h = 3200, 1800
+    actual_img = np.zeros((actual_h, actual_w, 3), dtype=np.uint8)
+    cfg = _make_config(design_w=1600, design_h=900)
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock(
+        resolution=(actual_w, actual_h), screencap_img=actual_img
+    )
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        img = adapter.screenshot_raw()
+
+    assert img.shape == (actual_h, actual_w, 3)
+
+
+def test_screenshot_raises_when_get_returns_none() -> None:
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    ctrl_mock = _make_controller_mock()
+    # Override the screencap chain so .get() returns None
+    screencap_job = MagicMock()
+    screencap_job.wait.return_value = screencap_job
+    screencap_job.get.return_value = None
+    ctrl_mock.post_screencap.return_value = screencap_job
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        # connect() calls post_screencap internally; give it a valid image
+        # by swapping after connect is done
+        adapter.connect()
+        # Now swap to None-returning mock
+        adapter._controller = ctrl_mock  # type: ignore[assignment]
+        with pytest.raises(ScreenshotError):
+            adapter.screenshot()
+
+
+# ---------------------------------------------------------------------------
+# press_key / hold_key
+# ---------------------------------------------------------------------------
+
+
+def test_press_key_delegation(connected_adapter: DeviceAdapter) -> None:
+    """press_key must forward the vk_code to the controller."""
+    connected_adapter.press_key(0x0D)  # VK_RETURN
+    connected_adapter._ctrl_mock.post_press_key.assert_called_once_with(0x0D)  # type: ignore[attr-defined]
+
+
+def test_hold_key_calls_press_key_and_sleeps(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """hold_key must call press_key and sleep for the specified duration."""
+    with patch("anime_game_afk.core.device.time") as mock_time:
+        connected_adapter.hold_key(0x1B, 0.5)  # VK_ESCAPE, 0.5 s
+
+    connected_adapter._ctrl_mock.post_press_key.assert_called_once_with(0x1B)  # type: ignore[attr-defined]
+    mock_time.sleep.assert_called_once_with(0.5)
+
+
+# ---------------------------------------------------------------------------
+# _ensure_connected guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "method_call",
+    [
+        lambda d: d.screenshot(),
+        lambda d: d.screenshot_raw(),
+        lambda d: d.click(0, 0),
+        lambda d: d.swipe(0, 0, 1, 1),
+        lambda d: d.press_key(0),
+        lambda d: d.hold_key(0, 0.1),
+    ],
+)
+def test_operations_raise_when_not_connected(
+    method_call: Any,
+) -> None:
+    """All I/O methods must raise ConnectionError when not connected."""
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    with pytest.raises(ConnectionError):
+        method_call(adapter)
