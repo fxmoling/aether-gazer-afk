@@ -4,24 +4,161 @@
 
 **Design spec**: `docs/superpowers/specs/2026-04-05-architecture-redesign-design.md` ✅ approved
 **Implementation plans**: `docs/superpowers/plans/2026-04-05-wave{1,2,3,4}*.md` ✅ all 4 waves written
-**Execution**: ✅ ALL 4 WAVES COMPLETE — 409 tests passing
+**Execution**: ✅ ALL 4 WAVES COMPLETE — 482 tests passing
+
+## Game Launch & User Config (2026-04-06 session 5)
+
+### Persistent User Config (config/user_config.py + config/user_config.yaml)
+- YAML-based persistent config for per-game launch settings
+- `UserConfig.load()` factory — auto-creates from template if missing
+- Per-game accessors: `game_exe_path`, `launcher_path`, `launch_method`, `launch_timeout`, `window_title`, `search_keywords`, `desktop_shortcut_names`
+- Global settings: `auto_detect_games`, `search_drives`, `log_level`
+- Save/load round-trip with `yaml.dump/safe_load`
+- 21 unit tests in `tests/config/test_user_config.py`
+
+### Game Finder (core/game_finder.py)
+- Auto-detect game installations using 3 strategies (priority order):
+  1. Running process — `wmic process where name=X get ExecutablePath`
+  2. Desktop shortcuts — PowerShell WScript.Shell COM to read .lnk targets
+  3. Filesystem search — BFS scan of drives for keyword-matching directories
+- `GameFinder.find_game_exe(exe_name, keywords, shortcut_names, search_drives)`
+- `find_aether_gazer()` convenience: finds both game exe and launcher
+- AetherGazer found at: `E:\shenkongzhiyan\AetherGazerLauncher\AetherGazer\AetherGazer.exe`
+- Launcher at: `E:\shenkongzhiyan\AetherGazerLauncher\AetherGazerLauncher.exe`
+- 13 unit tests in `tests/core/test_game_finder.py`
+
+### Game Launcher (core/game_launcher.py)
+- Process lifecycle: `is_running()`, `get_pid()`, `launch()`, `wait_for_process()`, `wait_for_window()`
+- `ensure_running()` — single call: checks if running, launches if not, waits for window
+- Uses `tasklist` for process detection, `subprocess.Popen` for launching (DETACHED_PROCESS)
+- Window detection via MaaFramework `Toolkit.find_desktop_windows()`
+- No psutil dependency — pure subprocess + Win32 API
+- 13 unit tests in `tests/core/test_game_launcher.py`
+
+### Startup Tasks (tasks/startup_tasks.py)
+- **SkipStartupPopups**: Multi-strategy popup dismissal loop
+  - Checks: hub detection (template + OCR) → loading → login → idle → popup keywords → aggressive dismiss
+  - OCR keywords: _LOADING_KEYWORDS (9), _DISMISS_KEYWORDS (9), _LOGIN_KEYWORDS (4), _EVENT_POPUP_KEYWORDS (6)
+  - "前往" (go to event) → ESC instead of click (safety)
+  - Aggressive mode: ESC/Enter/Space + 6 known close button positions
+  - max_attempts configurable (default 60)
+- **LaunchAndReachHub**: Wraps SkipStartupPopups as a Task with metadata
+- **ensure_game_running()**: Phase 1 function — call before DeviceAdapter.connect()
+- 13 unit tests in `tests/games/aether_gazer/tasks/test_startup_tasks.py`
+
+### Pipeline Integration
+- `scripts/run.py` updated with `--launch`, `--no-launch`, `--detect-game` flags
+- Phase 1 (pre-connection): resolve game exe + ensure running
+- Phase 2 (post-connection): skip popups via LaunchAndReachHub
+- Auto-detect saves to `config/user_config.yaml` for future runs
+- `default.yaml` updated with launch documentation
+
+## Post-Wave Changes (2026-04-05 session 2)
+
+### RunLog infrastructure (runtime/run_log.py)
+- Per-run timestamped log directory: `logs/20260405_143022/`
+- Screenshots saved as `001_label.jpg` thumbnails (800x450) under `screenshots/`
+- Loguru file sink per run (`run.log`)
+- Retention: max 15 run directories, oldest auto-deleted
+- `snap(device, label)` — capture from device, save, return original
+- `save_image(img, label)` — save existing image
+- 7 unit tests in `tests/runtime/test_run_log.py`
+
+### Task metadata upgrade (tasks/base.py)
+- Task protocol now requires `description: str` attribute
+- Optional metadata: `category`, `requires_pages`, `requires_ocr`, `safe`
+- `task_info(task)` helper extracts metadata dict for logging/registry
+- All 8 task classes updated with full metadata
+
+### BuyIntelShards (tasks/shop_tasks.py) — NEW
+- Extracted from verified `scripts/test_buy_intel_v2.py`
+- Strategy: always buy first (leftmost) intel item, repeat until sold out
+- Navigation: hub → shop → trade → daily purchase (with OCR verify "修正者情报")
+- Buy loop: OCR "情报" in popup before every purchase (safety)
+- Metadata: category=daily_shop, requires_ocr=True, safe=False
+- Full RunLog integration (screenshots at every step)
+
+### ClaimFreeStamina rewritten (tasks/shop_tasks.py)
+- Old version used fabricated coordinates (800,400) — replaced entirely
+- New navigation: hub → shop → supply → daily supply
+- OCR checks: "免费" (available) vs "冷却" (cooldown = already claimed)
+- Confirm button located via OCR, not hardcoded coords
+
+### DailyRoutine updated (processes/daily_routine.py)
+- Now runs 7 tasks via _DAILY_TASKS list (data-driven loop)
+- Task order: mail → intel shards → stamina packs → mimi station → missions → guild → amusement
+- Each task wrapped in try/except, returns to hub between tasks
+- Tracks completed/failed lists in result data
+
+### STAMINA_PANEL page + hub Stamina element (session 3)
+- Added `STAMINA_PANEL` page to knowledge/pages.py (23 pages total)
+  - Tabs: 冷却剂(451,155), 移转之辉(783,153), 每日补给(1113,154)
+- Added "Stamina" element to MAIN_HUB at (850,35) → opens stamina_panel
+- Hub now has 12 elements
+
+### JointDefenseSweep (tasks/activity_tasks.py) — NEW (session 3)
+- Complex multi-step task: hub → activity page → 联防协议 → 震动 → sweep
+- Navigation: H button OCR → offset 50px below → activity list scroll
+- Mixed identification methods:
+  - Template match: verify hub page
+  - OCR: "前往作战" (hub active), "联防协议", "前往挑战", "信息集纳", "震动", "扫荡"
+  - Fixed coord: >> max multiplier button (1470,716) — graphical, OCR unreadable
+- Sweep consumes 30 吨吨值 per run (safe=False)
+- _safe_return_to_hub: ESC×3 + fallback ReturnToHubOp
+- Verified full flow end-to-end (2026-04-05): 183 吨吨值→153, drops obtained
+
+### 4 new daily tasks (session 4, 2026-04-06)
+
+**Shared helpers (tasks/helpers.py)**:
+- `smart_return_to_hub(ctx)`: back(35,35) → ESC → Enter (if unchanged) cycle, max 10 attempts + fallback
+- `rapid_click(ctx, x, y, times, interval)`: fixed-position multi-click for popup dismissal
+
+**MimiStationCollect (tasks/observation_tasks.py)**:
+- Flow: G → 弥弥观测站(110,820) → 一键领取(1205,809) ×5 → x10/x8(OCR) ×5 → hub
+- Verified: rewards collected, characters re-dispatched (19:59:57 countdown started)
+
+**DailyWeeklyMissionClaim (tasks/observation_tasks.py)**:
+- Flow: G → 一键领取(1480,860) ×5 → 周常任务(80,195) → 一键领取(1480,860) ×5 → hub
+- All fixed coords, no OCR needed
+
+**GuildSupplyClaim (tasks/guild_tasks.py)**:
+- Flow: 公会(1025,850) → 矩阵补给(OCR) → 领取(OCR) → hub
+- Verified: "获得物品 ×50" popup dismissed with Enter
+
+**AmusementStreetDaily (tasks/amusement_tasks.py)**:
+- Flow: 游园街(1257,850) → 面板(1240,860) → 自动放置(1084,826) → 一键投喂(1368,826)
+       → 领取收益(OCR) → 可委托/派遣完成(OCR) → Enter → 一键派遣(OCR) → ESC×2 → hub
+- Mixed: fixed coords for panel buttons, OCR for dynamic elements
+- Verified: 3676/10000→0/10000 income collected, 3 tasks dispatched (19:59:58)
+
+### ClaimDailyStaminaPacks (tasks/shop_tasks.py) — NEW (session 3)
+- Navigation: hub → click stamina display (top bar NNN/NNN pattern) → 每日补给 tab
+- Two packs per day: 每日上午 (11:00+, 30 stamina) + 每日下午 (18:00+, 30 stamina)
+- OCR finds "领取" buttons, filters out "已领取" (already claimed)
+- Verified coordinates (2026-04-05):
+  - Stamina display: OCR `NNN/NNN` at ~(851,43), click LEFT edge to avoid "+"
+  - Tabs: 冷却剂(451,155), 移转之辉(783,153), 每日补给(1113,154)
+  - Pack items: ~(893,571) and ~(1207,569), claim buttons ~(891,485) and ~(1208,485)
+- Successfully tested: stamina went from 174/240 → 204/240 (30 pts claimed)
+- DailyRoutine now uses this instead of ClaimFreeStamina
 
 ## Architecture Summary (post-migration)
 
 ```
 src/anime_game_afk/
 ├── core/              # L1: types.py, device.py, errors.py (session.py deprecated)
-├── vision/            # L2: matcher.py, geometry.py, color.py, ocr.py, types.py
-├── runtime/           # L3: logger.py, config.py, state.py, clock.py, events.py, errors.py
+├── vision/            # L2: matcher.py, geometry.py, color.py, ocr.py (RapidOCR), types.py
+├── runtime/           # L3: logger.py, config.py, state.py, clock.py, events.py, errors.py, run_log.py
+├── ui/                # L9: app.py, api.py, bridge.py, task_manager.py, web/ (pywebview GUI)
 └── games/aether_gazer/
-    ├── knowledge/     # L4: constants.py, keys.py, resources.py, pages.py, navigation.py
+    ├── knowledge/     # L4: constants.py, keys.py, resources.py, pages.py (22 pages), navigation.py (42 edges BFS)
     ├── ops/           # L5: base.py + perception/ + navigate/ + interact/ + combat/
-    ├── tasks_v2/      # L6: base.py + combat_tasks.py + navigation_tasks.py + shop/mail/stamina/story
+    ├── tasks/         # L6: base.py (Task protocol w/ metadata) + combat/navigation/shop/mail/stamina/story_tasks.py
     ├── processes/     # L7: base.py + push_main_story.py + daily_routine.py
     └── orchestrator/  # L8: types.py + pipeline.py + executor.py + recovery.py + plans/
 ```
 
-## Target 9-Layer Architecture
+## Target 10-Layer Architecture
 
 ```
 Layer 0  MaaFramework          (external C++ engine)
@@ -34,9 +171,12 @@ Layer 5  games/aether_gazer/ops/         Atomic ops (perception/, navigate/, int
 Layer 6  games/aether_gazer/tasks/       Composable multi-step tasks (combat_tasks, shop_tasks...)
 Layer 7  games/aether_gazer/processes/   User-visible features (daily_routine, push_main_story...)
 Layer 8  games/aether_gazer/orchestrator/ Pipeline + YAML plan execution
+───────────────────────────── application layer ───
+Layer 9  ui/                   pywebview GUI (app.py, api.py, bridge.py, task_manager.py, web/)
 ```
 
 **Dependency rule**: Layer N imports only from Layers 0..(N-1). Game layers (4-8) per-game isolated.
+UI (L9) imports from L8 (orchestrator), L7 (processes), L6 (tasks), L3 (runtime), L1 (core). Nothing imports from ui/.
 
 ## Current Structure (pre-migration)
 
@@ -154,7 +294,73 @@ Execute bottom-up: Wave 1 first, then 2, 3, 4.
 
 ### Full test suite after Wave 2 Tasks 4-8: **284/284 passed**
 
+## UI Layer (Layer 9) — 2026-04-06
+
+### Design
+- **Spec**: `docs/superpowers/specs/2026-04-06-ui-design.md`
+- **Framework**: pywebview + vanilla HTML/CSS/JS (no React/Vue)
+- **Dependency**: `pywebview>=5.0` (~5MB, uses system WebView2)
+- **Theme**: Dark mode only
+
+### Files
+| File | Purpose |
+|---|---|
+| `ui/__init__.py` | Package marker |
+| `ui/app.py` | Entry point: creates pywebview window |
+| `ui/api.py` | Api class: 9 methods exposed to JS via js_api |
+| `ui/bridge.py` | LogForwarder: loguru sink → evaluate_js push |
+| `ui/task_manager.py` | TaskManager: pipeline/task state + bg execution |
+| `ui/web/index.html` | HTML: sidebar nav, tasks page, logs page |
+| `ui/web/style.css` | Dark theme CSS |
+| `ui/web/app.js` | Frontend logic: page switch, API calls, DOM updates |
+
+### Architecture
+- Pipeline-driven: user selects pipeline (daily_routine/push_main_story), toggles tasks
+- Communication: pywebview `js_api` (JS→Python) + `evaluate_js` (Python→JS push)
+- No HTTP server, no WebSocket — all through pywebview bridge
+- Worker thread runs `asyncio.run(pipeline)`, main thread runs pywebview event loop
+- Config persistence: `config/ui_state.json` (atomic write)
+- **Zero changes to existing L1-L8 code**
+
+### Launch
+```bash
+python -m anime_game_afk.ui.app         # normal
+python -m anime_game_afk.ui.app --debug  # with devtools
+```
+
 ## Created
 
 - **Date**: 2026-04-05
 - **Updated**: 2026-04-05 — Wave 1 complete (112 tests). Wave 2 Tasks 1-3 (knowledge layer) complete. Wave 2 Tasks 4-8 (ops layer) complete. Total: **284/284** tests pass.
+
+## E2E Performance Benchmarks (2026-04-06)
+
+### DailyRoutine 10-task full run (20:48:57 → 20:53:41 = ~4m44s)
+
+| # | Task | Duration | Status | Notes |
+|---|------|----------|--------|-------|
+| 1 | mail | 12s | ✅ | H→全部领取→Enter→hub |
+| 2 | intel_shards | 36s | ✅ (0购) | 商店导航较慢，OCR多次 |
+| 3 | stamina_packs | 30s | ✅ (2领) | 体力面板→日常补给→领取×2 |
+| 4 | free_stamina | 41s | ✅ (跳过) | 免费体力已领，OCR检测耗时 |
+| 5 | mimi_station | 33s | ✅ | G→弥弥观测站→一键领取→缩短 |
+| 6 | guild_supply | 8s | ✅ (跳过) | OCR找不到矩阵补给 |
+| 7 | amusement | 30s | ✅ | 游园街→收益→派遣 |
+| 8 | joint_defense | 54s | ✅ | 联防协议→震动→扫荡(已优化OCR) |
+| 9 | missions | 14s | ✅ | G→一键领取×5→周常→一键领取×5 |
+| 10 | tactics | 17s | ✅ | T→任务→一键领取×3 |
+
+**瓶颈分析**:
+- OCR 单次调用 ~2s (scale=0.7)，每个 ocr_once ~2s
+- shop_tasks/free_stamina 未优化（仍用旧 ocr_find），占总时间大
+- smart_return_to_hub 每轮~4s (template + 1x ocr_once)
+- sleep 已按用户反馈缩减（activity_tasks 已优化，其余待优化）
+
+### OCR 优化基础设施 (2026-04-06)
+
+- `ocr_once(img, region=None, scale=0.7)` → `OcrResult` (batch API)
+- `OcrResult.find(kw)` / `.has(kw)` / `.has_all(*kws)` — 无额外 OCR 调用
+- 旧 3x `ocr_find` (~6.4s) → 1x `ocr_once` (~1.9s) = **3.4x提速**
+- scale=0.7 最稳定（0.5 会漏 "前往作战"，1.0 太慢）
+- 已优化: helpers.py, return_to_hub.py, wake_hub_ui.py, activity_tasks.py
+- 待优化: shop_tasks.py, amusement_tasks.py, observation_tasks.py, guild_tasks.py

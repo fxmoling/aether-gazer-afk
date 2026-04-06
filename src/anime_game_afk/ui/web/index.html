@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AetherGazer AFK</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sidebar navigation -->
+    <nav id="sidebar">
+        <div class="logo">
+            <span class="logo-icon">&#9670;</span>
+            <span class="logo-text">AetherGazer<br>AFK</span>
+        </div>
+        <a class="nav-item active" data-page="tasks" onclick="switchPage('tasks')">
+            <span class="nav-icon">&#x2611;</span>
+            <span class="nav-label">任务</span>
+        </a>
+        <a class="nav-item" data-page="logs" onclick="switchPage('logs')">
+            <span class="nav-icon">&#x2263;</span>
+            <span class="nav-label">日志</span>
+        </a>
+    </nav>
+
+    <!-- Main content -->
+    <main>
+        <!-- Tasks page -->
+        <div id="page-tasks" class="page active">
+            <!-- Connection bar -->
+            <div id="connection-bar">
+                <div class="conn-status">
+                    <span id="conn-dot" class="dot disconnected"></span>
+                    <span id="conn-text">未连接</span>
+                </div>
+                <div class="conn-actions">
+                    <button id="btn-connect" class="btn btn-primary" onclick="onConnect()">连接</button>
+                    <button id="btn-disconnect" class="btn btn-secondary" onclick="onDisconnect()" disabled>断开</button>
+                </div>
+            </div>
+
+            <!-- Pipeline selector -->
+            <div id="pipeline-selector">
+                <label>选择流程：</label>
+                <select id="pipeline-select" onchange="onSelectPipeline(this.value)">
+                </select>
+            </div>
+
+            <!-- Task list -->
+            <div id="task-list">
+                <div class="task-header">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="select-all" onchange="onToggleAll(this.checked)">
+                        <span>全选</span>
+                    </label>
+                </div>
+                <div id="task-items">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <!-- Control bar -->
+            <div id="control-bar">
+                <div class="control-actions">
+                    <button id="btn-start" class="btn btn-start" onclick="onStartRun()" disabled>
+                        &#x25B6; 开始
+                    </button>
+                    <button id="btn-stop" class="btn btn-stop" onclick="onStopRun()" disabled>
+                        &#x25A0; 停止
+                    </button>
+                </div>
+                <div id="run-status" class="run-status"></div>
+            </div>
+        </div>
+
+        <!-- Logs page -->
+        <div id="page-logs" class="page">
+            <div id="log-toolbar">
+                <select id="log-filter" onchange="filterLogs(this.value)">
+                    <option value="ALL">全部</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="DEBUG">DEBUG</option>
+                </select>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="auto-scroll" checked>
+                    <span>自动滚动</span>
+                </label>
+                <button class="btn btn-secondary" onclick="clearLogs()">清空</button>
+            </div>
+            <div id="log-output"></div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
