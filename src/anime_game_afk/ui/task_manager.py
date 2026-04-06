@@ -235,7 +235,7 @@ class TaskManager:
             if not self._device.connected:
                 return {"ok": False, "error": "无法连接到游戏窗口，请确认游戏已启动"}
             res = self._device.actual_resolution
-            res_str = f"{res[0]}x{res[1]}" if res else "unknown"
+            res_str = f"{res.width}x{res.height}" if res else "unknown"
             self._logger.info("已连接到游戏窗口，分辨率: {}", res_str)
             return {"ok": True, "resolution": res_str}
         except Exception as e:
