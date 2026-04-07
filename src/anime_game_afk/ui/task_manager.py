@@ -16,24 +16,14 @@ from typing import Any
 
 from loguru import logger
 
-# Imports from existing layers (L8, L6, L3, L1) — UI only adds, never modifies
+# Imports from existing layers (L6, L3, L1) — UI only adds, never modifies
 from anime_game_afk.core.device import DeviceAdapter
 from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.games.aether_gazer.orchestrator.pipeline import (
-    Pipeline,
-    ProcessRegistry,
-)
-from anime_game_afk.games.aether_gazer.orchestrator.types import (
-    PlanConfig,
-    ProcessDef,
-)
 from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
 from anime_game_afk.games.aether_gazer.processes.daily_routine import (
-    DailyRoutine,
     _DAILY_TASKS,
 )
-from anime_game_afk.games.aether_gazer.processes.push_main_story import PushMainStory
 from anime_game_afk.runtime.logger import get_logger
 
 
@@ -78,6 +68,8 @@ class TaskManager:
         self._completed_count = 0
         self._total_count = 0
         self._logger = get_logger("ui.task_manager")
+        self._async_loop: asyncio.AbstractEventLoop | None = None
+        self._async_task: asyncio.Task | None = None
 
         self._load_pipelines()
         self._load_config()
@@ -92,6 +84,21 @@ class TaskManager:
 
     def _load_pipelines(self) -> None:
         """Discover available pipelines from the process registry."""
+        # Chinese display names for each task
+        _TASK_NAMES: dict[str, str] = {
+            "startup": "启动游戏",
+            "mail": "领取邮件",
+            "intel_shards": "购买情报",
+            "stamina_packs": "领取体力包",
+            "free_stamina": "商店免费体力",
+            "mimi_station": "弥弥观测站",
+            "guild_supply": "公会补给",
+            "amusement": "游园街日常",
+            "joint_defense": "联防协议",
+            "missions": "每日周常任务",
+            "tactics": "对策协议",
+        }
+
         # daily_routine — build tasks from _DAILY_TASKS
         daily_tasks = []
         for task_id, task_cls in _DAILY_TASKS:
@@ -99,7 +106,7 @@ class TaskManager:
             daily_tasks.append(
                 TaskState(
                     id=task_id,
-                    name=getattr(task_obj, "description", task_id),
+                    name=_TASK_NAMES.get(task_id, task_id),
                     description=getattr(task_obj, "description", ""),
                     safe=getattr(task_obj, "safe", True),
                 )
@@ -111,23 +118,6 @@ class TaskManager:
                 name="日常任务",
                 description="完成每日任务：邮件、商店、体力、公会等",
                 tasks=daily_tasks,
-            )
-        )
-
-        # push_main_story — single process, no sub-task toggles for MVP
-        self._pipelines.append(
-            PipelineDef(
-                id="push_main_story",
-                name="主线推进",
-                description="自动推进主线剧情关卡",
-                tasks=[
-                    TaskState(
-                        id="push_main_story",
-                        name="推进主线",
-                        description="Clear main story stages sequentially",
-                        safe=False,
-                    )
-                ],
             )
         )
 
@@ -299,9 +289,14 @@ class TaskManager:
         return {"ok": True}
 
     def stop(self) -> dict[str, Any]:
-        """Signal the worker thread to stop after the current task."""
+        """Signal the worker thread to stop and cancel the running async task."""
         self._stop_event.set()
-        self._logger.info("已请求停止，将在当前任务完成后停止")
+        self._logger.info("已请求停止，正在取消当前任务...")
+        # Cancel the asyncio task from this thread
+        loop = self._async_loop
+        task = self._async_task
+        if loop and task and not task.done():
+            loop.call_soon_threadsafe(task.cancel)
         return {"ok": True}
 
     # ------------------------------------------------------------------
@@ -311,10 +306,18 @@ class TaskManager:
     def _run_pipeline(self, pipeline: PipelineDef) -> None:
         """Run enabled tasks in sequence on the worker thread."""
         try:
-            asyncio.run(self._async_run(pipeline))
+            loop = asyncio.new_event_loop()
+            self._async_loop = loop
+            task = loop.create_task(self._async_run(pipeline))
+            self._async_task = task
+            loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            self._logger.info("Pipeline 已被取消")
         except Exception as e:
             self._logger.error("Pipeline 执行异常: {}", e)
         finally:
+            self._async_loop = None
+            self._async_task = None
             self._running = False
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
@@ -344,6 +347,7 @@ class TaskManager:
             if self._stop_event.is_set():
                 task_def.status = "skipped"
                 self._push_task_status(task_def.id, "skipped")
+                self._logger.info("--- 跳过: {} (已停止) ---", task_def.name)
                 continue
 
             # Update status to running
@@ -404,9 +408,6 @@ class TaskManager:
             for tid, cls in _DAILY_TASKS:
                 if tid == task_id:
                     return cls
-        elif pipeline_id == "push_main_story":
-            if task_id == "push_main_story":
-                return PushMainStory
         return None
 
     # ------------------------------------------------------------------
