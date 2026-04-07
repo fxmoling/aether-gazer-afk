@@ -6,6 +6,45 @@
 **Implementation plans**: `docs/superpowers/plans/2026-04-05-wave{1,2,3,4}*.md` ✅ all 4 waves written
 **Execution**: ✅ ALL 4 WAVES COMPLETE — 482 tests passing
 
+## Op/Check/Task 三层重构 (2026-04-07 session 7)
+
+**Design spec**: `docs/superpowers/specs/2026-04-07-op-check-task-refactor-design.md` ✅ approved
+**Execution**: ✅ COMPLETE — 532 tests passing (482 → 532, +50 new)
+
+### 核心变更
+三种类型，三种职责，硬性边界：
+- **Op** — 改变世界（点击、按键、滑动、导航）
+- **Check** — 观察世界（截图 + OCR/模板匹配，返回结构化结果 CheckResult）
+- **Task** — 编排 Op + Check（禁止直接碰 ctx.device.* 和 vision.*）
+
+### 五条硬规则
+1. Task 禁止 `ctx.device.*` — 所有设备交互必须通过 Op
+2. Task 禁止直接调视觉函数 — 所有观察必须通过 Check
+3. 原始 Op 不调其他 Op — 复合 Op 只用原始 Op + Check
+4. Check 不改变状态 — 只截图 + 识别
+5. Op 和 Check 都是 class 式 (`__init__` 传参，利于未来序列化)
+
+### 新增文件
+- `checks/` 包: base.py, ocr.py, page.py, state.py, vision.py (11 个 Check 类)
+- `ops/primitives.py`: 6 个原始 Op (ClickOp, PressKeyOp, HoldKeyOp, SwipeOp, SleepOp, ScreenshotOp)
+- `ops/navigate/smart_return.py`: SmartReturnToHubOp (从 helpers 提升)
+- `ops/interact/rapid_click.py`: RapidClickOp (从 helpers 提升)
+
+### 重构文件
+- 8 个复合 Op: 内部改用原始 Op + Check，不再直接调 ctx.device.*
+- 10 个 Task: 全部改用 Op + Check，零 ctx.device.* 调用
+- 4 个测试文件更新 mock 路径
+- `tests/test_architecture.py`: 自动扫描 tasks/*.py 验证硬规则
+
+### 层级依赖
+```
+Layer 4:  knowledge/     ← 纯数据
+Layer 5A: checks/        ← imports: knowledge, vision (L2)
+Layer 5B: ops/           ← imports: knowledge, vision (L2), checks (L5A)
+Layer 6:  tasks/         ← imports: ops (L5B), checks (L5A), 禁止 device/vision
+Layer 7:  processes/     ← imports: tasks (L6)
+```
+
 ## Game Launch & User Config (2026-04-06 session 5)
 
 ### Persistent User Config (config/user_config.py + config/user_config.yaml)
@@ -364,3 +403,120 @@ python -m anime_game_afk.ui.app --debug  # with devtools
 - scale=0.7 最稳定（0.5 会漏 "前往作战"，1.0 太慢）
 - 已优化: helpers.py, return_to_hub.py, wake_hub_ui.py, activity_tasks.py
 - 待优化: shop_tasks.py, amusement_tasks.py, observation_tasks.py, guild_tasks.py
+
+### Startup 任务集成 (2026-04-06 session 6)
+
+- `SkipStartupPopups` (tasks/startup_tasks.py) 重写：
+  - 修复死循环 bug（"确认/确定" 在非按钮文字中误匹配）
+  - 登录屏检测："深空之眼" / "进入游戏" / "点击任意" → click center
+  - 事件弹窗：检测 "活动/公告/限时" → click (1540,50) 关闭
+  - stuck 检测：3 次未变化 → aggressive dismiss
+  - 已在 hub 时 attempt 0 立即返回 success（自动跳过）
+- `_DAILY_TASKS` 新增 `("startup", SkipStartupPopups)` 作为第 0 个任务
+- `run_daily_routine.py` 完整流程：launch → connect → startup → 10 tasks
+- `GameLauncher._find_window()` 修复：精确匹配 + Unity 类过滤
+
+### Hub 检测统一 (2026-04-06 session 6)
+
+- `is_at_hub(img)` / `is_at_hub_with_ocr(img, ocr)` 集中在 helpers.py
+- 4 关键词：`("前往作战", "探测", "修正者", "仓库")`
+- 所有文件引用统一函数，不再分散判断
+- `return_to_hub.py` 用 `_HUB_OCR` 常量（避免跨层导入）
+
+### 窗口匹配修复 (2026-04-06 session 6)
+
+- `device.find_window()` 两级匹配：精确标题 → 子串+UnityWndClass
+- 删除了危险的纯子串 pass 3（会误匹配 "AetherGazer AFK" 工具窗口）
+- `GameLauncher._find_window()` 同步修复
+
+### UI 层 (2026-04-06 session 5, pywebview GUI)
+
+```
+src/anime_game_afk/ui/
+├── app.py           # pywebview 入口，创建窗口
+├── api.py           # JS→Python API（connect, start, stop, get_status...）
+├── bridge.py        # LogForwarder: loguru → JS push
+├── task_manager.py  # pipeline 发现、任务执行、状态推送
+└── web/
+    ├── index.html   # 单页 SPA
+    ├── style.css    # 暗色主题
+    └── app.js       # 前端逻辑，DOM 操作
+```
+
+**已知问题（待下次 session 修复）**:
+1. **Stop 按钮不可靠**：当前用 `asyncio.Task.cancel()` 只能在 await 点中断，MaaFramework C++ 调用中无法中断
+   - **决定方案**：改为子进程执行，stop = `process.kill()` 100% 立即停止
+2. **前端手动 DOM 操作**：当前纯 Vanilla JS，维护成本高
+   - **决定方案**：引入 Preact + HTM（~3KB，React API，无构建步骤）
+3. **OCR 剩余 task 未优化**：shop_tasks, amusement_tasks, observation_tasks, guild_tasks 仍用旧 `ocr_find`
+
+### 下次 Session 计划
+
+**优先级 1 — 子进程 worker**:
+```
+主进程 (UI + pywebview)
+  └── subprocess.Popen → worker 进程 (asyncio + 任务执行)
+       ├── stdout/pipe 推送日志和状态
+       └── stop → process.kill() / process.terminate()
+```
+- 修改 task_manager.py：`_run_pipeline` 改为 spawn subprocess
+- worker 入口脚本：接收 pipeline_id + enabled_tasks → 执行 → stdout JSON 日志
+- kill 后 MaaFramework 的 BlockInput/资源由 OS 回收
+
+**优先级 2 — 前端重构 (Preact + HTM)**:
+- CDN 引入 Preact + HTM（零构建步骤）
+- 组件化：ConnectionBar, TaskList, TaskItem, LogViewer
+- 响应式状态替代手动 DOM 操作
+
+**优先级 3 — OCR 性能优化剩余 tasks**:
+- shop_tasks.py（19 OCR calls, 36.3s sleep）
+- amusement_tasks.py（9 OCR calls, 18s sleep）
+- observation_tasks.py, guild_tasks.py
+
+## PyInstaller 打包 (2026-04-07)
+
+### 打包方案
+- **工具**: PyInstaller 6.19.0, onedir 模式
+- **入口**: `launcher.py` (frozen-friendly, 路径自适应)
+- **构建脚本**: `build.py` (一键打包, 自动生成 .spec)
+
+### 关键文件
+| 文件 | 用途 |
+|------|------|
+| `build.py` | 构建脚本 (`python build.py --clean --zip`) |
+| `launcher.py` | 打包后入口点 (替代 scripts/run.py) |
+| `anime-game-afk.spec` | PyInstaller 配置 (自动生成, 不提交) |
+
+### 产物结构
+```
+dist/anime-game-afk/
+├── anime-game-afk.exe   # 主程序 (~6MB)
+├── config/              # 用户配置 (可编辑)
+├── plans/               # 执行计划 (可自定义)
+├── logs/                # 运行日志
+└── _internal/           # Python 运行时 + 依赖 (~520MB)
+    ├── maa/bin/         # MaaFw 16个 DLL
+    ├── MaaAgentBinary/  # adb agent 工具
+    ├── assets/          # 游戏资源图片
+    └── ...              # Python packages
+```
+
+### 依赖处理
+- MaaFw DLL: 从 site-packages/maa/bin/ 收集到 _internal/maa/bin/
+- MaaAgentBinary: 完整复制 (minicap/minitouch/maatouch)
+- MAAFW_BINARY_PATH 环境变量: launcher.py 自动设置
+- os.add_dll_directory(): Windows DLL 搜索路径
+- 排除: pytest, mypy, ruff, torch, matplotlib 等开发/无关依赖
+
+### 验证
+- `--list`: ✅ 进程列表正常
+- `--dry-run`: ✅ 计划解析正常
+- `--help`: ✅ 参数帮助正常
+- ZIP 包: 353.2 MB
+
+### E2E 完整流程验证 (2026-04-06 23:21)
+
+- 10/10 + startup 全部成功
+- 总时间 318.6s (~5m19s) 含启动+登录+全部任务
+- 窗口匹配正确（精确匹配 'AetherGazer' + UnityWndClass）
+- Startup: 登录屏 → click center → 加载 → Hub（5 attempts, ~21s）
