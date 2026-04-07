@@ -2,16 +2,17 @@
 
 Used during exploration segments between battles.
 Holds W for a configurable duration (default 2 seconds).
+
+Composite Op: uses HoldKeyOp primitive internally.
 """
 from __future__ import annotations
-
-import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.constants import (
     WALK_DEFAULT_DURATION,
 )
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_W
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import HoldKeyOp
 
 
 class WalkForwardOp:
@@ -21,9 +22,12 @@ class WalkForwardOp:
         self._duration = duration
 
     async def run(self, ctx: OpContext) -> OpResult:
-        ctx.device.hold_key(VK_W, self._duration)
         ctx.logger.info(f"Walking forward for {self._duration}s")
-        await asyncio.sleep(self._duration + 0.2)
+        await HoldKeyOp(
+            key=VK_W,
+            duration=self._duration,
+            wait=0.2,
+        ).run(ctx)
         return OpResult(
             success=True,
             data={"direction": "forward", "duration": self._duration},

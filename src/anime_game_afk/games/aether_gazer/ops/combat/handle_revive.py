@@ -2,13 +2,14 @@
 
 When a character dies, the game shows a revival confirmation.
 This op presses Enter to accept the revival.
+
+Composite Op: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
-import asyncio
-
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
 class HandleReviveOp:
@@ -18,7 +19,6 @@ class HandleReviveOp:
         self._wait = wait_after
 
     async def run(self, ctx: OpContext) -> OpResult:
-        ctx.device.press_key(VK_ENTER)
-        ctx.logger.info("Revive prompt: pressed Enter to accept")
-        await asyncio.sleep(self._wait)
+        ctx.logger.info("Revive prompt: pressing Enter to accept")
+        await PressKeyOp(key=VK_ENTER, wait=self._wait).run(ctx)
         return OpResult(success=True, data={"action": "revive_accepted"})

@@ -1,10 +1,19 @@
-"""Tests for tasks.combat_tasks — CombatStateMachine, ClearSingleStage."""
+"""Tests for tasks.combat_tasks -- CombatStateMachine, ClearSingleStage.
+
+Updated to match the Op/Check refactoring: CombatStateMachine now uses
+DetectGameStateCheck (with .evaluate() returning CheckResult) instead of
+DetectGameStateOp (with .run() returning OpResult).
+
+Mock strategy: patch machine._detect.evaluate to return CheckResult
+with the desired GameState.
+"""
 import asyncio
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 
+from anime_game_afk.games.aether_gazer.checks.base import CheckResult
 from anime_game_afk.games.aether_gazer.ops.base import GameState, OpResult
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 from anime_game_afk.games.aether_gazer.tasks.combat_tasks import (
@@ -39,9 +48,17 @@ def _run(coro):
 
 
 def _make_detect_mock(states: list[GameState]):
-    """Create an AsyncMock that returns successive GameState values."""
+    """Create an AsyncMock that returns successive GameState values as CheckResults.
+
+    DetectGameStateCheck.evaluate() returns CheckResult with
+    data={"state": GameState, "confidence": float}.
+    """
     results = [
-        OpResult(success=True, data={"state": s, "confidence": 0.9})
+        CheckResult(
+            passed=(s != GameState.UNKNOWN),
+            data={"state": s, "confidence": 0.9},
+            message=f"state={s.value}",
+        )
         for s in states
     ]
     mock = AsyncMock(side_effect=results)
@@ -57,7 +74,7 @@ def test_combat_state_machine_exits_on_stage_map():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.STAGE_MAP])
     ):
         result = _run(machine.execute(ctx))
@@ -72,7 +89,7 @@ def test_combat_state_machine_exits_on_mission_failed():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.MISSION_FAILED])
     ):
         result = _run(machine.execute(ctx))
@@ -88,7 +105,7 @@ def test_combat_state_machine_battle_then_stage_map():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.BATTLE, GameState.STAGE_MAP])
     ), patch.object(machine._attack, "run", AsyncMock(
         return_value=OpResult(success=True)
@@ -105,7 +122,7 @@ def test_combat_state_machine_revive_then_stage_map():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.REVIVE_PROMPT, GameState.STAGE_MAP])
     ), patch.object(machine._revive, "run", AsyncMock(
         return_value=OpResult(success=True)
@@ -122,7 +139,7 @@ def test_combat_state_machine_cutscene_then_stage_map():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.CUTSCENE, GameState.STAGE_MAP])
     ), patch.object(machine._skip, "run", AsyncMock(
         return_value=OpResult(success=True)
@@ -139,7 +156,7 @@ def test_combat_state_machine_dialogue_then_stage_map():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.DIALOGUE, GameState.STAGE_MAP])
     ), patch.object(machine._dialogue, "run", AsyncMock(
         return_value=OpResult(success=True)
@@ -156,7 +173,7 @@ def test_combat_state_machine_skip_story_confirm_presses_enter():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.SKIP_STORY_CONFIRM, GameState.STAGE_MAP])
     ):
         result = _run(machine.execute(ctx))
@@ -172,7 +189,7 @@ def test_combat_state_machine_continuous_battle_presses_enter():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.CONTINUOUS_BATTLE, GameState.STAGE_MAP])
     ):
         result = _run(machine.execute(ctx))
@@ -188,7 +205,7 @@ def test_combat_state_machine_unknown_presses_space():
     machine = CombatStateMachine()
 
     with patch.object(
-        machine._detect, "run",
+        machine._detect, "evaluate",
         _make_detect_mock([GameState.UNKNOWN, GameState.STAGE_MAP])
     ):
         result = _run(machine.execute(ctx))

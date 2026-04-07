@@ -3,10 +3,10 @@
 Presses the full attack rotation: J J U J I J O R 1 2
 with configurable interval between keys. Takes ~2.5s at
 default interval (0.25s * 10 keys).
+
+Composite Op: uses PressKeyOp primitives internally.
 """
 from __future__ import annotations
-
-import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.constants import (
     BATTLE_KEY_INTERVAL,
@@ -16,6 +16,7 @@ from anime_game_afk.games.aether_gazer.knowledge.keys import (
     key_name,
 )
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
 class AttackCycleOp:
@@ -26,13 +27,12 @@ class AttackCycleOp:
 
     async def run(self, ctx: OpContext) -> OpResult:
         for i, vk in enumerate(ATTACK_CYCLE_KEYS):
-            ctx.device.press_key(vk)
             if i % 5 == 0:
                 ctx.logger.debug(
                     f"Attack key {i}/{len(ATTACK_CYCLE_KEYS)}: "
                     f"{key_name(vk)}"
                 )
-            await asyncio.sleep(self._interval)
+            await PressKeyOp(key=vk, wait=self._interval).run(ctx)
 
         return OpResult(
             success=True,

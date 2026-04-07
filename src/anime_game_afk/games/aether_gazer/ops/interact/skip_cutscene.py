@@ -2,16 +2,17 @@
 
 Sequence: ESC (open skip dialog) -> wait -> Enter (confirm skip).
 Uses keyboard shortcuts per the game's UI convention.
+
+Composite Op: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
-
-import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ENTER,
     VK_ESCAPE,
 )
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
 class SkipCutsceneOp:
@@ -22,13 +23,11 @@ class SkipCutsceneOp:
 
     async def run(self, ctx: OpContext) -> OpResult:
         # ESC opens the "skip?" confirmation dialog
-        ctx.device.press_key(VK_ESCAPE)
-        ctx.logger.info("Skip cutscene: pressed ESC")
-        await asyncio.sleep(self._confirm_wait)
+        ctx.logger.info("Skip cutscene: pressing ESC")
+        await PressKeyOp(key=VK_ESCAPE, wait=self._confirm_wait).run(ctx)
 
         # Enter confirms the skip
-        ctx.device.press_key(VK_ENTER)
-        ctx.logger.info("Skip cutscene: pressed Enter to confirm")
-        await asyncio.sleep(2.0)
+        ctx.logger.info("Skip cutscene: pressing Enter to confirm")
+        await PressKeyOp(key=VK_ENTER, wait=2.0).run(ctx)
 
         return OpResult(success=True)

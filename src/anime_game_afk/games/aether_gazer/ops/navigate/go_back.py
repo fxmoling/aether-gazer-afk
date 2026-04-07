@@ -3,21 +3,21 @@
 Presses ESC or clicks the back button (35, 35) depending on
 the current page's navigation edge. Falls back to ESC if no
 edge is found.
+
+Composite Op: uses ClickOp/PressKeyOp primitives internally.
 """
 from __future__ import annotations
 
-import asyncio
-
-from anime_game_afk.games.aether_gazer.knowledge.constants import (
-    BACK_BUTTON_X,
-    BACK_BUTTON_Y,
-)
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE
 from anime_game_afk.games.aether_gazer.knowledge.navigation import (
     NAV_GRAPH,
     NavMethod,
 )
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickOp,
+    PressKeyOp,
+)
 
 
 class GoBackOp:
@@ -37,23 +37,28 @@ class GoBackOp:
         if edge is not None:
             action = edge.action
             if action.method == NavMethod.CLICK and action.coord:
-                ctx.device.click(action.coord.x, action.coord.y)
                 ctx.logger.info(
                     f"Go back: click ({action.coord.x}, {action.coord.y})"
                 )
+                await ClickOp(
+                    x=action.coord.x, y=action.coord.y,
+                    wait=action.wait_after,
+                ).run(ctx)
             elif action.method == NavMethod.KEY and action.key_code:
-                ctx.device.press_key(action.key_code)
                 ctx.logger.info(
                     f"Go back: press key 0x{action.key_code:02X}"
                 )
+                await PressKeyOp(
+                    key=action.key_code, wait=action.wait_after,
+                ).run(ctx)
             else:
-                ctx.device.press_key(VK_ESCAPE)
                 ctx.logger.info("Go back: ESC (default)")
-            await asyncio.sleep(action.wait_after)
+                await PressKeyOp(
+                    key=VK_ESCAPE, wait=action.wait_after,
+                ).run(ctx)
         else:
             # Unknown page — try ESC
-            ctx.device.press_key(VK_ESCAPE)
             ctx.logger.info("Go back: ESC (no edge found)")
-            await asyncio.sleep(1.5)
+            await PressKeyOp(key=VK_ESCAPE, wait=1.5).run(ctx)
 
         return OpResult(success=True)

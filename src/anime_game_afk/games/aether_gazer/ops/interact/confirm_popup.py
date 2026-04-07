@@ -2,16 +2,17 @@
 
 Presses Enter to confirm or ESC to cancel.
 The action is configurable; default is confirm (Enter).
+
+Composite Op: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
-
-import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ENTER,
     VK_ESCAPE,
 )
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
 class ConfirmPopupOp:
@@ -25,11 +26,10 @@ class ConfirmPopupOp:
 
     async def run(self, ctx: OpContext) -> OpResult:
         if self._confirm:
-            ctx.device.press_key(VK_ENTER)
-            ctx.logger.info("Popup confirmed: pressed Enter")
+            ctx.logger.info("Popup confirmed: pressing Enter")
+            await PressKeyOp(key=VK_ENTER, wait=self._wait).run(ctx)
         else:
-            ctx.device.press_key(VK_ESCAPE)
-            ctx.logger.info("Popup dismissed: pressed ESC")
+            ctx.logger.info("Popup dismissed: pressing ESC")
+            await PressKeyOp(key=VK_ESCAPE, wait=self._wait).run(ctx)
 
-        await asyncio.sleep(self._wait)
         return OpResult(success=True, data={"confirmed": self._confirm})

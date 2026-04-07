@@ -3,14 +3,15 @@
 Looks up the element by English name (name_en) in the page's
 element list, then clicks its coordinate. Refuses to click
 unsafe elements unless force=True.
+
+Composite Op: uses ClickOp primitive internally.
 """
 from __future__ import annotations
-
-import asyncio
 
 from anime_game_afk.games.aether_gazer.knowledge.constants import CLICK_WAIT
 from anime_game_afk.games.aether_gazer.knowledge.pages import find_element
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
+from anime_game_afk.games.aether_gazer.ops.primitives import ClickOp
 
 
 class ClickElementOp:
@@ -44,12 +45,11 @@ class ClickElementOp:
                       f"Use force_unsafe=True to override.",
             )
 
-        ctx.device.click(elem.coord.x, elem.coord.y)
         ctx.logger.info(
-            f"Clicked {self._element_name} at "
+            f"Clicking {self._element_name} at "
             f"({elem.coord.x}, {elem.coord.y}) on {self._page_id}"
         )
-        await asyncio.sleep(self._wait)
+        await ClickOp(x=elem.coord.x, y=elem.coord.y, wait=self._wait).run(ctx)
         return OpResult(
             success=True,
             data={"element": self._element_name, "page": self._page_id},

@@ -1,12 +1,28 @@
-"""Tests for tasks.mail_tasks — CollectAllMail."""
+"""Tests for tasks.mail_tasks -- CollectAllMail.
+
+Updated to match the Op/Check refactoring: mail task now uses
+SmartReturnToHubOp (from ops.navigate.smart_return) instead of a bare
+smart_return_to_hub function import.
+
+Mock strategy: patch SmartReturnToHubOp.run at the class level so the
+return-to-hub step completes instantly. The primitives (PressKeyOp,
+ClickOp) still call through to MockDevice methods, so key_log and
+click_log work as before.
+"""
 import asyncio
 from dataclasses import dataclass, field
+from unittest.mock import patch, AsyncMock
 
 import numpy as np
 
-from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE, VK_H
+from anime_game_afk.games.aether_gazer.knowledge.keys import VK_H, VK_ENTER
+from anime_game_afk.games.aether_gazer.ops.base import OpResult
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
-from anime_game_afk.games.aether_gazer.tasks.mail_tasks import CollectAllMail
+from anime_game_afk.games.aether_gazer.tasks.mail_tasks import (
+    CollectAllMail,
+    _COLLECT_ALL_X,
+    _COLLECT_ALL_Y,
+)
 
 
 @dataclass
@@ -28,36 +44,45 @@ def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-def test_collect_all_mail_returns_success():
-    device = MockDevice()
+_SMART_RETURN = (
+    "anime_game_afk.games.aether_gazer.ops.navigate.smart_return"
+    ".SmartReturnToHubOp.run"
+)
+
+
+def _run_with_mocks(device=None):
+    device = device or MockDevice()
     ctx = TaskContext(device=device)
-    result = _run(CollectAllMail().execute(ctx))
+    with patch(
+        _SMART_RETURN,
+        AsyncMock(return_value=OpResult(success=True, data={"attempts": 0})),
+    ):
+        result = _run(CollectAllMail().execute(ctx))
+    return device, result
+
+
+def test_collect_all_mail_returns_success():
+    _, result = _run_with_mocks()
     assert result.status == "success"
     assert result.data.get("action") == "mail_collected"
 
 
 def test_collect_all_mail_presses_h_shortcut():
     """CollectAllMail uses H shortcut to open mail panel."""
-    device = MockDevice()
-    ctx = TaskContext(device=device)
-    _run(CollectAllMail().execute(ctx))
+    device, _ = _run_with_mocks()
     assert VK_H in device.key_log
 
 
-def test_collect_all_mail_presses_escape_to_close():
-    """CollectAllMail presses ESC to close mail panel."""
-    device = MockDevice()
-    ctx = TaskContext(device=device)
-    _run(CollectAllMail().execute(ctx))
-    assert VK_ESCAPE in device.key_log
-
-
 def test_collect_all_mail_clicks_collect_all():
-    """CollectAllMail clicks the Collect All button."""
-    device = MockDevice()
-    ctx = TaskContext(device=device)
-    _run(CollectAllMail().execute(ctx))
-    assert (1400, 820) in device.click_log
+    """CollectAllMail clicks the collect-all button at verified coordinates."""
+    device, _ = _run_with_mocks()
+    assert (_COLLECT_ALL_X, _COLLECT_ALL_Y) in device.click_log
+
+
+def test_collect_all_mail_dismisses_with_enter():
+    """CollectAllMail presses Enter to dismiss reward popup."""
+    device, _ = _run_with_mocks()
+    assert VK_ENTER in device.key_log
 
 
 def test_collect_all_mail_can_run():
