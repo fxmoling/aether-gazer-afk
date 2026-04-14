@@ -55,6 +55,8 @@ MAIN_HUB = PageDef(
         E("进修企划", "Training", P(100, 260), "training"),
         E("入职活动", "Events", P(100, 370), "events"),
         E("头像", "Avatar", P(50, 40), "player_info"),
+        # Top bar resources (only visible when UI is active, not idle)
+        E("体力", "Stamina", P(850, 35), "stamina_panel"),
     ),
     parent_page="",
 )
@@ -261,8 +263,8 @@ TACTICS = PageDef(
     page_id="tactics", name="对策协议", name_en="Tactics Protocol",
     elements=(
         E("返回", "Back", P(35, 35), "main_hub"),
-        E("任务", "Tasks", P(120, 870)),
-        E("商店", "Shop", P(280, 870)),
+        E("任务", "Tasks", P(162, 839)),
+        E("商店", "Shop", P(379, 839)),
     ),
 )
 
@@ -292,6 +294,20 @@ PLAYER_INFO = PageDef(
     is_overlay=True,
 )
 
+# ── Stamina panel (overlay opened from hub top bar) ──
+
+STAMINA_PANEL = PageDef(
+    page_id="stamina_panel", name="体力面板", name_en="Stamina Panel",
+    # Three tabs with fixed positions (verified 2026-04-05)
+    elements=(
+        E("冷却剂", "Coolant", P(451, 155)),
+        E("移转之辉", "Transfer Light", P(783, 153)),
+        E("每日补给", "Daily Supply", P(1113, 154)),
+    ),
+    is_overlay=True,
+    parent_page="main_hub",
+)
+
 # ============================================================
 # Page registry
 # ============================================================
@@ -305,6 +321,7 @@ ALL_PAGES: dict[str, PageDef] = {
         BATTLE_SELECT, BATTLE_INTEL, MAIN_STORY_MAP,
         DAILY_TASKS, MAIL,
         SETTINGS_PANEL, TACTICS, TRAINING, EVENTS, PLAYER_INFO,
+        STAMINA_PANEL,
     ]
 }
 

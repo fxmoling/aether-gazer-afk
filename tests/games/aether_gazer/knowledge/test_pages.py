@@ -9,8 +9,8 @@ from anime_game_afk.games.aether_gazer.knowledge.pages import (
 
 
 def test_total_page_count():
-    """All 22 pages defined (15 top-level + 7 sub-pages)."""
-    assert len(ALL_PAGES) == 22
+    """All 23 pages defined (15 top-level + 7 sub-pages + 1 stamina panel)."""
+    assert len(ALL_PAGES) == 23
 
 
 def test_main_hub_exists():
@@ -23,7 +23,7 @@ def test_main_hub_exists():
 def test_main_hub_elements():
     hub = get_page("main_hub")
     assert hub is not None
-    assert len(hub.elements) == 11
+    assert len(hub.elements) == 12
 
 
 def test_unsafe_pages():

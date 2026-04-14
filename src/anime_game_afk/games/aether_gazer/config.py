@@ -11,10 +11,10 @@ AETHER_GAZER_CONFIG = GameConfig(
     window_title="AetherGazer",
     resource_path=Path("assets/aether_gazer/resource"),
     # FramePool: DXGI 帧池捕获，不发送窗口消息，游戏无法检测
-    # 避免使用 Background(=PrintWindow|FramePool)，PrintWindow 会触发游戏截图音效
     screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-    # SendMessageWithCursorPos: 先移动物理光标再发消息，Unity 游戏兼容性更好
-    # M9A (重返未来1999) 也使用此方法
+    # SendMessageWithCursorPos: 光标会瞬间闪动+BlockInput，但是Unity唯一有效输入方式
+    # PostMessageWithWindowPos 会导致窗口跳变+画面闪烁，体验更差
+    # TODO: 探索 CreateDesktopW / Android 模拟器方案彻底解决后台操作
     mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
     keyboard_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
 )

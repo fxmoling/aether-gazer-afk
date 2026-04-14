@@ -14,6 +14,7 @@ VK_SPACE = 0x20
 VK_G = 0x47       # Daily tasks panel
 VK_H = 0x48       # Mail panel
 VK_J_HUB = 0x4A   # Battle select (same physical key as attack J)
+VK_T = 0x54       # Tactics protocol (对策协议)
 
 # --- Battle attack keys ---
 VK_J = 0x4A       # Normal attack
@@ -44,7 +45,7 @@ MOVE_KEYS = [VK_W, VK_A, VK_S, VK_D]
 # --- Human-readable names for logging ---
 KEY_NAMES: dict[int, str] = {
     VK_ESCAPE: "ESC", VK_ENTER: "Enter", VK_TAB: "Tab",
-    VK_SPACE: "Space", VK_G: "G", VK_H: "H",
+    VK_SPACE: "Space", VK_G: "G", VK_H: "H", VK_T: "T",
     VK_J: "J", VK_U: "U", VK_I: "I", VK_O: "O", VK_R: "R",
     VK_1: "1", VK_2: "2",
     VK_W: "W", VK_A: "A", VK_S: "S", VK_D: "D",

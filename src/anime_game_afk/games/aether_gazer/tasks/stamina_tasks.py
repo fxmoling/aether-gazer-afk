@@ -15,6 +15,11 @@ _REFILL_THRESHOLD = 60
 class CheckAndRefillStamina:
     """Check stamina level; skip task if already sufficient."""
     name = "check_and_refill_stamina"
+    description = "Check stamina and use packs if below threshold"
+    category = "resource"
+    requires_pages = ()
+    requires_ocr = True
+    safe = False  # Uses stamina packs
 
     def __init__(self, threshold: int = _REFILL_THRESHOLD) -> None:
         self._threshold = threshold

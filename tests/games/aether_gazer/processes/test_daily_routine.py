@@ -1,4 +1,7 @@
-"""Tests for processes.daily_routine — DailyRoutine."""
+"""Tests for processes.daily_routine — DailyRoutine.
+
+DailyRoutine now runs 10 tasks. All must be mocked.
+"""
 import asyncio
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, patch
@@ -6,7 +9,10 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
-from anime_game_afk.games.aether_gazer.processes.daily_routine import DailyRoutine
+from anime_game_afk.games.aether_gazer.processes.daily_routine import (
+    DailyRoutine,
+    _DAILY_TASKS,
+)
 from anime_game_afk.games.aether_gazer.tasks.base import TaskResult
 
 
@@ -29,15 +35,57 @@ def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-def _task_success():
-    return AsyncMock(return_value=TaskResult(status="success"))
+def _task_success(**data):
+    return AsyncMock(return_value=TaskResult(status="success", data=data))
 
 
 def _task_failed():
     return AsyncMock(return_value=TaskResult(status="failed", message="err"))
 
 
-# --- DailyRoutine ---
+_MOD = "anime_game_afk.games.aether_gazer.processes.daily_routine"
+
+# All task class names that need mocking (derived from _DAILY_TASKS)
+_TASK_CLASSES = [
+    "SkipStartupPopups",
+    "CollectAllMail",
+    "BuyIntelShards",
+    "ClaimDailyStaminaPacks",
+    "ClaimFreeStamina",
+    "MimiStationCollect",
+    "GuildSupplyClaim",
+    "AmusementStreetDaily",
+    "JointDefenseSweep",
+    "DailyWeeklyMissionClaim",
+    "TacticsTaskClaim",
+]
+
+
+def _patch_all(execute_mock=None, can_run_val=True):
+    """Create patches for ReturnToHub + all 7 task classes."""
+    patches = [
+        patch(f"{_MOD}.ReturnToHub.execute", _task_success()),
+    ]
+    for cls_name in _TASK_CLASSES:
+        ex_mock = execute_mock or _task_success()
+        patches.append(patch(f"{_MOD}.{cls_name}.execute", ex_mock))
+        patches.append(
+            patch(f"{_MOD}.{cls_name}.can_run", AsyncMock(return_value=can_run_val))
+        )
+    return patches
+
+
+def _start_patches(patches):
+    for p in patches:
+        p.start()
+
+
+def _stop_patches(patches):
+    for p in patches:
+        p.stop()
+
+
+# --- Tests ---
 
 def test_daily_routine_name_and_description():
     proc = DailyRoutine()
@@ -45,128 +93,66 @@ def test_daily_routine_name_and_description():
     assert len(proc.description) > 0
 
 
+def test_daily_routine_task_count():
+    """DailyRoutine has 11 tasks (startup + 10 daily)."""
+    assert len(_DAILY_TASKS) == 11
+
+
 def test_daily_routine_completes_all_tasks():
-    """Happy path: both mail and stamina complete successfully."""
+    """Happy path: all 10 tasks succeed."""
     device = MockDevice()
     ctx = ProcessContext(device=device)
 
-    with patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ReturnToHub.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.can_run",
-        AsyncMock(return_value=True),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.can_run",
-        AsyncMock(return_value=True),
-    ):
+    patches = _patch_all()
+    _start_patches(patches)
+    try:
         result = _run(DailyRoutine().execute(ctx))
+    finally:
+        _stop_patches(patches)
 
     assert result.status == "success"
-    assert "mail" in result.data["completed"]
-    assert "free_stamina" in result.data["completed"]
+    assert len(result.data["completed"]) == 11
+    assert len(result.data["failed"]) == 0
 
 
-def test_daily_routine_skips_failed_mail():
-    """If mail fails, it's not in completed list but routine continues."""
+def test_daily_routine_handles_failures():
+    """If all tasks fail, completed is empty but process still succeeds."""
     device = MockDevice()
     ctx = ProcessContext(device=device)
 
-    with patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ReturnToHub.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.execute",
-        _task_failed(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.can_run",
-        AsyncMock(return_value=True),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.can_run",
-        AsyncMock(return_value=True),
-    ):
+    patches = [
+        patch(f"{_MOD}.ReturnToHub.execute", _task_success()),
+    ]
+    for cls_name in _TASK_CLASSES:
+        patches.append(patch(f"{_MOD}.{cls_name}.execute", _task_failed()))
+        patches.append(
+            patch(f"{_MOD}.{cls_name}.can_run", AsyncMock(return_value=True))
+        )
+
+    _start_patches(patches)
+    try:
         result = _run(DailyRoutine().execute(ctx))
-
-    assert result.status == "success"
-    assert "mail" not in result.data["completed"]
-    assert "free_stamina" in result.data["completed"]
-
-
-def test_daily_routine_skips_stamina_if_cannot_run():
-    """If stamina task can_run returns False, it's not executed."""
-    device = MockDevice()
-    ctx = ProcessContext(device=device)
-
-    with patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ReturnToHub.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.can_run",
-        AsyncMock(return_value=True),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.can_run",
-        AsyncMock(return_value=False),
-    ):
-        result = _run(DailyRoutine().execute(ctx))
-
-    assert result.status == "success"
-    assert "free_stamina" not in result.data["completed"]
-    assert "mail" in result.data["completed"]
-
-
-def test_daily_routine_returns_empty_if_all_fail():
-    """If all tasks fail, completed list is empty but process still succeeds."""
-    device = MockDevice()
-    ctx = ProcessContext(device=device)
-
-    with patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ReturnToHub.execute",
-        _task_success(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.execute",
-        _task_failed(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".CollectAllMail.can_run",
-        AsyncMock(return_value=True),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.execute",
-        _task_failed(),
-    ), patch(
-        "anime_game_afk.games.aether_gazer.processes.daily_routine"
-        ".ClaimFreeStamina.can_run",
-        AsyncMock(return_value=True),
-    ):
-        result = _run(DailyRoutine().execute(ctx))
+    finally:
+        _stop_patches(patches)
 
     assert result.status == "success"
     assert result.data["completed"] == []
+    assert len(result.data["failed"]) == 11
+
+
+def test_daily_routine_skips_if_cannot_run():
+    """Tasks with can_run=False are skipped."""
+    device = MockDevice()
+    ctx = ProcessContext(device=device)
+
+    patches = _patch_all(can_run_val=False)
+    _start_patches(patches)
+    try:
+        result = _run(DailyRoutine().execute(ctx))
+    finally:
+        _stop_patches(patches)
+
+    assert result.status == "success"
+    # No tasks executed, no failures
+    assert result.data["completed"] == []
+    assert result.data["failed"] == []

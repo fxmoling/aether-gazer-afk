@@ -57,7 +57,10 @@ def _load_templates() -> dict[str, list[dict]]:
     for page_id, templates in index.items():
         loaded = []
         for tpl in templates:
-            img_path = TEMPLATE_DIR / tpl["path"] if not Path(tpl["path"]).is_absolute() else Path(tpl["path"])
+            # index.json paths are relative to project root (e.g. "assets/aether_gazer/templates/xxx.png")
+            # Do NOT prepend TEMPLATE_DIR again — that would double the path.
+            raw_path = tpl["path"]
+            img_path = Path(raw_path) if not Path(raw_path).is_absolute() else Path(raw_path)
             img = cv2.imread(str(img_path))
             if img is None:
                 continue

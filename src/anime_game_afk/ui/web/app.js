@@ -222,7 +222,11 @@ async function onStartRun() {
 }
 
 async function onStopRun() {
-    await pywebview.api.stop_run();
+    const result = await pywebview.api.stop_run();
+    // Immediately update UI — don't wait for polling
+    if (result.ok) {
+        document.getElementById("btn-stop").disabled = true;
+    }
 }
 
 function setRunning(running) {
@@ -248,23 +252,34 @@ function startStatusPolling() {
 
 function updateRunStatus(status) {
     const el = document.getElementById("run-status");
+    const btnStart = document.getElementById("btn-start");
+    const btnStop = document.getElementById("btn-stop");
+
     if (status.running) {
         const min = Math.floor(status.elapsed_s / 60);
         const sec = Math.floor(status.elapsed_s % 60);
         const timeStr = `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
         el.textContent = `${status.completed}/${status.total} 完成 · 运行中 ${timeStr}`;
-        setRunning(true);
-    } else if (status.completed > 0 || status.total > 0) {
-        el.textContent = `${status.completed}/${status.total} 完成`;
-        setRunning(false);
+        // Ensure stop button is always enabled while running
+        btnStart.disabled = true;
+        btnStop.disabled = false;
     } else {
-        el.textContent = "";
+        if (status.completed > 0 || status.total > 0) {
+            el.textContent = `${status.completed}/${status.total} 完成`;
+        } else {
+            el.textContent = "";
+        }
+        // Only re-enable start if connected
+        if (status.connected) {
+            btnStart.disabled = false;
+        }
+        btnStop.disabled = true;
     }
 
     // Update connection state
     const dot = document.getElementById("conn-dot");
     if (status.connected && dot.classList.contains("disconnected")) {
-        // Already connected but UI not updated (e.g., after page load)
+        setConnected(true);
     }
 }
 
@@ -307,6 +322,8 @@ window.updateTaskStatus = function (taskId, status) {
  */
 window.onRunComplete = function () {
     setRunning(false);
+    // Refresh pipeline data to sync all task statuses
+    loadPipelines();
 };
 
 // ─── Log management ───

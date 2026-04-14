@@ -81,6 +81,7 @@ def test_task_context_state_dict():
 class _SuccessTask:
     """Minimal Task implementation."""
     name = "success_task"
+    description = "A task that always succeeds"
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
         return TaskResult(status="success")
@@ -92,6 +93,7 @@ class _SuccessTask:
 class _SkipTask:
     """Task that always skips."""
     name = "skip_task"
+    description = "A task that always skips"
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
         return TaskResult(status="skipped", message="always skip")

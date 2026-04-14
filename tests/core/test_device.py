@@ -38,12 +38,12 @@ def _make_config(
     )
 
 
-def _fake_window(name: str, hwnd: int = 1) -> MagicMock:
+def _fake_window(name: str, hwnd: int = 1, class_name: str = "FakeClass") -> MagicMock:
     """Return a mock desktop-window object."""
     w = MagicMock()
     w.window_name = name
     w.hwnd = ctypes.c_void_p(hwnd)
-    w.class_name = "FakeClass"
+    w.class_name = class_name
     return w
 
 
@@ -122,7 +122,7 @@ def test_find_window_success() -> None:
 
     windows = [
         _fake_window("OtherApp", hwnd=10),
-        _fake_window("TestWindow - Level 1", hwnd=42),
+        _fake_window("TestWindow - Level 1", hwnd=42, class_name="UnityWndClass"),
     ]
     with patch("anime_game_afk.core.device.Toolkit") as mock_toolkit:
         mock_toolkit.find_desktop_windows.return_value = windows

@@ -41,6 +41,15 @@ Lessons from Wave 1 code review. **Must check for these in all future code.**
 **Rule**: Never return shared mutable sentinels. Use factory functions or frozen dataclasses.
 **Fix**: Replaced `_NO_MATCH` with `_no_match()` factory that returns a fresh instance each time.
 
+### 8. Test Mocks Must Match Real Import Paths
+**Problem**: After Op/Check refactoring, tests still patched old import paths like `tasks.startup_tasks.is_on_page` — but tasks no longer import those functions directly. They use Check/Op classes which import the functions internally.
+**Rule**: When refactoring imports, always update test mock paths to match where the function is actually looked up at runtime.
+**Fix** (2026-04-07): Updated all 4 task test files (22 failures → 0):
+- `test_startup_tasks.py`: Patch `checks.page.is_on_page`, `checks.page.ocr_once`, `checks.ocr.ocr_once` (the Check modules' imports)
+- `test_combat_tasks.py`: Patch `machine._detect.evaluate` (CheckResult) instead of `.run` (OpResult)
+- `test_mail_tasks.py`: Patch `SmartReturnToHubOp.run` instead of `mail_tasks.smart_return_to_hub`
+- `test_shop_tasks.py`: Patch `checks.ocr.ocr_find` instead of `shop_tasks.ocr_find`
+
 ## Checklist for Future Code Reviews
 
 - [ ] Layer isolation: does each file only import from lower layers?
@@ -50,3 +59,4 @@ Lessons from Wave 1 code review. **Must check for these in all future code.**
 - [ ] File reads: corrupt/missing handled gracefully?
 - [ ] Mutable globals: no shared mutable sentinels returned to callers?
 - [ ] Simulated key holds: using rapid presses, not press+sleep?
+- [ ] Test mocks: patch paths match where the function is actually imported?

@@ -4,6 +4,7 @@ Responsibilities:
 - Window discovery and connection lifecycle (connect / disconnect)
 - Screenshot capture with automatic design-resolution scaling
 - Input delegation (click, swipe, press_key, hold_key)
+- Custom click implementation that hides cursor instead of BlockInput
 
 Explicitly out of scope:
 - Resource loading (no ``maa.resource.Resource``)
@@ -12,6 +13,7 @@ Explicitly out of scope:
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes
 import time
 
 import cv2
@@ -26,6 +28,78 @@ from anime_game_afk.core.errors import (
     WindowNotFoundError,
 )
 from anime_game_afk.core.types import DeviceConfig, Resolution
+
+# Win32 API constants and functions
+_user32 = ctypes.windll.user32
+
+WM_MOUSEMOVE = 0x0200
+WM_LBUTTONDOWN = 0x0201
+WM_LBUTTONUP = 0x0202
+MK_LBUTTON = 0x0001
+
+# SWP flags
+SWP_NOSIZE = 0x0001
+SWP_NOZORDER = 0x0004
+SWP_NOACTIVATE = 0x0010
+
+
+class _POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.wintypes.LONG), ("y", ctypes.wintypes.LONG)]
+
+
+class _RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.wintypes.LONG),
+        ("top", ctypes.wintypes.LONG),
+        ("right", ctypes.wintypes.LONG),
+        ("bottom", ctypes.wintypes.LONG),
+    ]
+
+
+def _client_to_screen(hwnd, x: int, y: int) -> tuple[int, int]:
+    """Convert client coordinates to screen coordinates."""
+    pt = _POINT(x, y)
+    _user32.ClientToScreen(hwnd, ctypes.byref(pt))
+    return pt.x, pt.y
+
+
+def _send_click(hwnd, client_x: int, client_y: int) -> None:
+    """Send a click via SetCursorPos + SendMessage, with cursor hidden.
+
+    This avoids MaaFramework's BlockInput(TRUE) which blocks all
+    keyboard and mouse input system-wide. Instead we:
+    1. Hide the cursor (ShowCursor(FALSE))
+    2. Save + move cursor to target screen position
+    3. SendMessage WM_MOUSEMOVE + WM_LBUTTONDOWN + WM_LBUTTONUP
+    4. Restore cursor to original position
+    5. Show cursor (ShowCursor(TRUE))
+
+    The cursor is invisible during the move so users see no flicker,
+    and keyboard input is never blocked.
+    """
+    # Save original cursor position
+    orig = _POINT()
+    _user32.GetCursorPos(ctypes.byref(orig))
+
+    # Convert client coords to screen coords
+    sx, sy = _client_to_screen(hwnd, client_x, client_y)
+
+    # Hide cursor → move → click → restore → show
+    _user32.ShowCursor(False)
+    try:
+        _user32.SetCursorPos(sx, sy)
+        time.sleep(0.001)  # 1ms settle (MaaFw uses 1ms too)
+
+        lparam = client_y << 16 | (client_x & 0xFFFF)
+        _user32.SendMessageW(hwnd, WM_MOUSEMOVE, 0, lparam)
+        _user32.SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
+        time.sleep(0.01)  # 10ms hold
+        _user32.SendMessageW(hwnd, WM_LBUTTONUP, 0, lparam)
+
+        time.sleep(0.001)
+        _user32.SetCursorPos(orig.x, orig.y)
+    finally:
+        _user32.ShowCursor(True)
 
 
 class DeviceAdapter:
@@ -48,6 +122,8 @@ class DeviceAdapter:
         self._config = config
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
+        # Custom click bypasses MaaFw's BlockInput; enabled after connect()
+        self._use_custom_click: bool = False
 
         design_w, design_h = config.design_resolution
         self._design = Resolution(width=design_w, height=design_h)
@@ -84,20 +160,38 @@ class DeviceAdapter:
     # ------------------------------------------------------------------
 
     def find_window(self) -> ctypes.c_void_p:
-        """Search for the game window by title substring.
+        """Search for the game window by title.
+
+        Two-pass matching:
+        1. Exact title match (strongest signal)
+        2. Substring match but ONLY for Unity windows (UnityWndClass)
+           to avoid attaching to our own tool windows
 
         Returns:
             Win32 window handle (HWND) of the matching window.
 
         Raises:
-            WindowNotFoundError: No visible window contains
-                ``config.window_title`` in its name.
+            WindowNotFoundError: No matching window found.
         """
         windows = Toolkit.find_desktop_windows()
+        title = self._config.window_title
+
+        # Pass 1: exact title match
         for w in windows:
-            if self._config.window_title in w.window_name:
+            if w.window_name == title:
                 logger.info(
-                    "Found game window: title={!r} hwnd={} class={!r}",
+                    "Found game window (exact): title={!r} hwnd={} class={!r}",
+                    w.window_name,
+                    w.hwnd,
+                    w.class_name,
+                )
+                return w.hwnd
+
+        # Pass 2: substring match, Unity windows only
+        for w in windows:
+            if title in w.window_name and w.class_name == "UnityWndClass":
+                logger.info(
+                    "Found game window (Unity): title={!r} hwnd={} class={!r}",
                     w.window_name,
                     w.hwnd,
                     w.class_name,
@@ -105,7 +199,7 @@ class DeviceAdapter:
                 return w.hwnd
 
         raise WindowNotFoundError(
-            f"Window not found: {self._config.window_title!r}"
+            f"Window not found: {title!r}"
         )
 
     def connect(self) -> None:
@@ -155,6 +249,9 @@ class DeviceAdapter:
             "DeviceAdapter connected: window={!r} resolution={}x{}",
             self._config.window_title, actual_w, actual_h,
         )
+
+        # Enable custom click (ShowCursor hide instead of BlockInput)
+        self._use_custom_click = True
 
     def disconnect(self) -> None:
         """Release the controller and reset all connection state."""
@@ -225,6 +322,10 @@ class DeviceAdapter:
 
     def click(self, x: int, y: int) -> None:
         """Send a mouse click at design-resolution coordinates.
+
+        Uses MaaFramework's SendMessageWithCursorPos internally.
+        This briefly moves the physical cursor and calls BlockInput,
+        but is the only reliable method for Unity games.
 
         Args:
             x: Horizontal position in design-resolution pixels.

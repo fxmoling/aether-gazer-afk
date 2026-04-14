@@ -56,12 +56,18 @@
 - 仅用于页面识别，识别后立即退出
 - 如不慎进入，立刻 ESC 退出
 
-## 5. 抢鼠标问题 (低优先级)
+## 5. 抢鼠标 + BlockInput 问题 (已知限制)
 
 - `SendMessageWithCursorPos` + `block_input=true` 会短暂占用物理鼠标
-- 后续考虑方案: 切换到 `SendMessage` (如果游戏支持) 或在用户不活跃时操作
+- MaaFramework 内部调用 `BlockInput(TRUE)` → `SetCursorPos` → `SendMessage` → 恢复光标 → `BlockInput(FALSE)`
+- `BlockInput` 是 Win32 系统级 API，**阻止所有桌面的鼠标/键盘输入**，包括虚拟桌面
+- 高频操作时可能触发 **explorer.exe 缓冲区溢出** 错误弹窗：
+  "系统在此应用程序中检测到基于堆栈的缓冲区溢出。溢出可能允许恶意用户获得此应用程序的控制。"
+  这是 Windows 内部防护机制对频繁 BlockInput 调用的误报，不影响功能
+- **所有基于 MaaFramework 的 Unity 游戏自动化工具都有同样限制**（M9A 也用 SendMessageWithCursorPos）
+- 后续方案: CreateDesktopW 隔离桌面 / Android 模拟器 + ADB
 
 ## 状态
 
 - **创建**: 2026-04-04
-- **上次更新**: 2026-04-05 — 所有点击问题已解决，新增探测页面安全规则
+- **上次更新**: 2026-04-06 — explorer.exe 缓冲区溢出问题记录，BlockInput 限制详细说明

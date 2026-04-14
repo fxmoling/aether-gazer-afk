@@ -1,1 +1,1 @@
-"""Navigate ops — go back, return to hub, goto page, wake UI."""
+"""Navigate ops — go back, return to hub, smart return, goto page, wake UI."""

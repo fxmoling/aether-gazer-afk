@@ -134,6 +134,15 @@ config.json
 settings.json
 user_config.json
 
+# User-specific runtime config (game paths, UI state)
+/config/
+
+# Superpowers plugin cache
+.superpowers/
+
+# Temporary session files
+.tmp/
+
 # Claude Code workspace (contains sensitive project info)
 .claude/
 

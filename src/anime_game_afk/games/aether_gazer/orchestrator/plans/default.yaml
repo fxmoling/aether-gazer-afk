@@ -6,8 +6,19 @@
 #
 # Usage:
 #   python scripts/run.py --plan path/to/your_plan.yaml
+#   python scripts/run.py --launch                         # Launch game first
+#   python scripts/run.py --launch --plan my_plan.yaml     # Launch + custom plan
+#   python scripts/run.py --detect-game                    # Find game installation
 
 game: aether_gazer
+
+# ── Launch settings ──────────────────────────────────────
+# Game launch is handled via CLI flags (--launch / --no-launch),
+# not as a pipeline process. This is because launching must happen
+# BEFORE the device adapter connects.
+#
+# Per-game launch paths are stored in config/user_config.yaml.
+# Run `python scripts/run.py --detect-game` to auto-detect.
 
 processes:
   # Complete daily tasks: sign-in, daily missions, collect rewards
