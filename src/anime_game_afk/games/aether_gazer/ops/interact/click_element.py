@@ -4,7 +4,7 @@ Looks up the element by English name (name_en) in the page's
 element list, then clicks its coordinate. Refuses to click
 unsafe elements unless force=True.
 
-Composite Op: uses ClickOp primitive internally.
+Composite Action: uses ClickOp primitive internally.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import ClickOp
 
 
-class ClickElementOp:
+class ClickElementAction:
     """Click a named element on a specified page."""
 
     def __init__(

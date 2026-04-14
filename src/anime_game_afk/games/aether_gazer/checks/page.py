@@ -60,12 +60,22 @@ class IdentifyPageCheck:
 # Hub detection keywords — must match helpers._HUB_KEYWORDS
 _HUB_KEYWORDS = ("前往作战", "探测", "修正者", "仓库")
 
+# Partial hub keywords — if we see at least 2, probably at hub
+# (some may be obscured by overlays or idle mode)
+_HUB_MIN_KEYWORDS = 2
+
 
 class AtHubCheck:
     """Check if we are at the main hub.
 
     Strategy: fast template match first (~5ms), OCR fallback (~2s).
-    Requires ALL 4 keywords visible to confirm hub via OCR.
+
+    OCR detection uses a relaxed threshold: if at least 2 of the 4
+    hub keywords are visible, we consider it hub. This handles cases
+    where the hub is partially obscured (idle mode, overlays, popups).
+
+    The strict 4-keyword check was causing false negatives when the
+    hub was in idle mode (UI hidden) or had an overlay on top.
     """
 
     async def evaluate(self, ctx: OpContext) -> CheckResult:
@@ -79,16 +89,21 @@ class AtHubCheck:
                 message="at hub (template match)",
             )
 
-        # Slow path: OCR with 4 keywords
+        # Slow path: OCR with relaxed keyword matching
         ocr = ocr_once(img)
-        if ocr.has_all(*_HUB_KEYWORDS):
+
+        # Count how many hub keywords are visible
+        found = [kw for kw in _HUB_KEYWORDS if ocr.has(kw)]
+
+        if len(found) >= _HUB_MIN_KEYWORDS:
             return CheckResult(
                 passed=True,
-                data={"method": "ocr"},
-                message="at hub (OCR 4-keyword)",
+                data={"method": "ocr", "keywords_found": found},
+                message=f"at hub (OCR {len(found)}/{len(_HUB_KEYWORDS)} keywords)",
             )
 
         return CheckResult(
             passed=False,
-            message="not at hub",
+            data={"keywords_found": found},
+            message=f"not at hub (only {len(found)}/{len(_HUB_KEYWORDS)} keywords)",
         )

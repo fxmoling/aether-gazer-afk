@@ -5,9 +5,9 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
-from anime_game_afk.games.aether_gazer.ops.navigate.go_back import GoBackOp
+from anime_game_afk.games.aether_gazer.ops.navigate.go_back import GoBackAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import (
-    WakeHubUiOp,
+    WakeHubUiAction,
 )
 
 
@@ -33,7 +33,7 @@ def _run(coro):
 def test_wake_hub_ui_clicks_center():
     device = MockDevice()
     ctx = OpContext(device=device)
-    result = _run(WakeHubUiOp().run(ctx))
+    result = _run(WakeHubUiAction().run(ctx))
     assert result.success
     assert (800, 450) in device.click_log
 
@@ -41,7 +41,7 @@ def test_wake_hub_ui_clicks_center():
 def test_go_back_unknown_presses_esc():
     device = MockDevice()
     ctx = OpContext(device=device)
-    result = _run(GoBackOp("unknown").run(ctx))
+    result = _run(GoBackAction("unknown").run(ctx))
     assert result.success
     assert 0x1B in device.key_log  # VK_ESCAPE
 
@@ -49,6 +49,6 @@ def test_go_back_unknown_presses_esc():
 def test_go_back_shop_clicks_back():
     device = MockDevice()
     ctx = OpContext(device=device)
-    result = _run(GoBackOp("shop").run(ctx))
+    result = _run(GoBackAction("shop").run(ctx))
     assert result.success
     assert (35, 35) in device.click_log

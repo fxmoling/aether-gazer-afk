@@ -8,7 +8,7 @@ Important: Hub active + ESC = "是否退出游戏?" dialog.
            Hub idle + ESC = wake UI.
 So we must detect and cancel the exit dialog after pressing ESC.
 
-Composite Op: uses PressKeyOp/ClickOp primitives + HasTextCheck.
+Composite Action: uses PressKeyOp/ClickOp primitives + HasTextCheck.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
 )
 
 
-class WakeHubUiOp:
+class WakeHubUiAction:
     """Wake idle hub UI using ESC key, with exit-dialog safety check."""
 
     async def run(self, ctx: OpContext) -> OpResult:

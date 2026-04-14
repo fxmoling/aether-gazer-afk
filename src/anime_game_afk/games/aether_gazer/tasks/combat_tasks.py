@@ -20,16 +20,16 @@ from anime_game_afk.games.aether_gazer.knowledge.constants import (
 )
 from anime_game_afk.games.aether_gazer.ops.base import GameState
 from anime_game_afk.games.aether_gazer.ops.combat.attack_cycle import (
-    AttackCycleOp,
+    AttackCycleAction,
 )
 from anime_game_afk.games.aether_gazer.ops.combat.handle_revive import (
-    HandleReviveOp,
+    HandleReviveAction,
 )
 from anime_game_afk.games.aether_gazer.ops.interact.skip_cutscene import (
-    SkipCutsceneOp,
+    SkipCutsceneAction,
 )
 from anime_game_afk.games.aether_gazer.ops.interact.advance_dialogue import (
-    AdvanceDialogueOp,
+    AdvanceDialogueAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     PressKeyOp,
@@ -53,10 +53,10 @@ class CombatStateMachine:
 
     def __init__(self) -> None:
         self._detect = DetectGameStateCheck()
-        self._attack = AttackCycleOp()
-        self._revive = HandleReviveOp()
-        self._skip = SkipCutsceneOp()
-        self._dialogue = AdvanceDialogueOp()
+        self._attack = AttackCycleAction()
+        self._revive = HandleReviveAction()
+        self._skip = SkipCutsceneAction()
+        self._dialogue = AdvanceDialogueAction()
         self._unknown_count = 0
 
     async def can_run(self, ctx: TaskContext) -> bool:

@@ -4,10 +4,10 @@ Composes navigate ops with verification and retry logic.
 """
 from __future__ import annotations
 
-from anime_game_afk.games.aether_gazer.ops.navigate.return_to_hub import (
-    ReturnToHubOp,
+from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
+    ReturnToHubAction,
 )
-from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageOp
+from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageAction
 from anime_game_afk.games.aether_gazer.ops.primitives import ClickOp
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
@@ -25,7 +25,7 @@ class ReturnToHub:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        op = ReturnToHubOp()
+        op = ReturnToHubAction()
         result = await op.run(ctx)
         if result.success:
             return TaskResult(status="success")
@@ -46,7 +46,7 @@ class EnterMainStory:
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
         # Hub -> Battle Select
-        goto = GotoPageOp(target_page_id="battle_select")
+        goto = GotoPageAction(target_page_id="battle_select")
         result = await goto.run(ctx)
         if not result.success:
             return TaskResult(

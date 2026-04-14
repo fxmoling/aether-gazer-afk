@@ -2,7 +2,7 @@
 
 Presses Space to push dialogue forward. Simple single-action op.
 
-Composite Op: uses PressKeyOp primitive internally.
+Composite Action: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
-class AdvanceDialogueOp:
+class AdvanceDialogueAction:
     """Press Space to advance dialogue."""
 
     def __init__(self, wait_after: float = 0.4) -> None:

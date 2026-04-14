@@ -6,16 +6,16 @@ import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
 from anime_game_afk.games.aether_gazer.ops.interact.advance_dialogue import (
-    AdvanceDialogueOp,
+    AdvanceDialogueAction,
 )
 from anime_game_afk.games.aether_gazer.ops.interact.click_element import (
-    ClickElementOp,
+    ClickElementAction,
 )
 from anime_game_afk.games.aether_gazer.ops.interact.confirm_popup import (
-    ConfirmPopupOp,
+    ConfirmPopupAction,
 )
 from anime_game_afk.games.aether_gazer.ops.interact.skip_cutscene import (
-    SkipCutsceneOp,
+    SkipCutsceneAction,
 )
 
 
@@ -41,7 +41,7 @@ def _run(coro):
 def test_click_element_success():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ClickElementOp("main_hub", "Shop", wait_after=0.0)
+    op = ClickElementAction("main_hub", "Shop", wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert (910, 850) in device.click_log
@@ -50,7 +50,7 @@ def test_click_element_success():
 def test_click_element_not_found():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ClickElementOp("main_hub", "Nonexistent", wait_after=0.0)
+    op = ClickElementAction("main_hub", "Nonexistent", wait_after=0.0)
     result = _run(op.run(ctx))
     assert not result.success
     assert "not found" in result.error
@@ -59,7 +59,7 @@ def test_click_element_not_found():
 def test_click_element_unsafe_blocked():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ClickElementOp("main_hub", "Gacha", wait_after=0.0)
+    op = ClickElementAction("main_hub", "Gacha", wait_after=0.0)
     result = _run(op.run(ctx))
     assert not result.success
     assert "unsafe" in result.error
@@ -68,7 +68,7 @@ def test_click_element_unsafe_blocked():
 def test_click_element_unsafe_forced():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ClickElementOp(
+    op = ClickElementAction(
         "main_hub", "Gacha", wait_after=0.0, force_unsafe=True
     )
     result = _run(op.run(ctx))
@@ -78,7 +78,7 @@ def test_click_element_unsafe_forced():
 def test_skip_cutscene():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = SkipCutsceneOp(confirm_wait=0.0)
+    op = SkipCutsceneAction(confirm_wait=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert 0x1B in device.key_log  # ESC
@@ -88,7 +88,7 @@ def test_skip_cutscene():
 def test_advance_dialogue():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = AdvanceDialogueOp(wait_after=0.0)
+    op = AdvanceDialogueAction(wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert 0x20 in device.key_log  # Space
@@ -97,7 +97,7 @@ def test_advance_dialogue():
 def test_confirm_popup_confirm():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ConfirmPopupOp(confirm=True, wait_after=0.0)
+    op = ConfirmPopupAction(confirm=True, wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert result.data["confirmed"] is True
@@ -107,7 +107,7 @@ def test_confirm_popup_confirm():
 def test_confirm_popup_dismiss():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = ConfirmPopupOp(confirm=False, wait_after=0.0)
+    op = ConfirmPopupAction(confirm=False, wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert result.data["confirmed"] is False

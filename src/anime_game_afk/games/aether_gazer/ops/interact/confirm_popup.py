@@ -3,7 +3,7 @@
 Presses Enter to confirm or ESC to cancel.
 The action is configurable; default is confirm (Enter).
 
-Composite Op: uses PressKeyOp primitive internally.
+Composite Action: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
-class ConfirmPopupOp:
+class ConfirmPopupAction:
     """Respond to a popup dialog."""
 
     def __init__(

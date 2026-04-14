@@ -4,7 +4,7 @@ Presses the full attack rotation: J J U J I J O R 1 2
 with configurable interval between keys. Takes ~2.5s at
 default interval (0.25s * 10 keys).
 
-Composite Op: uses PressKeyOp primitives internally.
+Composite Action: uses PressKeyOp primitives internally.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
-class AttackCycleOp:
+class AttackCycleAction:
     """Execute one full attack key rotation."""
 
     def __init__(self, interval: float = BATTLE_KEY_INTERVAL) -> None:

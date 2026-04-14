@@ -41,7 +41,7 @@ def test_return_to_hub_success():
 
     with patch(
         "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
-        ".ReturnToHubOp.run",
+        ".ReturnToHubAction.run",
         AsyncMock(return_value=OpResult(success=True)),
     ):
         result = _run(ReturnToHub().execute(ctx))
@@ -56,7 +56,7 @@ def test_return_to_hub_failure():
 
     with patch(
         "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
-        ".ReturnToHubOp.run",
+        ".ReturnToHubAction.run",
         AsyncMock(return_value=OpResult(success=False, error="no hub")),
     ):
         result = _run(ReturnToHub().execute(ctx))
@@ -80,7 +80,7 @@ def test_enter_main_story_success():
 
     with patch(
         "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
-        ".GotoPageOp.run",
+        ".GotoPageAction.run",
         AsyncMock(
             return_value=OpResult(
                 success=True, data={"page_id": "battle_select"}
@@ -101,7 +101,7 @@ def test_enter_main_story_fails_if_cannot_reach_battle_select():
 
     with patch(
         "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
-        ".GotoPageOp.run",
+        ".GotoPageAction.run",
         AsyncMock(return_value=OpResult(success=False, error="nav failed")),
     ):
         result = _run(EnterMainStory().execute(ctx))
@@ -123,7 +123,7 @@ def test_enter_main_story_clicks_story_tabs():
 
     with patch(
         "anime_game_afk.games.aether_gazer.tasks.navigation_tasks"
-        ".GotoPageOp.run",
+        ".GotoPageAction.run",
         AsyncMock(
             return_value=OpResult(success=True, data={"page_id": "battle_select"})
         ),

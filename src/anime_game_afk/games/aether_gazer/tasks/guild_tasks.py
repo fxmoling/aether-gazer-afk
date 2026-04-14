@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
-    SmartReturnToHubOp,
+    ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -69,7 +69,7 @@ class GuildSupplyClaim:
             ctx.logger.warning(
                 "  '矩阵补给' not found via OCR, skipping guild supply"
             )
-            await SmartReturnToHubOp().run(ctx)
+            await ReturnToHubAction().run(ctx)
             return TaskResult(
                 status="skipped",
                 message="矩阵补给 button not found via OCR",
@@ -97,7 +97,7 @@ class GuildSupplyClaim:
 
         # Step 4: Return to hub
         ctx.logger.info("[Step 4] Return to hub")
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "guild_done")
 

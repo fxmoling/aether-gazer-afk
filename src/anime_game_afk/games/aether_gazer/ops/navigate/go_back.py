@@ -4,7 +4,7 @@ Presses ESC or clicks the back button (35, 35) depending on
 the current page's navigation edge. Falls back to ESC if no
 edge is found.
 
-Composite Op: uses ClickOp/PressKeyOp primitives internally.
+Composite Action: uses ClickOp/PressKeyOp primitives internally.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
 )
 
 
-class GoBackOp:
+class GoBackAction:
     """Go back from current page toward hub.
 
     Uses the navigation graph to determine the correct back action.

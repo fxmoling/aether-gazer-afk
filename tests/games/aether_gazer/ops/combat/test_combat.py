@@ -11,13 +11,13 @@ from anime_game_afk.games.aether_gazer.knowledge.keys import (
 )
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
 from anime_game_afk.games.aether_gazer.ops.combat.attack_cycle import (
-    AttackCycleOp,
+    AttackCycleAction,
 )
 from anime_game_afk.games.aether_gazer.ops.combat.handle_revive import (
-    HandleReviveOp,
+    HandleReviveAction,
 )
 from anime_game_afk.games.aether_gazer.ops.combat.walk_forward import (
-    WalkForwardOp,
+    WalkForwardAction,
 )
 
 
@@ -44,7 +44,7 @@ def _run(coro):
 def test_attack_cycle_presses_all_keys():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = AttackCycleOp(interval=0.0)
+    op = AttackCycleAction(interval=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert len(device.key_log) == len(ATTACK_CYCLE_KEYS)
@@ -56,7 +56,7 @@ def test_attack_cycle_order():
     """Keys are in correct order: J J U J I J O R 1 2."""
     device = MockDevice()
     ctx = OpContext(device=device)
-    _run(AttackCycleOp(interval=0.0).run(ctx))
+    _run(AttackCycleAction(interval=0.0).run(ctx))
     assert device.key_log[0] == 0x4A  # J
     assert device.key_log[2] == 0x55  # U
     assert device.key_log[4] == 0x49  # I
@@ -69,7 +69,7 @@ def test_attack_cycle_order():
 def test_handle_revive():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = HandleReviveOp(wait_after=0.0)
+    op = HandleReviveAction(wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
     assert VK_ENTER in device.key_log
@@ -79,7 +79,7 @@ def test_handle_revive():
 def test_walk_forward():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = WalkForwardOp(duration=1.5)
+    op = WalkForwardAction(duration=1.5)
     result = _run(op.run(ctx))
     assert result.success
     assert (VK_W, 1.5) in device.hold_log
@@ -89,7 +89,7 @@ def test_walk_forward():
 def test_walk_forward_default_duration():
     device = MockDevice()
     ctx = OpContext(device=device)
-    op = WalkForwardOp()
+    op = WalkForwardAction()
     result = _run(op.run(ctx))
     assert result.success
     assert result.data["duration"] == 2.0

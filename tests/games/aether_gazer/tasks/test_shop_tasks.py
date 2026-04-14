@@ -2,11 +2,11 @@
 
 Updated to match the Op/Check refactoring: shop tasks now use Check
 classes (HasTextCheck, FindTextCheck, etc.) instead of bare ocr_find
-imports, and SmartReturnToHubOp instead of smart_return_to_hub function.
+imports, and ReturnToHubAction instead of smart_return_to_hub function.
 
 Mock strategy: patch the underlying vision functions at the Check module
 level (checks.ocr.ocr_find, checks.ocr.ocr_once, etc.) and patch Op
-classes (ReturnToHubOp.run, WakeHubUiOp.run, etc.) at their class level.
+classes (ReturnToHubAction.run, WakeHubUiAction.run, etc.) at their class level.
 """
 import asyncio
 from dataclasses import dataclass, field
@@ -53,10 +53,10 @@ def _run(coro: Any) -> Any:
 
 # Patch targets for Op classes used by shop tasks
 _SHOP = "anime_game_afk.games.aether_gazer.tasks.shop_tasks"
-_RETURN_TO_HUB_RUN = f"{_SHOP}.ReturnToHubOp.run"
-_WAKE_HUB_RUN = f"{_SHOP}.WakeHubUiOp.run"
-_GOTO_PAGE_RUN = f"{_SHOP}.GotoPageOp.run"
-_SMART_RETURN_RUN = f"{_SHOP}.SmartReturnToHubOp.run"
+_RETURN_TO_HUB_RUN = f"{_SHOP}.ReturnToHubAction.run"
+_WAKE_HUB_RUN = f"{_SHOP}.WakeHubUiAction.run"
+_GOTO_PAGE_RUN = f"{_SHOP}.GotoPageAction.run"
+_SMART_RETURN_RUN = f"{_SHOP}.ReturnToHubAction.run"
 
 # Patch targets for underlying vision functions used by Check classes
 _OCR_FIND = "anime_game_afk.games.aether_gazer.checks.ocr.ocr_find"

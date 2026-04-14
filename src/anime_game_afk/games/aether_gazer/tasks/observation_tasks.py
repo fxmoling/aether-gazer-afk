@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_G, VK_T
-from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import RapidClickOp
+from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import RapidClickAction
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
-    SmartReturnToHubOp,
+    ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -79,7 +79,7 @@ class MimiStationCollect:
         ctx.logger.info(
             f"[Step 3] Rapid click 一键领取 at ({_MIMI_CLAIM_X},{_MIMI_CLAIM_Y}) ×4"
         )
-        await RapidClickOp(
+        await RapidClickAction(
             x=_MIMI_CLAIM_X, y=_MIMI_CLAIM_Y, times=4, interval=2.0,
         ).run(ctx)
         if run_log:
@@ -100,7 +100,7 @@ class MimiStationCollect:
             cx = x_btn.region.x + x_btn.region.w // 2
             cy = x_btn.region.y + x_btn.region.h // 2
             ctx.logger.info(f"  Found '{x_btn.text}' at ({cx},{cy}), clicking ×4")
-            await RapidClickOp(x=cx, y=cy, times=4, interval=2.0).run(ctx)
+            await RapidClickAction(x=cx, y=cy, times=4, interval=2.0).run(ctx)
             if run_log:
                 run_log.snap(ctx.device, "mimi_after_x_btn")
         else:
@@ -108,7 +108,7 @@ class MimiStationCollect:
 
         # Step 5: Return to hub
         ctx.logger.info("[Step 5] Return to hub")
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_done")
 
@@ -155,7 +155,7 @@ class DailyWeeklyMissionClaim:
             f"[Step 2] Rapid click 一键领取 at "
             f"({_DAILY_CLAIM_X},{_DAILY_CLAIM_Y}) ×5 (daily)"
         )
-        await RapidClickOp(
+        await RapidClickAction(
             x=_DAILY_CLAIM_X, y=_DAILY_CLAIM_Y, times=5, interval=0.5,
         ).run(ctx)
         if run_log:
@@ -174,7 +174,7 @@ class DailyWeeklyMissionClaim:
             f"[Step 4] Rapid click 一键领取 at "
             f"({_DAILY_CLAIM_X},{_DAILY_CLAIM_Y}) ×5 (weekly)"
         )
-        await RapidClickOp(
+        await RapidClickAction(
             x=_DAILY_CLAIM_X, y=_DAILY_CLAIM_Y, times=5, interval=0.5,
         ).run(ctx)
         if run_log:
@@ -183,7 +183,7 @@ class DailyWeeklyMissionClaim:
         # Step 5: Return to hub
         ctx.logger.info("[Step 5] Return to hub")
         await PressKeyOp(key=0x1B, wait=1.0).run(ctx)  # ESC
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mission_done")
 
@@ -240,7 +240,7 @@ class TacticsTaskClaim:
             f"[Step 3] Rapid click 一键领取 at "
             f"({_TACTICS_CLAIM_X},{_TACTICS_CLAIM_Y}) ×3"
         )
-        await RapidClickOp(
+        await RapidClickAction(
             x=_TACTICS_CLAIM_X, y=_TACTICS_CLAIM_Y, times=3, interval=0.5,
         ).run(ctx)
         if run_log:
@@ -248,7 +248,7 @@ class TacticsTaskClaim:
 
         # Step 4: Return to hub
         ctx.logger.info("[Step 4] Return to hub")
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "tactics_done")
 

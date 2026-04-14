@@ -15,8 +15,8 @@ from anime_game_afk.core.types import Rect
 from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
 from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
-from anime_game_afk.games.aether_gazer.ops.navigate.return_to_hub import ReturnToHubOp
-from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiOp
+from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
+from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
     PressKeyOp,
@@ -86,9 +86,9 @@ class JointDefenseSweep:
 
         # ── Step 1: Return to hub ──
         ctx.logger.info("[Step 1] Return to hub")
-        await WakeHubUiOp().run(ctx)
+        await WakeHubUiAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
-        result = await ReturnToHubOp().run(ctx)
+        result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("[Step 1] FAILED: cannot return to hub")
             return TaskResult(status="failed", message="Cannot return to hub")
@@ -103,7 +103,7 @@ class JointDefenseSweep:
         ocr = r.data
         if not ocr.has("前往作战"):
             ctx.logger.warning("[Step 1] Hub UI may be idle, waking")
-            await WakeHubUiOp().run(ctx)
+            await WakeHubUiAction().run(ctx)
             await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_hub")
@@ -554,6 +554,6 @@ class JointDefenseSweep:
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
 
         # Final fallback
-        ctx.logger.info("  return: using ReturnToHubOp as fallback")
-        await ReturnToHubOp().run(ctx)
+        ctx.logger.info("  return: using ReturnToHubAction as fallback")
+        await ReturnToHubAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)

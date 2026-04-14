@@ -3,7 +3,7 @@
 Used during exploration segments between battles.
 Holds W for a configurable duration (default 2 seconds).
 
-Composite Op: uses HoldKeyOp primitive internally.
+Composite Action: uses HoldKeyOp primitive internally.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import HoldKeyOp
 
 
-class WalkForwardOp:
+class WalkForwardAction:
     """Hold W to walk forward for a duration."""
 
     def __init__(self, duration: float = WALK_DEFAULT_DURATION) -> None:

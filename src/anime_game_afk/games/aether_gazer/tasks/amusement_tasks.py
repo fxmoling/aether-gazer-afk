@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
-    SmartReturnToHubOp,
+    ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -179,7 +179,7 @@ class AmusementStreetDaily:
         ctx.logger.info("[Step 7] ESC ×2 + return to hub")
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "amusement_done")
 

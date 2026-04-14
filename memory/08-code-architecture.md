@@ -6,41 +6,41 @@
 **Implementation plans**: `docs/superpowers/plans/2026-04-05-wave{1,2,3,4}*.md` ✅ all 4 waves written
 **Execution**: ✅ ALL 4 WAVES COMPLETE — 482 tests passing
 
-## Op/Check/Task 三层重构 (2026-04-07 session 7)
+## Op/Check/Task 四层架构 (2026-04-07 session 7, updated 2026-04-08)
 
 **Design spec**: `docs/superpowers/specs/2026-04-07-op-check-task-refactor-design.md` ✅ approved
-**Execution**: ✅ COMPLETE — 532 tests passing (482 → 532, +50 new)
+**Execution**: ✅ COMPLETE — 532 tests passing
 
-### 核心变更
-三种类型，三种职责，硬性边界：
-- **Op** — 改变世界（点击、按键、滑动、导航）
-- **Check** — 观察世界（截图 + OCR/模板匹配，返回结构化结果 CheckResult）
-- **Task** — 编排 Op + Check（禁止直接碰 ctx.device.* 和 vision.*）
+### 四层架构
+```
+Op      — 原始设备调用 (ClickOp, PressKeyOp, HoldKeyOp, SwipeOp, SleepOp, ScreenshotOp)
+Action  — 可复用的 Op+Check 组合 (ReturnToHubAction, AttackCycleAction, ...)
+Check   — 只观察不改变 (AtHubCheck, FindTextCheck, ...)
+Task    — 业务流程编排 Op+Action+Check (禁止直接碰 ctx.device.* 和 vision.*)
+```
 
-### 五条硬规则
-1. Task 禁止 `ctx.device.*` — 所有设备交互必须通过 Op
-2. Task 禁止直接调视觉函数 — 所有观察必须通过 Check
-3. 原始 Op 不调其他 Op — 复合 Op 只用原始 Op + Check
-4. Check 不改变状态 — 只截图 + 识别
-5. Op 和 Check 都是 class 式 (`__init__` 传参，利于未来序列化)
+### 命名规则
+- **XxxOp** = 原始设备调用 (6个，在 `ops/primitives.py`)
+- **XxxAction** = 可复用组合动作 (12个，在 `ops/navigate/`, `ops/interact/`, `ops/combat/`)
+- **XxxCheck** = 观察检查 (12个，在 `checks/`)
 
-### 新增文件
-- `checks/` 包: base.py, ocr.py, page.py, state.py, vision.py (11 个 Check 类)
-- `ops/primitives.py`: 6 个原始 Op (ClickOp, PressKeyOp, HoldKeyOp, SwipeOp, SleepOp, ScreenshotOp)
-- `ops/navigate/smart_return.py`: SmartReturnToHubOp (从 helpers 提升)
-- `ops/interact/rapid_click.py`: RapidClickOp (从 helpers 提升)
+### Action 清单 (原"复合 Op"，已重命名)
+- `ReturnToHubAction` — 合并了原 ReturnToHubOp + SmartReturnToHubOp
+- `GotoPageAction`, `GoBackAction`, `WakeHubUiAction` (导航)
+- `AttackCycleAction`, `WalkForwardAction`, `HandleReviveAction` (战斗)
+- `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction` (交互)
 
-### 重构文件
-- 8 个复合 Op: 内部改用原始 Op + Check，不再直接调 ctx.device.*
-- 10 个 Task: 全部改用 Op + Check，零 ctx.device.* 调用
-- 4 个测试文件更新 mock 路径
-- `tests/test_architecture.py`: 自动扫描 tasks/*.py 验证硬规则
+### Hub 检测优化 (2026-04-08)
+- AtHubCheck 放宽关键词阈值: 4/4 → 2/4 即判定为 hub
+- 解决 hub idle 状态下模板匹配 + OCR 4关键词同时失败的问题
 
 ### 层级依赖
 ```
 Layer 4:  knowledge/     ← 纯数据
 Layer 5A: checks/        ← imports: knowledge, vision (L2)
 Layer 5B: ops/           ← imports: knowledge, vision (L2), checks (L5A)
+    原始 Op (primitives) ← 只 imports: base (DevicePort)
+    Action (composite)   ← imports: 原始 Op, checks
 Layer 6:  tasks/         ← imports: ops (L5B), checks (L5A), 禁止 device/vision
 Layer 7:  processes/     ← imports: tasks (L6)
 ```

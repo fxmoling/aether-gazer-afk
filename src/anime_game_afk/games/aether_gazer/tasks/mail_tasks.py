@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_H, VK_ENTER
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
-    SmartReturnToHubOp,
+    ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -52,7 +52,7 @@ class CollectAllMail:
 
         # Step 4: Return to hub
         ctx.logger.info("[Step 4] Return to hub")
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
 
         ctx.logger.info("=== CollectAllMail: complete ===")
         return TaskResult(status="success", data={"action": "mail_collected"})

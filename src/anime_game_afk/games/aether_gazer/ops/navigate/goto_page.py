@@ -3,7 +3,7 @@
 Route: current_page -> main_hub -> target_page.
 Uses NavGraph to determine actions, template matching to verify.
 
-Composite Op: uses primitives + checks internally.
+Composite Action: uses primitives + checks internally.
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ async def _execute_nav_action(ctx: OpContext, action: NavAction) -> None:
         await PressKeyOp(key=VK_ESCAPE, wait=0.0).run(ctx)
 
 
-class GotoPageOp:
+class GotoPageAction:
     """Navigate from current location to target page.
 
     Finds route via NavGraph, executes each edge's action,

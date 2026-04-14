@@ -1,34 +1,35 @@
-# Op / Check / Task 三层重构设计
+# Op / Check / Task 四层架构设计
 
-**日期**: 2026-04-07
-**状态**: Approved
+**日期**: 2026-04-07 (updated 2026-04-08)
+**状态**: Approved + Implemented
 **范围**: games/aether_gazer/ 下的 ops/, checks/ (新), tasks/ 层
 
 ## 目标
 
-将现有的混合式代码（task 直接调 device + 视觉函数）重构为严格的三层架构：
+将现有的混合式代码（task 直接调 device + 视觉函数）重构为严格的四层架构：
 
-- **Op** — 改变世界（点击、按键、滑动、导航）
+- **Op** — 原始设备调用（ClickOp, PressKeyOp — 单次 device 方法包装）
+- **Action** — 可复用的 Op+Check 组合（ReturnToHubAction, AttackCycleAction）
 - **Check** — 观察世界（截图 + 识别，返回结构化结果）
-- **Task** — 编排 Op + Check（业务流程，禁止直接碰 device）
+- **Task** — 编排 Op + Action + Check（业务流程，禁止直接碰 device）
 
 ## 五条硬规则
 
-1. **Task 禁止 `ctx.device.*`** — 所有设备交互必须通过 Op
+1. **Task 禁止 `ctx.device.*`** — 所有设备交互必须通过 Op/Action
 2. **Task 禁止直接调视觉函数** — 所有观察必须通过 Check
-3. **原始 Op 不调其他 Op** — 复合 Op 只用原始 Op + Check
+3. **原始 Op 不调其他 Op** — Action 只用原始 Op + Check
 4. **Check 不改变状态** — 只截图 + 识别，不点击不按键
-5. **Op 和 Check 都是 class 式** — `__init__` 传参，利于未来序列化
+5. **Op/Action/Check 都是 class 式** — `__init__` 传参，利于未来序列化
 
 ## 设计决策记录
 
 | 问题 | 决策 | 理由 |
 |------|------|------|
-| Task 定义方式 | 代码式 (Python class)，但严格只用 Op + Check | 当前只 1 游戏 11 task，声明式 DSL 过度；代码式 + 硬规则足够，未来可序列化 |
-| Check 定位 | 独立于 Op 的第三种类型 | Op 改变状态，Check 只观察，职责分离 |
-| Op 粒度 | 两级：原始 Op + 复合 Op | 原始 Op 包装 device 调用；复合 Op 只组合原始 Op |
-| Op API 形态 | class 式 (`XxxOp(params).run(ctx)`) | 利于自描述和未来序列化 |
-| Check 返回值 | 结构化 `CheckResult(passed, data, message)` | data 携带坐标/文本/置信度，供后续 Op 使用 |
+| Task 定义方式 | 代码式 (Python class)，但严格只用 Op/Action + Check | 当前只 1 游戏 11 task，声明式 DSL 过度；代码式 + 硬规则足够，未来可序列化 |
+| Check 定位 | 独立于 Op 的类型 | Op/Action 改变状态，Check 只观察，职责分离 |
+| Op vs Action 命名 | Op = 原始设备调用，Action = 可复用组合 | 避免两级都叫 Op 造成混淆 |
+| ReturnToHub 合并 | ReturnToHubOp + SmartReturnToHubOp → ReturnToHubAction | 功能重复，Smart 版更完善 |
+| Check 返回值 | 结构化 `CheckResult(passed, data, message)` | data 携带坐标/文本/置信度，供后续 Op/Action 使用 |
 
 ---
 
@@ -60,25 +61,26 @@ class Op(Protocol):
 
 每个原始 Op 附加：自动日志、wait 延时、异常捕获。
 
-### 复合 Op (重构现有)
+### Action (原"复合 Op"，已重命名)
 
 内部只用原始 Op + Check，不直接调 `ctx.device.*`：
 
-| 复合 Op | 文件 | 变化 |
-|---------|------|------|
-| `ReturnToHubOp` | navigate/return_to_hub.py | 重构内部调用 |
-| `GotoPageOp` | navigate/goto_page.py | 重构内部调用 |
-| `GoBackOp` | navigate/go_back.py | 重构内部调用 |
-| `WakeHubUiOp` | navigate/wake_hub_ui.py | 重构内部调用 |
-| `AttackCycleOp` | combat/attack_cycle.py | 重构内部调用 |
-| `WalkForwardOp` | combat/walk_forward.py | 重构内部调用 |
-| `HandleReviveOp` | combat/handle_revive.py | 重构内部调用 |
-| `ClickElementOp` | interact/click_element.py | 重构内部调用 |
-| `ConfirmPopupOp` | interact/confirm_popup.py | 重构内部调用 |
-| `SkipCutsceneOp` | interact/skip_cutscene.py | 重构内部调用 |
-| `AdvanceDialogueOp` | interact/advance_dialogue.py | 重构内部调用 |
-| `SmartReturnToHubOp` | navigate/smart_return.py | **新增** (从 helpers 提升) |
-| `RapidClickOp` | interact/rapid_click.py | **新增** (从 helpers 提升) |
+| Action | 文件 | 说明 |
+|--------|------|------|
+| `ReturnToHubAction` | navigate/smart_return.py | 从任意页面返回 hub（合并了原 ReturnToHubOp + SmartReturnToHubOp） |
+| `GotoPageAction` | navigate/goto_page.py | 按导航图跳转到指定页面 |
+| `GoBackAction` | navigate/go_back.py | 返回上一页 |
+| `WakeHubUiAction` | navigate/wake_hub_ui.py | 唤醒 hub idle 状态 |
+| `AttackCycleAction` | combat/attack_cycle.py | 一轮攻击按键序列 |
+| `WalkForwardAction` | combat/walk_forward.py | 按住 W 前进 |
+| `HandleReviveAction` | combat/handle_revive.py | 确认复活 |
+| `ClickElementAction` | interact/click_element.py | 按名称点击页面元素 |
+| `ConfirmPopupAction` | interact/confirm_popup.py | Enter 确认 / ESC 取消 |
+| `SkipCutsceneAction` | interact/skip_cutscene.py | ESC+Enter 跳过过场 |
+| `AdvanceDialogueAction` | interact/advance_dialogue.py | Space 推进对话 |
+| `RapidClickAction` | interact/rapid_click.py | 连续点击同一位置 N 次 |
+
+注：`navigate/return_to_hub.py` 保留为 backward-compat 别名，指向 `ReturnToHubAction`。
 
 ---
 
@@ -132,7 +134,8 @@ checks/
 ### 硬规则执行
 
 Task 内部只允许：
-- `await XxxOp(...).run(ctx)` — 执行动作
+- `await XxxOp(...).run(ctx)` — 原始设备操作
+- `await XxxAction(...).run(ctx)` — 可复用组合动作
 - `await XxxCheck(...).evaluate(ctx)` — 执行观察
 - Python 控制流 (if/else, for, while) — 业务逻辑
 - 常量引用 (knowledge 层)
@@ -147,8 +150,8 @@ Task 内部禁止：
 |----------|----------|
 | `is_at_hub()` | `AtHubCheck` |
 | `is_at_hub_with_ocr()` | 删除 (由 `AtHubCheck` 替代) |
-| `smart_return_to_hub()` | `SmartReturnToHubOp` |
-| `rapid_click()` | `RapidClickOp` |
+| `smart_return_to_hub()` | `ReturnToHubAction` |
+| `rapid_click()` | `RapidClickAction` |
 
 `helpers.py` 最终删除。
 
@@ -160,8 +163,8 @@ Task 内部禁止：
 Layer 4:  knowledge/     ← 纯数据
 Layer 5A: checks/        ← imports: knowledge, vision (L2)
 Layer 5B: ops/           ← imports: knowledge, vision (L2), checks (L5A)
-    原始 op              ← 只 imports: base (DevicePort)
-    复合 op              ← imports: 原始 op, checks
+    原始 Op (primitives) ← 只 imports: base (DevicePort)
+    Action (composite)   ← imports: 原始 Op, checks
 Layer 6:  tasks/         ← imports: ops (L5B), checks (L5A)
                             禁止: ctx.device.*, vision.*
 Layer 7:  processes/     ← imports: tasks (L6)

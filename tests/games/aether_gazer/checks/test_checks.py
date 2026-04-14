@@ -241,6 +241,8 @@ def test_at_hub_check_failed(mock_is_on_page, mock_ocr_once):
     mock_is_on_page.return_value = False
     mock_ocr_result = MagicMock()
     mock_ocr_result.has_all.return_value = False
+    # Relaxed check uses .has() per keyword — return False for all
+    mock_ocr_result.has.return_value = False
     mock_ocr_once.return_value = mock_ocr_result
     check = AtHubCheck()
     result = _run(check.evaluate(_make_ctx()))

@@ -3,7 +3,7 @@
 Sequence: ESC (open skip dialog) -> wait -> Enter (confirm skip).
 Uses keyboard shortcuts per the game's UI convention.
 
-Composite Op: uses PressKeyOp primitive internally.
+Composite Action: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
-class SkipCutsceneOp:
+class SkipCutsceneAction:
     """Skip a cutscene by pressing ESC then Enter."""
 
     def __init__(self, confirm_wait: float = 1.5) -> None:

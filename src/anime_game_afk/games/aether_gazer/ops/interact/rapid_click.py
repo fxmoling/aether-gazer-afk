@@ -1,6 +1,6 @@
 """Click a fixed position multiple times rapidly.
 
-Simple composite Op that wraps ClickOp in a loop. Useful for
+Simple composite Action that wraps ClickOp in a loop. Useful for
 dismissing multi-step dialogs, collecting rewards, or spamming
 through confirmation screens.
 """
@@ -10,7 +10,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import ClickOp
 
 
-class RapidClickOp:
+class RapidClickAction:
     """Click a fixed position multiple times rapidly."""
 
     def __init__(

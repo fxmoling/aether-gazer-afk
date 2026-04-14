@@ -21,10 +21,9 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
 )
 from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
-from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageOp
-from anime_game_afk.games.aether_gazer.ops.navigate.return_to_hub import ReturnToHubOp
-from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import SmartReturnToHubOp
-from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiOp
+from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageAction
+from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
+from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
     PressKeyOp,
@@ -95,7 +94,7 @@ class BuyIntelShards:
 
         # ── Step 3: Return to hub ──
         ctx.logger.info("[Step 3] Returning to hub")
-        await ReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_final_hub")
@@ -117,11 +116,11 @@ class BuyIntelShards:
         """Navigate from anywhere to daily purchase page. Returns success."""
         # Wake UI + return to hub
         ctx.logger.info("  nav: wake UI")
-        await WakeHubUiOp().run(ctx)
+        await WakeHubUiAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
 
         ctx.logger.info("  nav: return to hub")
-        result = await ReturnToHubOp().run(ctx)
+        result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot return to hub")
             return False
@@ -131,7 +130,7 @@ class BuyIntelShards:
 
         # Hub → shop
         ctx.logger.info("  nav: hub -> shop")
-        result = await GotoPageOp(target_page_id="shop").run(ctx)
+        result = await GotoPageAction(target_page_id="shop").run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot reach shop")
             return False
@@ -335,7 +334,7 @@ class ClaimFreeStamina:
                     "[Step 2] Stamina already claimed (cooldown active)"
                 )
                 # CRITICAL: Return to hub before exiting — we're on a paid page!
-                await SmartReturnToHubOp().run(ctx)
+                await ReturnToHubAction().run(ctx)
                 return TaskResult(
                     status="skipped",
                     message="Free stamina already claimed (cooldown)",
@@ -344,7 +343,7 @@ class ClaimFreeStamina:
                 "[Step 2] Neither '免费' nor '冷却' found — page may be wrong"
             )
             # Return to hub before exiting
-            await SmartReturnToHubOp().run(ctx)
+            await ReturnToHubAction().run(ctx)
             return TaskResult(
                 status="failed",
                 message="Cannot find free stamina item on page",
@@ -400,7 +399,7 @@ class ClaimFreeStamina:
         # CRITICAL: The shop supply area contains paid gift packages.
         # Do NOT linger on any shop page — go straight to hub.
         ctx.logger.info("[Step 5] Immediately return to hub (safety)")
-        await SmartReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_safe_hub")
 
@@ -420,9 +419,9 @@ class ClaimFreeStamina:
         """Navigate from anywhere to daily supply page."""
         # Wake + hub
         ctx.logger.info("  nav: wake UI + return to hub")
-        await WakeHubUiOp().run(ctx)
+        await WakeHubUiAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
-        result = await ReturnToHubOp().run(ctx)
+        result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot return to hub")
             return False
@@ -432,7 +431,7 @@ class ClaimFreeStamina:
 
         # Hub → shop
         ctx.logger.info("  nav: hub -> shop")
-        result = await GotoPageOp(target_page_id="shop").run(ctx)
+        result = await GotoPageAction(target_page_id="shop").run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot reach shop")
             return False
@@ -519,9 +518,9 @@ class ClaimDailyStaminaPacks:
 
         # ── Step 1: Return to hub ──
         ctx.logger.info("[Step 1] Return to hub")
-        await WakeHubUiOp().run(ctx)
+        await WakeHubUiAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
-        result = await ReturnToHubOp().run(ctx)
+        result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("[Step 1] FAILED: cannot return to hub")
             return TaskResult(status="failed", message="Cannot return to hub")
@@ -560,7 +559,7 @@ class ClaimDailyStaminaPacks:
         # ── Step 6: Close panel and return ──
         ctx.logger.info("[Step 6] Close panel and return to hub")
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-        await ReturnToHubOp().run(ctx)
+        await ReturnToHubAction().run(ctx)
         await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "daily_stamina_final_hub")
@@ -647,7 +646,7 @@ class ClaimDailyStaminaPacks:
                 "  panel: hub UI may be idle ('前往作战' not found), "
                 "waking up"
             )
-            await WakeHubUiOp().run(ctx)
+            await WakeHubUiAction().run(ctx)
             await SleepOp(seconds=1.0).run(ctx)
             hub_active = await HasTextCheck(target="前往作战").evaluate(ctx)
             if not hub_active.passed:

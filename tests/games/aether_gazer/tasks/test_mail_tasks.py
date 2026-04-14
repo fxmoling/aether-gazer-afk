@@ -1,10 +1,10 @@
 """Tests for tasks.mail_tasks -- CollectAllMail.
 
 Updated to match the Op/Check refactoring: mail task now uses
-SmartReturnToHubOp (from ops.navigate.smart_return) instead of a bare
+ReturnToHubAction (from ops.navigate.smart_return) instead of a bare
 smart_return_to_hub function import.
 
-Mock strategy: patch SmartReturnToHubOp.run at the class level so the
+Mock strategy: patch ReturnToHubAction.run at the class level so the
 return-to-hub step completes instantly. The primitives (PressKeyOp,
 ClickOp) still call through to MockDevice methods, so key_log and
 click_log work as before.
@@ -46,7 +46,7 @@ def _run(coro):
 
 _SMART_RETURN = (
     "anime_game_afk.games.aether_gazer.ops.navigate.smart_return"
-    ".SmartReturnToHubOp.run"
+    ".ReturnToHubAction.run"
 )
 
 

@@ -3,7 +3,7 @@
 When a character dies, the game shows a revival confirmation.
 This op presses Enter to accept the revival.
 
-Composite Op: uses PressKeyOp primitive internally.
+Composite Action: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import PressKeyOp
 
 
-class HandleReviveOp:
+class HandleReviveAction:
     """Accept revival prompt by pressing Enter."""
 
     def __init__(self, wait_after: float = 3.0) -> None:
