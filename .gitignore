@@ -159,3 +159,5 @@ tests/README.md
 assets/README.md
 docs/README.md
 .references/README.md
+# Git worktrees
+.worktrees/

@@ -20,3 +20,10 @@ def test_black_screen_is_unknown():
     black = np.zeros((900, 1600, 3), dtype=np.uint8)
     page_id, _ = identify(black)
     assert page_id == "unknown"
+
+
+def test_is_on_page_black_returns_false():
+    """is_on_page returns False for black screenshot (no templates match)."""
+    black = np.zeros((900, 1600, 3), dtype=np.uint8)
+    assert is_on_page(black, "main_hub") is False
+    assert is_on_page(black, "nonexistent_page") is False

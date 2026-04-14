@@ -104,6 +104,6 @@ class AtHubCheck:
 
         return CheckResult(
             passed=False,
-            data={"keywords_found": found},
+            data={"keywords_found": found, "ocr": ocr},
             message=f"not at hub (only {len(found)}/{len(_HUB_KEYWORDS)} keywords)",
         )

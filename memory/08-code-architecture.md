@@ -25,7 +25,7 @@ Task    — 业务流程编排 Op+Action+Check (禁止直接碰 ctx.device.* 和
 - **XxxCheck** = 观察检查 (12个，在 `checks/`)
 
 ### Action 清单 (原"复合 Op"，已重命名)
-- `ReturnToHubAction` — 合并了原 ReturnToHubOp + SmartReturnToHubOp
+- `ReturnToHubAction` — 智能返回 hub (ESC/back/Enter循环，用 AtHubCheck 检测)
 - `GotoPageAction`, `GoBackAction`, `WakeHubUiAction` (导航)
 - `AttackCycleAction`, `WalkForwardAction`, `HandleReviveAction` (战斗)
 - `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction` (交互)
@@ -143,14 +143,15 @@ Layer 7:  processes/     ← imports: tasks (L6)
   - OCR: "前往作战" (hub active), "联防协议", "前往挑战", "信息集纳", "震动", "扫荡"
   - Fixed coord: >> max multiplier button (1470,716) — graphical, OCR unreadable
 - Sweep consumes 30 吨吨值 per run (safe=False)
-- _safe_return_to_hub: ESC×3 + fallback ReturnToHubOp
+- _safe_return_to_hub: ESC×3 + fallback ReturnToHubAction
 - Verified full flow end-to-end (2026-04-05): 183 吨吨值→153, drops obtained
 
 ### 4 new daily tasks (session 4, 2026-04-06)
 
-**Shared helpers (tasks/helpers.py)**:
-- `smart_return_to_hub(ctx)`: back(35,35) → ESC → Enter (if unchanged) cycle, max 10 attempts + fallback
-- `rapid_click(ctx, x, y, times, interval)`: fixed-position multi-click for popup dismissal
+**Shared helpers**: (已删除 — 功能已分散到 Checks/Actions)
+- Hub 检测 → `AtHubCheck` (checks/page.py)
+- 返回 hub → `ReturnToHubAction` (ops/navigate/smart_return.py)
+- rapid_click → `RapidClickAction` (ops/interact/rapid_click.py)
 
 **MimiStationCollect (tasks/observation_tasks.py)**:
 - Flow: G → 弥弥观测站(110,820) → 一键领取(1205,809) ×5 → x10/x8(OCR) ×5 → hub
@@ -314,7 +315,7 @@ Execute bottom-up: Wave 1 first, then 2, 3, 4.
 | Task 3: navigation.py | ✅ DONE | `knowledge/navigation.py`, `tests/knowledge/test_navigation.py` (10 tests) |
 | Task 4: ops/base.py | ✅ DONE | `ops/__init__.py`, `ops/base.py`, `ops/README.md`, `tests/ops/test_base.py` (6 tests) |
 | Task 5: ops/perception/ | ✅ DONE | `identify_page.py`, `detect_game_state.py`, `README.md`, 5 tests |
-| Task 6: ops/navigate/ | ✅ DONE | `wake_hub_ui.py`, `go_back.py`, `return_to_hub.py`, `goto_page.py`, `README.md`, 3 tests |
+| Task 6: ops/navigate/ | ✅ DONE | `wake_hub_ui.py`, `go_back.py`, `smart_return.py`, `goto_page.py`, `README.md`, 3 tests |
 | Task 7: ops/interact/ | ✅ DONE | `click_element.py`, `skip_cutscene.py`, `advance_dialogue.py`, `confirm_popup.py`, `README.md`, 8 tests |
 | Task 8: ops/combat/ | ✅ DONE | `attack_cycle.py`, `handle_revive.py`, `walk_forward.py`, `README.md`, 5 tests |
 
@@ -325,7 +326,7 @@ Execute bottom-up: Wave 1 first, then 2, 3, 4.
 - **GameState enum**: 11 states (BATTLE, CUTSCENE, DIALOGUE, REVIVE_PROMPT, LOADING, etc.)
 - **identify() / detect_state()**: pure utility functions, callable without Op wrapper
 - **ClickElementOp**: blocks unsafe elements (gacha, inventory) unless `force_unsafe=True`
-- **ReturnToHubOp**: max 8 attempts, alternates ESC/click-back, calls `identify()` directly (NOT IdentifyPageOp)
+- **ReturnToHubAction**: max 10 attempts, cycles ESC/click-back, uses `AtHubCheck` (template + OCR)
 - **GotoPageOp**: uses NavGraph routes, max 2 retries, verifies arrival with `is_on_page()`
 - **Module-level template caches**: loaded lazily on first call, reused across invocations
 - **Black screen detection**: `mean < 15` → LOADING state (non-template heuristic only for fully black screens)
@@ -401,7 +402,7 @@ python -m anime_game_afk.ui.app --debug  # with devtools
 - `OcrResult.find(kw)` / `.has(kw)` / `.has_all(*kws)` — 无额外 OCR 调用
 - 旧 3x `ocr_find` (~6.4s) → 1x `ocr_once` (~1.9s) = **3.4x提速**
 - scale=0.7 最稳定（0.5 会漏 "前往作战"，1.0 太慢）
-- 已优化: helpers.py, return_to_hub.py, wake_hub_ui.py, activity_tasks.py
+- 已优化: smart_return.py, wake_hub_ui.py, activity_tasks.py
 - 待优化: shop_tasks.py, amusement_tasks.py, observation_tasks.py, guild_tasks.py
 
 ### Startup 任务集成 (2026-04-06 session 6)
@@ -418,10 +419,10 @@ python -m anime_game_afk.ui.app --debug  # with devtools
 
 ### Hub 检测统一 (2026-04-06 session 6)
 
-- `is_at_hub(img)` / `is_at_hub_with_ocr(img, ocr)` 集中在 helpers.py
-- 4 关键词：`("前往作战", "探测", "修正者", "仓库")`
-- 所有文件引用统一函数，不再分散判断
-- `return_to_hub.py` 用 `_HUB_OCR` 常量（避免跨层导入）
+- `AtHubCheck` (checks/page.py) 统一 hub 检测
+- 4 关键词：`("前往作战", "探测", "修正者", "仓库")`，2/4 即判定
+- AtHubCheck 失败时返回 `data["ocr"]`，供调用方复用 OCR 结果
+- `smart_return.py` 复用 hub_check 的 OCR 做退出对话框检测（0 额外 OCR）
 
 ### 窗口匹配修复 (2026-04-06 session 6)
 

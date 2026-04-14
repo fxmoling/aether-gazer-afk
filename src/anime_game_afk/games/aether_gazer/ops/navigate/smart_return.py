@@ -2,10 +2,10 @@
 
 Composite Action that cycles through multiple escape strategies until
 the hub is detected. Uses primitive Ops (ClickOp, PressKeyOp) and
-Checks (AtHubCheck) — no direct ctx.device.* calls.
+Checks (AtHubCheck, ScreenUnchangedCheck) — no direct ctx.device.* calls.
 
-Optimized: one screenshot + one OCR per cycle (via OcrScanCheck),
-then reuses the OcrResult for all keyword checks in that cycle.
+Optimized: AtHubCheck does one screenshot + template match + OCR per call;
+the OCR result is reused for exit dialog detection (zero extra OCR cost).
 
 Strategy per cycle:
 1. Check if already at hub (AtHubCheck — template + OCR)
@@ -17,7 +17,6 @@ Fallback: delegates to WakeHubUiAction after max attempts.
 """
 from __future__ import annotations
 
-from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
 from anime_game_afk.games.aether_gazer.checks.state import ScreenUnchangedCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
@@ -48,7 +47,7 @@ class ReturnToHubAction:
         ctx.logger.info("[smart_return] Starting return to hub")
 
         hub_check = AtHubCheck()
-        prev_img: np.ndarray | None = None
+        prev_img = None
 
         for attempt in range(self._max_attempts):
             # ── Step 0: Check if already at hub ──
@@ -98,10 +97,11 @@ class ReturnToHubAction:
                     data={"attempts": attempt, "method": "esc_hub"},
                 )
 
-            # Check exit dialog (= we ARE at hub, cancel with ESC)
-            ocr_r = await OcrScanCheck().evaluate(ctx)
-            if ocr_r.data and (
-                ocr_r.data.has("退出游戏") or ocr_r.data.has("是否退出")
+            # Reuse OCR from hub_check for exit dialog detection
+            # (AtHubCheck already did template match + OCR; no extra cost)
+            ocr = hub_r2.data.get("ocr") if hub_r2.data else None
+            if ocr and (
+                ocr.has("退出游戏") or ocr.has("是否退出")
             ):
                 ctx.logger.info(
                     "[smart_return] Exit dialog detected — at hub, cancelling"
