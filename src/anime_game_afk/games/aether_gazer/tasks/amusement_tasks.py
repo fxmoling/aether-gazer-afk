@@ -22,10 +22,10 @@ if TYPE_CHECKING:
     from anime_game_afk.runtime.run_log import RunLog
 
 # Verified coordinates (2026-04-06, 1600x900, OCR verified)
-_AMUSEMENT_X, _AMUSEMENT_Y = 1257, 850      # Hub bottom bar 游园街
-_PANEL_X, _PANEL_Y = 1240, 860               # 游园街面板 button
-_AUTO_PLACE_X, _AUTO_PLACE_Y = 1084, 826     # 自动放置 button (OCR)
-_FEED_X, _FEED_Y = 1368, 826                 # 一键投喂 button (OCR)
+_AMUSEMENT_X, _AMUSEMENT_Y = 0.786, 0.944      # Hub bottom bar 游园街 (1257,850 @ 1600x900)
+_PANEL_X, _PANEL_Y = 0.775, 0.956               # 游园街面板 button (1240,860 @ 1600x900)
+_AUTO_PLACE_X, _AUTO_PLACE_Y = 0.678, 0.918     # 自动放置 button (1084,826 @ 1600x900)
+_FEED_X, _FEED_Y = 0.855, 0.918                 # 一键投喂 button (1368,826 @ 1600x900)
 
 
 class AmusementStreetDaily:
@@ -118,7 +118,7 @@ class AmusementStreetDaily:
                     by = confirm.region.y + confirm.region.h // 2
                     await ClickOp(x=bx, y=by, wait=1.5).run(ctx)
                 else:
-                    await ClickOp(x=800, y=825, wait=1.5).run(ctx)  # fallback
+                    await ClickOp(x=0.5, y=0.917, wait=1.5).run(ctx)  # fallback (800,825 @ 1600x900)
                 continue
 
             # Check if we're on the dispatch task selection panel
@@ -148,7 +148,7 @@ class AmusementStreetDaily:
                     )
                 # After dispatching, click bottom empty area to exit panel
                 # (ESC doesn't work here; click left of 一键派遣 button)
-                await ClickOp(x=900, y=780, wait=1.0).run(ctx)
+                await ClickOp(x=0.563, y=0.867, wait=1.0).run(ctx)
                 continue
 
             # Look for "派遣完成" or "可委托" on the amusement panel overview

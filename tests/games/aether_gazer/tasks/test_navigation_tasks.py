@@ -131,5 +131,7 @@ def test_enter_main_story_clicks_story_tabs():
         _run(EnterMainStory().execute(ctx))
 
     # Verify both clicks were registered: 情报 tab + main story entry
+    # Source uses ClickOp(x=0.1, y=0.956) → (160, 860)
+    # Source uses ClickOp(x=0.333, y=0.5) → (532, 450)
     assert (160, 860) in device.click_log
-    assert (533, 450) in device.click_log
+    assert (532, 450) in device.click_log

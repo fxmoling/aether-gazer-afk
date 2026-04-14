@@ -54,7 +54,7 @@ class EnterMainStory:
             )
 
         # Click main story entry (情报 tab -> 主线入口)
-        await ClickOp(x=160, y=860, wait=1.5).run(ctx)   # 情报 tab
-        await ClickOp(x=533, y=450, wait=2.0).run(ctx)   # Main story entry
+        await ClickOp(x=0.1, y=0.956, wait=1.5).run(ctx)   # 情报 tab (160,860 @ 1600x900)
+        await ClickOp(x=0.333, y=0.5, wait=2.0).run(ctx)   # Main story entry (533,450 @ 1600x900)
 
         return TaskResult(status="success")

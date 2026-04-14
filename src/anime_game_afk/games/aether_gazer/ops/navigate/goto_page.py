@@ -11,10 +11,6 @@ from anime_game_afk.games.aether_gazer.checks.page import (
     IdentifyPageCheck,
     OnPageCheck,
 )
-from anime_game_afk.games.aether_gazer.knowledge.constants import (
-    SCREEN_CENTER_X,
-    SCREEN_CENTER_Y,
-)
 from anime_game_afk.games.aether_gazer.knowledge.navigation import (
     NAV_GRAPH,
     NavAction,
@@ -35,7 +31,7 @@ async def _execute_nav_action(ctx: OpContext, action: NavAction) -> None:
     """Execute a single NavAction using primitive ops."""
     if action.method == NavMethod.CLICK and action.coord:
         await ClickOp(
-            x=action.coord.x, y=action.coord.y, wait=0.0,
+            x=action.coord.x / 1600, y=action.coord.y / 900, wait=0.0,
         ).run(ctx)
     elif action.method == NavMethod.KEY and action.key_code:
         await PressKeyOp(key=action.key_code, wait=0.0).run(ctx)
@@ -86,7 +82,7 @@ class GotoPageAction:
             for edge in route:
                 # Wake UI before navigation
                 await ClickOp(
-                    x=SCREEN_CENTER_X, y=SCREEN_CENTER_Y, wait=0.3,
+                    x=0.5, y=0.5, wait=0.3,
                 ).run(ctx)
 
                 await _execute_nav_action(ctx, edge.action)

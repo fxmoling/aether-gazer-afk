@@ -14,8 +14,8 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
-# Verified coordinates (2026-04-06, 1600x900, OCR verified)
-_COLLECT_ALL_X, _COLLECT_ALL_Y = 291, 749   # 全部领取 button
+# Verified coordinates (2026-04-06, 291,749 @ 1600x900, OCR verified)
+_COLLECT_ALL_X, _COLLECT_ALL_Y = 0.182, 0.832   # 全部领取 button
 
 
 class CollectAllMail:
@@ -35,7 +35,7 @@ class CollectAllMail:
 
         # Step 1: H shortcut opens the mail panel from hub
         ctx.logger.info("[Step 1] Press H → mail")
-        await PressKeyOp(key=VK_H, wait=2.0).run(ctx)
+        await PressKeyOp(VK_H, wait=2.0).run(ctx)
 
         # Step 2: Click "全部领取" (collect all) button
         ctx.logger.info(
@@ -45,10 +45,10 @@ class CollectAllMail:
 
         # Step 3: Dismiss reward popup (Enter or click)
         ctx.logger.info("[Step 3] Dismiss reward popup")
-        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
         # Click again in case multiple popups
         await ClickOp(x=_COLLECT_ALL_X, y=_COLLECT_ALL_Y, wait=1.0).run(ctx)
-        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
 
         # Step 4: Return to hub
         ctx.logger.info("[Step 4] Return to hub")

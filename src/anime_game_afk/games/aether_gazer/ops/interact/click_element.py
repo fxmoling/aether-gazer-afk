@@ -49,7 +49,9 @@ class ClickElementAction:
             f"Clicking {self._element_name} at "
             f"({elem.coord.x}, {elem.coord.y}) on {self._page_id}"
         )
-        await ClickOp(x=elem.coord.x, y=elem.coord.y, wait=self._wait).run(ctx)
+        await ClickOp(
+            x=elem.coord.x / 1600, y=elem.coord.y / 900, wait=self._wait,
+        ).run(ctx)
         return OpResult(
             success=True,
             data={"element": self._element_name, "page": self._page_id},

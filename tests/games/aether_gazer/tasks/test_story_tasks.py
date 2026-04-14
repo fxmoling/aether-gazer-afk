@@ -79,7 +79,7 @@ def test_select_latest_stage_clicks_active_stage():
     device = MockDevice()
     ctx = TaskContext(device=device)
     _run(SelectLatestStage().execute(ctx))
-    assert (533, 450) in device.click_log
+    assert (532, 450) in device.click_log  # int(0.333 * 1600) = 532
 
 
 def test_select_latest_stage_can_run():

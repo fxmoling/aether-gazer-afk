@@ -63,9 +63,9 @@ class BuyIntelShards:
 
     _MAX_PURCHASES = 10  # Safety cap per run
     _INTEL_REGION = Rect(200, 130, 1300, 350)  # Top row where intel items appear
-    # Purchase popup buttons (verified 2026-04-06 via OCR)
-    _MAX_BTN_X, _MAX_BTN_Y = 1067, 624    # 最大 button
-    _BUY_BTN_X, _BUY_BTN_Y = 1236, 625    # 购买 button
+    # Purchase popup buttons (verified 2026-04-06 via OCR, 1067,624 / 1236,625 @ 1600x900)
+    _MAX_BTN_X, _MAX_BTN_Y = 0.667, 0.693    # 最大 button
+    _BUY_BTN_X, _BUY_BTN_Y = 0.773, 0.694    # 购买 button
 
     async def can_run(self, ctx: TaskContext) -> bool:
         """Always runnable — actual availability checked during execute."""
@@ -139,20 +139,20 @@ class BuyIntelShards:
             run_log.snap(ctx.device, "buy_intel_at_shop")
 
         # Shop → trade area (click 交易区 button)
-        ctx.logger.info("  nav: shop -> trade area (click 89,817)")
-        await ClickOp(x=89, y=817, wait=1.5).run(ctx)
+        ctx.logger.info("  nav: shop -> trade area (click 0.056,0.908)")
+        await ClickOp(x=0.056, y=0.908, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_trade")
 
         # Trade → daily purchase tab (click 每日采购 tab)
-        ctx.logger.info("  nav: trade -> daily purchase tab (click 130,125)")
-        await ClickOp(x=130, y=125, wait=1.5).run(ctx)
+        ctx.logger.info("  nav: trade -> daily purchase tab (click 0.081,0.139)")
+        await ClickOp(x=0.081, y=0.139, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_daily_tab")
 
         # Scroll to top to ensure intel section is visible
         ctx.logger.info("  nav: scroll to top")
-        await SwipeOp(x1=800, y1=200, x2=800, y2=600, duration=300, wait=1.0).run(ctx)
+        await SwipeOp(x1=0.5, y1=0.222, x2=0.5, y2=0.667, duration=300, wait=1.0).run(ctx)
 
         # OCR verify: "修正者情报" should be visible
         r = await ScreenshotOp().run(ctx)
@@ -440,14 +440,14 @@ class ClaimFreeStamina:
             run_log.snap(ctx.device, "stamina_at_shop")
 
         # Shop → supply area (click 补给区 button at 399,816)
-        ctx.logger.info("  nav: shop -> supply area (click 399,816)")
-        await ClickOp(x=399, y=816, wait=2.0).run(ctx)
+        ctx.logger.info("  nav: shop -> supply area (click 0.249,0.907)")
+        await ClickOp(x=0.249, y=0.907, wait=2.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_supply")
 
         # Supply → daily supply tab (click 日常补给 at 560,130)
-        ctx.logger.info("  nav: supply -> daily supply (click 560,130)")
-        await ClickOp(x=560, y=130, wait=2.0).run(ctx)
+        ctx.logger.info("  nav: supply -> daily supply (click 0.35,0.144)")
+        await ClickOp(x=0.35, y=0.144, wait=2.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_daily_supply")
 
@@ -737,9 +737,9 @@ class ClaimDailyStaminaPacks:
         """
         claimed = 0
         # Verified coordinates (2026-04-05, 1600x900):
-        # Left pack claim area: ~(891, 485)
-        # Right pack claim area: ~(1208, 485)
-        pack_positions = [(891, 485), (1208, 485)]
+        # Left pack claim area: ~(891, 485) → (0.557, 0.539)
+        # Right pack claim area: ~(1208, 485) → (0.755, 0.539)
+        pack_positions = [(0.557, 0.539), (0.755, 0.539)]
 
         for i, (px, py) in enumerate(pack_positions):
             label = "left" if i == 0 else "right"

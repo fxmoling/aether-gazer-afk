@@ -13,10 +13,6 @@ Composite Action: uses PressKeyOp/ClickOp primitives + HasTextCheck.
 from __future__ import annotations
 
 from anime_game_afk.games.aether_gazer.checks.ocr import HasTextCheck
-from anime_game_afk.games.aether_gazer.knowledge.constants import (
-    SCREEN_CENTER_X,
-    SCREEN_CENTER_Y,
-)
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -47,7 +43,7 @@ class WakeHubUiAction:
             else:
                 # Click center as fallback for other overlays
                 await ClickOp(
-                    x=SCREEN_CENTER_X, y=SCREEN_CENTER_Y, wait=0.5,
+                    x=0.5, y=0.5, wait=0.5,
                 ).run(ctx)
 
         ctx.logger.debug("Woke hub UI")

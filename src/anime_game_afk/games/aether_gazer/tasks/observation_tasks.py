@@ -25,14 +25,14 @@ if TYPE_CHECKING:
 
 
 # Verified coordinates (2026-04-06, 1600x900 design resolution)
-# 弥弥观测站 button in daily tasks page
-_MIMI_STATION_X, _MIMI_STATION_Y = 110, 820
-# 一键领取 button in 弥弥观测站 (OCR verified center)
-_MIMI_CLAIM_X, _MIMI_CLAIM_Y = 1205, 809
-# 每日任务 一键领取 button (right-bottom of daily tasks page)
-_DAILY_CLAIM_X, _DAILY_CLAIM_Y = 1480, 860
-# 周常任务 tab (left side)
-_WEEKLY_TAB_X, _WEEKLY_TAB_Y = 80, 195
+# 弥弥观测站 button in daily tasks page (110,820 @ 1600x900)
+_MIMI_STATION_X, _MIMI_STATION_Y = 0.069, 0.911
+# 一键领取 button in 弥弥观测站 (1205,809 @ 1600x900, OCR verified center)
+_MIMI_CLAIM_X, _MIMI_CLAIM_Y = 0.753, 0.899
+# 每日任务 一键领取 button (1480,860 @ 1600x900, right-bottom of daily tasks page)
+_DAILY_CLAIM_X, _DAILY_CLAIM_Y = 0.925, 0.956
+# 周常任务 tab (80,195 @ 1600x900, left side)
+_WEEKLY_TAB_X, _WEEKLY_TAB_Y = 0.05, 0.217
 
 
 class MimiStationCollect:
@@ -63,7 +63,7 @@ class MimiStationCollect:
 
         # Step 1: G → daily tasks
         ctx.logger.info("[Step 1] Press G → daily tasks")
-        await PressKeyOp(key=VK_G, wait=2.0).run(ctx)
+        await PressKeyOp(VK_G, wait=2.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_daily_tasks")
 
@@ -146,7 +146,7 @@ class DailyWeeklyMissionClaim:
 
         # Step 1: G → daily tasks
         ctx.logger.info("[Step 1] Press G → daily tasks")
-        await PressKeyOp(key=VK_G, wait=2.0).run(ctx)
+        await PressKeyOp(VK_G, wait=2.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mission_daily_tasks")
 
@@ -182,7 +182,7 @@ class DailyWeeklyMissionClaim:
 
         # Step 5: Return to hub
         ctx.logger.info("[Step 5] Return to hub")
-        await PressKeyOp(key=0x1B, wait=1.0).run(ctx)  # ESC
+        await PressKeyOp(0x1B, wait=1.0).run(ctx)  # ESC
         await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mission_done")
@@ -193,8 +193,8 @@ class DailyWeeklyMissionClaim:
 
 # Verified coordinates (2026-04-06, 1600x900)
 # 对策协议 — tasks button and claim button
-_TACTICS_TASK_X, _TACTICS_TASK_Y = 162, 839     # 任务 button (OCR verified 2026-04-06)
-_TACTICS_CLAIM_X, _TACTICS_CLAIM_Y = 1480, 860  # 一键领取 button (right-bottom)
+_TACTICS_TASK_X, _TACTICS_TASK_Y = 0.101, 0.932     # 任务 button (162,839 @ 1600x900, OCR verified 2026-04-06)
+_TACTICS_CLAIM_X, _TACTICS_CLAIM_Y = 0.925, 0.956   # 一键领取 button (1480,860 @ 1600x900, right-bottom)
 
 
 class TacticsTaskClaim:
@@ -223,7 +223,7 @@ class TacticsTaskClaim:
 
         # Step 1: T → 对策协议
         ctx.logger.info("[Step 1] Press T → 对策协议")
-        await PressKeyOp(key=VK_T, wait=2.0).run(ctx)
+        await PressKeyOp(VK_T, wait=2.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "tactics_page")
 

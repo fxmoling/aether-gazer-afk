@@ -9,7 +9,7 @@ then reuses the OcrResult for all keyword checks in that cycle.
 
 Strategy per cycle:
 1. Check if already at hub (AtHubCheck — template + OCR)
-2. Click back button (35, 35) → re-check hub
+2. Click back button (frac 0.022, 0.039) → re-check hub
 3. Press ESC → check for exit dialog (= we're at hub)
 4. If screen unchanged after ESC → press Enter (dismiss popup)
 
@@ -18,10 +18,6 @@ Fallback: delegates to WakeHubUiAction after max attempts.
 from __future__ import annotations
 
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
-from anime_game_afk.games.aether_gazer.knowledge.constants import (
-    BACK_BUTTON_X,
-    BACK_BUTTON_Y,
-)
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -39,7 +35,7 @@ class ReturnToHubAction:
 
     Strategy (cycles until hub detected):
     1. Check if already at hub (AtHubCheck)
-    2. Click back button (35, 35)
+    2. Click back button (frac 0.022, 0.039)
     3. Press ESC — closes overlays/panels
     4. Check for exit dialog (= we're at hub already, cancel with ESC)
     5. If screen unchanged → press Enter (dismiss popup)
@@ -68,12 +64,11 @@ class ReturnToHubAction:
                     data={"attempts": attempt, "method": hub_result.message},
                 )
 
-            # ── Step 1: Try back button (35, 35) ──
+            # ── Step 1: Try back button (0.022, 0.039) ──
             ctx.logger.debug(
-                f"[smart_return][{attempt}] Trying back "
-                f"({BACK_BUTTON_X},{BACK_BUTTON_Y})"
+                f"[smart_return][{attempt}] Trying back (0.022, 0.039)"
             )
-            await ClickOp(BACK_BUTTON_X, BACK_BUTTON_Y, wait=1.5).run(ctx)
+            await ClickOp(0.022, 0.039, wait=1.5).run(ctx)
 
             # Quick hub re-check after back click
             hub_result = await hub_check.evaluate(ctx)

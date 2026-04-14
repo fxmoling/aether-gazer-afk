@@ -70,10 +70,10 @@ class JointDefenseSweep:
     # Pixel-mapped from 008_jd_after_max_multi.jpg darkness scan:
     #   << button: half(590,355) = full(1180,710)  ← reset to min
     #   >> button: half(776,355) = full(1552,710)  ← set to max
-    _MIN_MULTI_X = 1180
-    _MIN_MULTI_Y = 712
-    _MAX_MULTI_X = 1552
-    _MAX_MULTI_Y = 712
+    _MIN_MULTI_X = 0.738    # 1180 / 1600
+    _MIN_MULTI_Y = 0.791    # 712 / 900
+    _MAX_MULTI_X = 0.97     # 1552 / 1600
+    _MAX_MULTI_Y = 0.791    # 712 / 900
     _MAX_SCROLL_ATTEMPTS = 5
 
     async def can_run(self, ctx: TaskContext) -> bool:
@@ -203,7 +203,7 @@ class JointDefenseSweep:
             )
         else:
             # Fallback from verified data
-            click_x, click_y = 1372, 190
+            click_x, click_y = 0.858, 0.211  # 1372,190 @ 1600x900
             ctx.logger.warning(
                 f"  nav: H not found via OCR, "
                 f"using fallback ({click_x},{click_y})"
@@ -244,7 +244,7 @@ class JointDefenseSweep:
                 f"{self._MAX_SCROLL_ATTEMPTS})"
             )
             await SwipeOp(
-                x1=200, y1=600, x2=200, y2=300, duration=300, wait=2.0,
+                x1=0.125, y1=0.667, x2=0.125, y2=0.333, duration=300, wait=2.0,
             ).run(ctx)
             if run_log:
                 snap_r = await ScreenshotOp().run(ctx)
@@ -259,7 +259,7 @@ class JointDefenseSweep:
             ctx.logger.info("  search: not found scrolling down, scrolling up")
             for i in range(self._MAX_SCROLL_ATTEMPTS + scroll_down):
                 await SwipeOp(
-                    x1=200, y1=300, x2=200, y2=600, duration=300, wait=2.0,
+                    x1=0.125, y1=0.333, x2=0.125, y2=0.667, duration=300, wait=2.0,
                 ).run(ctx)
                 if run_log:
                     snap_r = await ScreenshotOp().run(ctx)
@@ -547,8 +547,8 @@ class JointDefenseSweep:
 
             # Alternate: even = back button, odd = ESC
             if i % 2 == 0:
-                ctx.logger.debug(f"  return: clicking back (35,35) [{i}]")
-                await ClickOp(x=35, y=35, wait=1.0).run(ctx)
+                ctx.logger.debug(f"  return: clicking back (0.022,0.039) [{i}]")
+                await ClickOp(x=0.022, y=0.039, wait=1.0).run(ctx)
             else:
                 ctx.logger.debug(f"  return: pressing ESC [{i}]")
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)

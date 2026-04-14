@@ -21,8 +21,8 @@ from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 if TYPE_CHECKING:
     from anime_game_afk.runtime.run_log import RunLog
 
-# Verified coordinates (2026-04-06, 1600x900)
-_GUILD_X, _GUILD_Y = 1025, 850  # Hub bottom bar 公会 button
+# Verified coordinates (2026-04-06, 1025,850 @ 1600x900)
+_GUILD_X, _GUILD_Y = 0.641, 0.944  # Hub bottom bar 公会 button
 
 
 class GuildSupplyClaim:

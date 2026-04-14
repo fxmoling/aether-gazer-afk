@@ -1,4 +1,11 @@
-"""Tests for ops.primitives module — 6 primitive Op wrappers."""
+"""Tests for ops.primitives module — 6 primitive Op wrappers.
+
+Updated for fractional coordinate API:
+- ClickOp/SwipeOp take fractional [0.0, 1.0] coordinates
+- wait is keyword-only with default 0.15
+- ClickOp.result.data includes both fractional and pixel coords
+- SwipeOp.result.data uses fractional coords for "from"/"to"
+"""
 import asyncio
 from dataclasses import dataclass
 
@@ -54,16 +61,34 @@ def _make_ctx(device=None) -> OpContext:
     return OpContext(device=device or MockDevice())
 
 
-# ── ClickOp ──
+# -- ClickOp --
 
 
 def test_click_op():
     device = MockDevice()
     ctx = _make_ctx(device)
-    result = _run(ClickOp(x=100, y=200, wait=0).run(ctx))
+    result = _run(ClickOp(x=0.5, y=0.5, wait=0).run(ctx))
     assert result.success
-    assert result.data == {"x": 100, "y": 200}
-    assert device.click_log == [(100, 200)]
+    assert result.data == {"x": 0.5, "y": 0.5, "px": 800, "py": 450}
+    assert device.click_log == [(800, 450)]
+
+
+def test_click_op_corner():
+    """ClickOp at (0.0, 0.0) should click pixel (0, 0)."""
+    device = MockDevice()
+    ctx = _make_ctx(device)
+    result = _run(ClickOp(x=0.0, y=0.0, wait=0).run(ctx))
+    assert result.success
+    assert device.click_log == [(0, 0)]
+
+
+def test_click_op_bottom_right():
+    """ClickOp at (1.0, 1.0) should click pixel (1600, 900)."""
+    device = MockDevice()
+    ctx = _make_ctx(device)
+    result = _run(ClickOp(x=1.0, y=1.0, wait=0).run(ctx))
+    assert result.success
+    assert device.click_log == [(1600, 900)]
 
 
 def test_click_op_failure():
@@ -72,12 +97,12 @@ def test_click_op_failure():
         RuntimeError("click failed")
     )
     ctx = _make_ctx(device)
-    result = _run(ClickOp(x=50, y=60, wait=0).run(ctx))
+    result = _run(ClickOp(x=0.5, y=0.5, wait=0).run(ctx))
     assert not result.success
     assert "click failed" in result.error
 
 
-# ── PressKeyOp ──
+# -- PressKeyOp --
 
 
 def test_press_key_op():
@@ -100,7 +125,7 @@ def test_press_key_op_failure():
     assert "key failed" in result.error
 
 
-# ── HoldKeyOp ──
+# -- HoldKeyOp --
 
 
 def test_hold_key_op():
@@ -123,17 +148,26 @@ def test_hold_key_op_failure():
     assert "hold failed" in result.error
 
 
-# ── SwipeOp ──
+# -- SwipeOp --
 
 
 def test_swipe_op():
     device = MockDevice()
     ctx = _make_ctx(device)
-    result = _run(SwipeOp(x1=100, y1=200, x2=300, y2=400,
+    result = _run(SwipeOp(x1=0.0, y1=0.0, x2=1.0, y2=1.0,
                           duration=500, wait=0).run(ctx))
     assert result.success
-    assert result.data == {"from": (100, 200), "to": (300, 400)}
-    assert device.swipe_log == [(100, 200, 300, 400, 500)]
+    assert result.data == {"from": (0.0, 0.0), "to": (1.0, 1.0)}
+    assert device.swipe_log == [(0, 0, 1600, 900, 500)]
+
+
+def test_swipe_op_center_to_corner():
+    """SwipeOp from center to bottom-right quarter."""
+    device = MockDevice()
+    ctx = _make_ctx(device)
+    result = _run(SwipeOp(x1=0.5, y1=0.5, x2=0.75, y2=0.75, wait=0).run(ctx))
+    assert result.success
+    assert device.swipe_log == [(800, 450, 1200, 675, 300)]
 
 
 def test_swipe_op_failure():
@@ -142,12 +176,12 @@ def test_swipe_op_failure():
         RuntimeError("swipe failed")
     )
     ctx = _make_ctx(device)
-    result = _run(SwipeOp(x1=0, y1=0, x2=100, y2=100, wait=0).run(ctx))
+    result = _run(SwipeOp(x1=0.0, y1=0.0, x2=0.5, y2=0.5, wait=0).run(ctx))
     assert not result.success
     assert "swipe failed" in result.error
 
 
-# ── SleepOp ──
+# -- SleepOp --
 
 
 def test_sleep_op():
@@ -157,7 +191,7 @@ def test_sleep_op():
     assert result.data == {"seconds": 1.5}
 
 
-# ── ScreenshotOp ──
+# -- ScreenshotOp --
 
 
 def test_screenshot_op():

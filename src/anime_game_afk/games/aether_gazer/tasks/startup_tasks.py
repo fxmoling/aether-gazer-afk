@@ -123,7 +123,7 @@ class SkipStartupPopups:
                 ctx.logger.info(
                     f"  [startup][{attempt}] Login screen — clicking center"
                 )
-                await ClickOp(x=800, y=450, wait=3.0).run(ctx)
+                await ClickOp(x=0.5, y=0.5, wait=3.0).run(ctx)  # center (800,450 @ 1600x900)
                 last_action = "login_click"
                 # Capture for stuck detection
                 snap = await ScreenshotOp().run(ctx)
@@ -149,7 +149,7 @@ class SkipStartupPopups:
                 ctx.logger.info(
                     f"  [startup][{attempt}] Idle screen — clicking to wake"
                 )
-                await ClickOp(x=800, y=400, wait=1.5).run(ctx)
+                await ClickOp(x=0.5, y=0.444, wait=1.5).run(ctx)  # (800,400 @ 1600x900)
                 last_action = "wake_idle"
                 snap = await ScreenshotOp().run(ctx)
                 prev_img = snap.data if snap.success else None
@@ -175,7 +175,7 @@ class SkipStartupPopups:
                 ctx.logger.info(
                     f"  [startup][{attempt}] Event popup — clicking top-right close"
                 )
-                await ClickOp(x=1540, y=50, wait=1.5).run(ctx)
+                await ClickOp(x=0.963, y=0.056, wait=1.5).run(ctx)  # top-right close (1540,50 @ 1600x900)
                 last_action = "close_event"
                 snap = await ScreenshotOp().run(ctx)
                 prev_img = snap.data if snap.success else None
@@ -194,7 +194,7 @@ class SkipStartupPopups:
                         ctx.logger.info(
                             f"  [startup][{attempt}] Clicking '{kw}' at ({cx},{cy})"
                         )
-                        await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+                        await ClickOp(x=cx / 1600, y=cy / 900, wait=1.5).run(ctx)
                         last_action = f"click_{kw}"
                         snap = await ScreenshotOp().run(ctx)
                         prev_img = snap.data if snap.success else None
@@ -230,7 +230,7 @@ class SkipStartupPopups:
                         f"  [startup][{attempt}] Unknown screen — ESC + click center"
                     )
                     await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-                    await ClickOp(x=800, y=450, wait=1.5).run(ctx)
+                    await ClickOp(x=0.5, y=0.5, wait=1.5).run(ctx)  # center (800,450 @ 1600x900)
                     last_action = "esc_click"
 
                 # Capture current screen for next iteration's stuck detection
@@ -256,8 +256,8 @@ class SkipStartupPopups:
         for key, name in [(VK_ESCAPE, "ESC"), (VK_ENTER, "Enter"), (VK_SPACE, "Space")]:
             await PressKeyOp(key=key, wait=0.5).run(ctx)
 
-        # Try common close button positions
-        for x, y in [(1540, 50), (800, 700), (800, 450)]:
+        # Try common close button positions (fractional coords)
+        for x, y in [(0.963, 0.056), (0.5, 0.778), (0.5, 0.5)]:  # (1540,50), (800,700), (800,450) @ 1600x900
             await ClickOp(x=x, y=y, wait=0.8).run(ctx)
 
             hub_result = await AtHubCheck().evaluate(ctx)

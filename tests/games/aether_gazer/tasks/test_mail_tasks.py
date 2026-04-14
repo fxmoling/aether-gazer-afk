@@ -4,6 +4,10 @@ Updated to match the Op/Check refactoring: mail task now uses
 ReturnToHubAction (from ops.navigate.smart_return) instead of a bare
 smart_return_to_hub function import.
 
+Updated for fractional coordinate API: _COLLECT_ALL_X/Y are now
+fractional [0.0, 1.0] values. device.click_log receives the
+converted pixel values via int(frac * design_resolution).
+
 Mock strategy: patch ReturnToHubAction.run at the class level so the
 return-to-hub step completes instantly. The primitives (PressKeyOp,
 ClickOp) still call through to MockDevice methods, so key_log and
@@ -74,9 +78,14 @@ def test_collect_all_mail_presses_h_shortcut():
 
 
 def test_collect_all_mail_clicks_collect_all():
-    """CollectAllMail clicks the collect-all button at verified coordinates."""
+    """CollectAllMail clicks the collect-all button at verified coordinates.
+
+    _COLLECT_ALL_X/Y are fractional; device receives pixels via
+    int(frac * design_resolution).
+    """
     device, _ = _run_with_mocks()
-    assert (_COLLECT_ALL_X, _COLLECT_ALL_Y) in device.click_log
+    expected_px = (int(_COLLECT_ALL_X * 1600), int(_COLLECT_ALL_Y * 900))
+    assert expected_px in device.click_log
 
 
 def test_collect_all_mail_dismisses_with_enter():

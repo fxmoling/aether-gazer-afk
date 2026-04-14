@@ -307,8 +307,9 @@ class TestSkipStartupPopups:
              patch(_OCR_OCR_ONCE, side_effect=mock_ocr_once):
             result = _run(task.execute(ctx))
 
-        # Should have clicked (800, 400) to wake from idle
-        assert (800, 400) in device.click_log
+        # Should have clicked (800, 399) to wake from idle
+        # Source uses ClickOp(x=0.5, y=0.444) → int(0.444*900) = 399
+        assert (800, 399) in device.click_log
 
 
 # -- LaunchAndReachHub Tests --

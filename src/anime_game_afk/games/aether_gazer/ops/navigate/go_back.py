@@ -1,6 +1,6 @@
 """Go back one page.
 
-Presses ESC or clicks the back button (35, 35) depending on
+Presses ESC or clicks the back button depending on
 the current page's navigation edge. Falls back to ESC if no
 edge is found.
 
@@ -41,7 +41,7 @@ class GoBackAction:
                     f"Go back: click ({action.coord.x}, {action.coord.y})"
                 )
                 await ClickOp(
-                    x=action.coord.x, y=action.coord.y,
+                    x=action.coord.x / 1600, y=action.coord.y / 900,
                     wait=action.wait_after,
                 ).run(ctx)
             elif action.method == NavMethod.KEY and action.key_code:
