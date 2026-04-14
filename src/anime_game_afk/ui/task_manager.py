@@ -5,9 +5,10 @@ background thread. Pushes per-task status updates to the frontend.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -20,7 +21,6 @@ from loguru import logger
 from anime_game_afk.core.device import DeviceAdapter
 from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
 from anime_game_afk.games.aether_gazer.processes.daily_routine import (
     _DAILY_TASKS,
 )
@@ -59,8 +59,9 @@ class TaskManager:
     def __init__(self) -> None:
         self._pipelines: list[PipelineDef] = []
         self._device: DeviceAdapter | None = None
-        self._worker: threading.Thread | None = None
-        self._stop_event = threading.Event()
+        self._process: subprocess.Popen | None = None
+        self._reader: threading.Thread | None = None
+        self._stderr_reader: threading.Thread | None = None
         self._lock = threading.Lock()
         self._window: Any = None  # pywebview window
         self._running = False
@@ -68,8 +69,6 @@ class TaskManager:
         self._completed_count = 0
         self._total_count = 0
         self._logger = get_logger("ui.task_manager")
-        self._async_loop: asyncio.AbstractEventLoop | None = None
-        self._async_task: asyncio.Task | None = None
 
         self._load_pipelines()
         self._load_config()
@@ -255,7 +254,7 @@ class TaskManager:
         }
 
     def start(self, pipeline_id: str) -> dict[str, Any]:
-        """Start executing a pipeline on a background thread."""
+        """Start executing a pipeline in a subprocess worker."""
         if self._running:
             return {"ok": False, "error": "已有任务在运行中"}
         if not self._device or not self._device.connected:
@@ -274,141 +273,112 @@ class TaskManager:
             for task in pipeline.tasks:
                 task.status = "pending" if task.enabled else "skipped"
 
-        self._stop_event.clear()
+        enabled = [t.id for t in pipeline.tasks if t.enabled]
+
+        self._process = subprocess.Popen(
+            [sys.executable, "-m", "anime_game_afk.ui.worker",
+             "--pipeline", pipeline_id,
+             "--tasks", ",".join(enabled)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self._reader = threading.Thread(
+            target=self._read_worker_output, daemon=True
+        )
+        self._reader.start()
+
+        self._stderr_reader = threading.Thread(
+            target=self._read_worker_stderr, daemon=True
+        )
+        self._stderr_reader.start()
+
         self._running = True
         self._start_time = time.time()
         self._completed_count = 0
         self._total_count = len(enabled_tasks)
 
-        self._worker = threading.Thread(
-            target=self._run_pipeline,
-            args=(pipeline,),
-            daemon=True,
-        )
-        self._worker.start()
         return {"ok": True}
 
     def stop(self) -> dict[str, Any]:
-        """Signal the worker thread to stop and cancel the running async task."""
-        self._stop_event.set()
-        self._logger.info("已请求停止，正在取消当前任务...")
-        # Cancel the asyncio task from this thread
-        loop = self._async_loop
-        task = self._async_task
-        if loop and task and not task.done():
-            loop.call_soon_threadsafe(task.cancel)
+        """Kill the worker subprocess for immediate stop."""
+        proc = self._process
+        if proc and proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                pass
+        self._logger.info("已请求停止")
         return {"ok": True}
 
     # ------------------------------------------------------------------
-    # Background execution
+    # Worker subprocess I/O
     # ------------------------------------------------------------------
 
-    def _run_pipeline(self, pipeline: PipelineDef) -> None:
-        """Run enabled tasks in sequence on the worker thread."""
+    def _read_worker_output(self) -> None:
+        """Reader thread: consume worker stdout JSON lines, push to frontend."""
+        proc = self._process
+        if proc is None or proc.stdout is None:
+            return
         try:
-            loop = asyncio.new_event_loop()
-            self._async_loop = loop
-            task = loop.create_task(self._async_run(pipeline))
-            self._async_task = task
-            loop.run_until_complete(task)
-        except asyncio.CancelledError:
-            self._logger.info("Pipeline 已被取消")
-        except Exception as e:
-            self._logger.error("Pipeline 执行异常: {}", e)
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = msg.get("type")
+
+                if msg_type == "task_status":
+                    task_id = msg.get("id", "")
+                    status = msg.get("status", "")
+                    with self._lock:
+                        for p in self._pipelines:
+                            for t in p.tasks:
+                                if t.id == task_id:
+                                    t.status = status
+                    self._push_task_status(task_id, status)
+                    if status == "success":
+                        self._completed_count += 1
+
+                elif msg_type == "log":
+                    level = msg.get("level", "info")
+                    text = msg.get("msg", "")
+                    self._push_js(
+                        f"window.onLog && window.onLog("
+                        f"{json.dumps(level)}, {json.dumps(text)})"
+                    )
+
+                elif msg_type == "error":
+                    err = msg.get("msg", "unknown error")
+                    self._push_js(
+                        f"window.onError && window.onError({json.dumps(err)})"
+                    )
+
+                elif msg_type == "done":
+                    pass  # completion signalled by EOF / _running=False below
+
         finally:
-            self._async_loop = None
-            self._async_task = None
             self._running = False
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
-    async def _async_run(self, pipeline: PipelineDef) -> None:
-        """Async execution loop — runs each enabled task in order."""
-        from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import (
-            ReturnToHub,
-        )
-
-        assert self._device is not None
-        hub = ReturnToHub()
-
-        ctx = ProcessContext(
-            device=self._device,
-            logger=get_logger(f"ui.{pipeline.id}"),
-        )
-
-        self._logger.info("=== 开始 {} ===", pipeline.name)
-
-        # Return to hub first
-        await hub.execute(ctx)
-
-        for task_def in pipeline.tasks:
-            if not task_def.enabled:
-                continue
-
-            if self._stop_event.is_set():
-                task_def.status = "skipped"
-                self._push_task_status(task_def.id, "skipped")
-                self._logger.info("--- 跳过: {} (已停止) ---", task_def.name)
-                continue
-
-            # Update status to running
-            task_def.status = "running"
-            self._push_task_status(task_def.id, "running")
-            self._logger.info("--- 执行: {} ---", task_def.name)
-
-            try:
-                # Find and instantiate the task class
-                task_cls = self._resolve_task_class(pipeline.id, task_def.id)
-                if task_cls is None:
-                    task_def.status = "failed"
-                    self._push_task_status(task_def.id, "failed")
-                    self._logger.warning("找不到任务类: {}", task_def.id)
-                    continue
-
-                task_obj = task_cls()
-                if hasattr(task_obj, "can_run") and not await task_obj.can_run(ctx):
-                    task_def.status = "skipped"
-                    self._push_task_status(task_def.id, "skipped")
-                    self._logger.info("  {} — can_run=False, 跳过", task_def.id)
-                else:
-                    result = await task_obj.execute(ctx)
-                    if result.status == "success":
-                        task_def.status = "success"
-                        self._push_task_status(task_def.id, "success")
-                        self._completed_count += 1
-                    elif result.status == "skipped":
-                        task_def.status = "skipped"
-                        self._push_task_status(task_def.id, "skipped")
-                    else:
-                        task_def.status = "failed"
-                        self._push_task_status(task_def.id, "failed")
-                        self._logger.warning(
-                            "  {} — 失败: {}", task_def.id, result.message
-                        )
-            except Exception as e:
-                task_def.status = "failed"
-                self._push_task_status(task_def.id, "failed")
-                self._logger.error("  {} — 异常: {}", task_def.id, e)
-
-            # Return to hub between tasks
-            try:
-                await hub.execute(ctx)
-            except Exception:
-                pass
-
-        self._logger.info(
-            "=== {} 完成 ({}/{}) ===",
-            pipeline.name,
-            self._completed_count,
-            self._total_count,
-        )
-
-    def _resolve_task_class(self, pipeline_id: str, task_id: str) -> Any:
-        """Look up the task class for a given pipeline + task ID."""
-        if pipeline_id == "daily_routine":
-            for tid, cls in _DAILY_TASKS:
-                if tid == task_id:
-                    return cls
-        return None
+    def _read_worker_stderr(self) -> None:
+        """Stderr reader thread: forward worker log lines to host logger."""
+        proc = self._process
+        if proc is None or proc.stderr is None:
+            return
+        try:
+            for line in proc.stderr:
+                line = line.rstrip()
+                if line:
+                    self._logger.debug("[worker] {}", line)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Frontend push helpers
