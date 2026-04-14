@@ -17,7 +17,9 @@ Fallback: delegates to WakeHubUiAction after max attempts.
 """
 from __future__ import annotations
 
+from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
+from anime_game_afk.games.aether_gazer.checks.state import ScreenUnchangedCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -26,8 +28,6 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
     ScreenshotOp,
     SleepOp,
 )
-
-import numpy as np
 
 
 class ReturnToHubAction:
@@ -89,37 +89,20 @@ class ReturnToHubAction:
 
             await PressKeyOp(VK_ESCAPE, wait=1.5).run(ctx)
 
-            # After ESC: one screenshot + one OCR to check everything
-            from anime_game_afk.vision.ocr import ocr_once
-            from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
-
-            post_esc_img = ctx.device.screenshot()
-
-            # Template match for hub
-            if is_on_page(post_esc_img, "main_hub"):
-                ctx.logger.info("[smart_return] Hub reached after ESC (template)")
+            # Check hub after ESC (template + OCR)
+            hub_r2 = await hub_check.evaluate(ctx)
+            if hub_r2.passed:
+                ctx.logger.info("[smart_return] Hub reached after ESC")
                 return OpResult(
                     success=True,
-                    data={"attempts": attempt, "method": "esc_template"},
+                    data={"attempts": attempt, "method": "esc_hub"},
                 )
 
-            # One OCR pass — check hub keywords + exit dialog
-            ocr = ocr_once(post_esc_img)
-
-            # Check hub via OCR (relaxed: 2+ keywords)
-            hub_kw = [kw for kw in ("前往作战", "探测", "修正者", "仓库") if ocr.has(kw)]
-            if len(hub_kw) >= 2:
-                ctx.logger.info(
-                    f"[smart_return] Hub reached after ESC "
-                    f"(OCR {len(hub_kw)}/4 keywords)"
-                )
-                return OpResult(
-                    success=True,
-                    data={"attempts": attempt, "method": "esc_ocr"},
-                )
-
-            # Check exit dialog (= we ARE at hub, just cancel)
-            if ocr.has("退出游戏") or ocr.has("是否退出"):
+            # Check exit dialog (= we ARE at hub, cancel with ESC)
+            ocr_r = await OcrScanCheck().evaluate(ctx)
+            if ocr_r.data and (
+                ocr_r.data.has("退出游戏") or ocr_r.data.has("是否退出")
+            ):
                 ctx.logger.info(
                     "[smart_return] Exit dialog detected — at hub, cancelling"
                 )
@@ -131,13 +114,12 @@ class ReturnToHubAction:
 
             # ── Step 3: Screen unchanged → press Enter ──
             if prev_img is not None:
-                diff = float(np.mean(np.abs(
-                    post_esc_img.astype(float) - prev_img.astype(float)
-                )))
-                if diff < 5.0:
+                unchanged_r = await ScreenUnchangedCheck(
+                    prev_image=prev_img
+                ).evaluate(ctx)
+                if unchanged_r.passed:
                     ctx.logger.debug(
-                        f"[smart_return][{attempt}] "
-                        f"Screen unchanged (diff={diff:.1f}), trying Enter"
+                        f"[smart_return][{attempt}] Screen unchanged, trying Enter"
                     )
                     await PressKeyOp(VK_ENTER, wait=1.5).run(ctx)
 

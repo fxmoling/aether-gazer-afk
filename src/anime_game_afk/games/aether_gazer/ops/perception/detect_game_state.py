@@ -18,11 +18,7 @@ from anime_game_afk.games.aether_gazer.knowledge.resources import (
     TEXT_TEMPLATE_DIR,
     StateTemplateDef,
 )
-from anime_game_afk.games.aether_gazer.ops.base import (
-    GameState,
-    OpContext,
-    OpResult,
-)
+from anime_game_afk.games.aether_gazer.ops.base import GameState
 
 # Mapping from template name to GameState enum
 _STATE_MAP: dict[str, GameState] = {
@@ -99,21 +95,3 @@ def detect_state(screenshot: np.ndarray) -> tuple[GameState, float]:
         best_conf = 0.99
 
     return (best_state, best_conf)
-
-
-class DetectGameStateOp:
-    """Op wrapper: take screenshot and detect game state.
-
-    Result data: {"state": GameState, "confidence": float}
-    """
-
-    async def run(self, ctx: OpContext) -> OpResult:
-        screenshot = ctx.screenshot()
-        state, confidence = detect_state(screenshot)
-        ctx.logger.debug(
-            f"Game state: {state.value} (confidence={confidence:.2f})"
-        )
-        return OpResult(
-            success=True,
-            data={"state": state, "confidence": confidence},
-        )

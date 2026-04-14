@@ -23,7 +23,6 @@ from anime_game_afk.games.aether_gazer.knowledge.resources import (
     TEMPLATE_DIR,
     TEMPLATE_INDEX,
 )
-from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 
 
 # Module-level template cache (loaded once, reused)
@@ -120,21 +119,3 @@ def is_on_page(screenshot: np.ndarray, page_id: str) -> bool:
         scores.append(result.score)
     avg = sum(scores) / len(scores) if scores else 0.0
     return avg >= MATCH_THRESHOLD
-
-
-class IdentifyPageOp:
-    """Op wrapper: take screenshot and identify current page.
-
-    Result data: {"page_id": str, "confidence": float}
-    """
-
-    async def run(self, ctx: OpContext) -> OpResult:
-        screenshot = ctx.screenshot()
-        page_id, confidence = identify(screenshot)
-        ctx.logger.info(
-            f"Page identified: {page_id} (confidence={confidence:.2f})"
-        )
-        return OpResult(
-            success=(page_id != "unknown"),
-            data={"page_id": page_id, "confidence": confidence},
-        )
