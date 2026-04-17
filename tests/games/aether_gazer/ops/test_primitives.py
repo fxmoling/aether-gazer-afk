@@ -69,8 +69,8 @@ def test_click_op():
     ctx = _make_ctx(device)
     result = _run(ClickOp(x=0.5, y=0.5, wait=0).run(ctx))
     assert result.success
-    assert result.data == {"x": 0.5, "y": 0.5, "px": 800, "py": 450}
-    assert device.click_log == [(800, 450)]
+    assert result.data == {"x": 0.5, "y": 0.5}
+    assert device.click_log == [(0.5, 0.5)]
 
 
 def test_click_op_corner():
@@ -83,12 +83,12 @@ def test_click_op_corner():
 
 
 def test_click_op_bottom_right():
-    """ClickOp at (1.0, 1.0) should click pixel (1600, 900)."""
+    """ClickOp at (1.0, 1.0) should pass fractional (1.0, 1.0) to device."""
     device = MockDevice()
     ctx = _make_ctx(device)
     result = _run(ClickOp(x=1.0, y=1.0, wait=0).run(ctx))
     assert result.success
-    assert device.click_log == [(1600, 900)]
+    assert device.click_log == [(1.0, 1.0)]
 
 
 def test_click_op_failure():
@@ -158,7 +158,7 @@ def test_swipe_op():
                           duration=500, wait=0).run(ctx))
     assert result.success
     assert result.data == {"from": (0.0, 0.0), "to": (1.0, 1.0)}
-    assert device.swipe_log == [(0, 0, 1600, 900, 500)]
+    assert device.swipe_log == [(0.0, 0.0, 1.0, 1.0, 500)]
 
 
 def test_swipe_op_center_to_corner():
@@ -167,7 +167,7 @@ def test_swipe_op_center_to_corner():
     ctx = _make_ctx(device)
     result = _run(SwipeOp(x1=0.5, y1=0.5, x2=0.75, y2=0.75, wait=0).run(ctx))
     assert result.success
-    assert device.swipe_log == [(800, 450, 1200, 675, 300)]
+    assert device.swipe_log == [(0.5, 0.5, 0.75, 0.75, 300)]
 
 
 def test_swipe_op_failure():

@@ -50,8 +50,8 @@ def test_navigate_to_chapter_positive_clicks():
     # Should have clicked to scroll to chapter
     assert len(device.click_log) == 1
     _, y = device.click_log[0]
-    # y should be > 200 (offset) + 2 * row_height
-    assert y > 200
+    # y should be > 0.2 (fractional)
+    assert y > 0.2
 
 
 def test_navigate_to_chapter_can_run():
@@ -79,7 +79,7 @@ def test_select_latest_stage_clicks_active_stage():
     device = MockDevice()
     ctx = TaskContext(device=device)
     _run(SelectLatestStage().execute(ctx))
-    assert (532, 450) in device.click_log  # int(0.333 * 1600) = 532
+    assert (0.333, 0.5) in device.click_log  # fractional coords
 
 
 def test_select_latest_stage_can_run():

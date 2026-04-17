@@ -39,8 +39,9 @@ def test_safe_pages_excludes_hub():
 def test_find_element_exists():
     elem = find_element("main_hub", "Battle")
     assert elem is not None
-    assert elem.coord.x == 1465
-    assert elem.coord.y == 850
+    fx, fy = elem.coord
+    assert abs(fx - 0.916) < 0.01  # 1465/1600
+    assert abs(fy - 0.944) < 0.01  # 850/900
     assert elem.target_page == "battle_select"
 
 

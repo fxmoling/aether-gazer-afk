@@ -202,8 +202,8 @@ class TestSkipStartupPopups:
             result = _run(task.execute(ctx))
 
         assert result.status == "success"
-        # Should have clicked top-right close (1540, 50) for event popup
-        assert (1540, 50) in device.click_log
+        # Should have clicked top-right close (fractional 0.963, 0.056)
+        assert (0.963, 0.056) in device.click_log
 
     def test_presses_esc_for_event_forward_button(self):
         """When event popup with 限时 found, clicks top-right close button."""
@@ -230,8 +230,8 @@ class TestSkipStartupPopups:
              patch(_OCR_OCR_ONCE, side_effect=mock_ocr_once):
             result = _run(task.execute(ctx))
 
-        # Should have clicked top-right close (1540, 50) for event popup
-        assert (1540, 50) in device.click_log
+        # Should have clicked top-right close (fractional 0.963, 0.056)
+        assert (0.963, 0.056) in device.click_log
 
     def test_handles_login_screen(self):
         """Login screen gets a center click."""
@@ -258,8 +258,8 @@ class TestSkipStartupPopups:
              patch(_OCR_OCR_ONCE, side_effect=mock_ocr_once):
             result = _run(task.execute(ctx))
 
-        # Should have clicked center (800, 450) for login
-        assert (800, 450) in device.click_log
+        # Should have clicked center (0.5, 0.5) for login
+        assert (0.5, 0.5) in device.click_log
 
     def test_fails_when_max_attempts_exceeded(self):
         """Returns failed when max attempts reached without hub."""
@@ -307,9 +307,8 @@ class TestSkipStartupPopups:
              patch(_OCR_OCR_ONCE, side_effect=mock_ocr_once):
             result = _run(task.execute(ctx))
 
-        # Should have clicked (800, 399) to wake from idle
-        # Source uses ClickOp(x=0.5, y=0.444) → int(0.444*900) = 399
-        assert (800, 399) in device.click_log
+        # Should have clicked (0.5, 0.444) to wake from idle
+        assert (0.5, 0.444) in device.click_log
 
 
 # -- LaunchAndReachHub Tests --

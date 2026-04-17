@@ -84,8 +84,8 @@ def test_collect_all_mail_clicks_collect_all():
     int(frac * design_resolution).
     """
     device, _ = _run_with_mocks()
-    expected_px = (int(_COLLECT_ALL_X * 1600), int(_COLLECT_ALL_Y * 900))
-    assert expected_px in device.click_log
+    # Coords are now fractional
+    assert (_COLLECT_ALL_X, _COLLECT_ALL_Y) in device.click_log
 
 
 def test_collect_all_mail_dismisses_with_enter():

@@ -35,7 +35,7 @@ def test_wake_hub_ui_clicks_center():
     ctx = OpContext(device=device)
     result = _run(WakeHubUiAction().run(ctx))
     assert result.success
-    assert (800, 450) in device.click_log
+    assert (0.5, 0.5) in device.click_log
 
 
 def test_go_back_unknown_presses_esc():
@@ -51,4 +51,8 @@ def test_go_back_shop_clicks_back():
     ctx = OpContext(device=device)
     result = _run(GoBackAction("shop").run(ctx))
     assert result.success
-    assert (35, 35) in device.click_log
+    # Back button coord is fractional (0.022, 0.039) from navigation.py
+    assert len(device.click_log) >= 1
+    fx, fy = device.click_log[0]
+    assert abs(fx - 0.022) < 0.01
+    assert abs(fy - 0.039) < 0.01

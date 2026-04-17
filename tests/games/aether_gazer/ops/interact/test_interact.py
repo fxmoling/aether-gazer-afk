@@ -44,7 +44,11 @@ def test_click_element_success():
     op = ClickElementAction("main_hub", "Shop", wait_after=0.0)
     result = _run(op.run(ctx))
     assert result.success
-    assert (910, 850) in device.click_log
+    # Shop coord is fractional (0.569, 0.944) from pages.py
+    assert len(device.click_log) == 1
+    fx, fy = device.click_log[0]
+    assert abs(fx - 0.569) < 0.01
+    assert abs(fy - 0.944) < 0.01
 
 
 def test_click_element_not_found():

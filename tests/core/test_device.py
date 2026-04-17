@@ -28,14 +28,9 @@ from anime_game_afk.core.types import DeviceConfig, Resolution
 def _make_config(
     *,
     window_title: str = "TestWindow",
-    design_w: int = 1600,
-    design_h: int = 900,
 ) -> DeviceConfig:
     """Build a DeviceConfig for testing."""
-    return DeviceConfig(
-        window_title=window_title,
-        design_resolution=(design_w, design_h),
-    )
+    return DeviceConfig(window_title=window_title)
 
 
 def _fake_window(name: str, hwnd: int = 1, class_name: str = "FakeClass") -> MagicMock:
@@ -95,13 +90,6 @@ def test_initial_state_not_connected() -> None:
     cfg = _make_config()
     adapter = DeviceAdapter(cfg)
     assert not adapter.connected
-
-
-def test_initial_design_resolution() -> None:
-    """design_resolution must reflect what was passed in the config."""
-    cfg = _make_config(design_w=1280, design_h=720)
-    adapter = DeviceAdapter(cfg)
-    assert adapter.design_resolution == Resolution(1280, 720)
 
 
 def test_config_property() -> None:
@@ -202,12 +190,13 @@ def test_disconnect_sets_connected_false(
     assert not connected_adapter.connected
 
 
-def test_disconnect_resets_actual_resolution(
+def test_disconnect_resets_state(
     connected_adapter: DeviceAdapter,
 ) -> None:
-    """After disconnect, actual_resolution must equal design_resolution."""
+    """After disconnect, actual_resolution must raise DeviceConnectionError."""
     connected_adapter.disconnect()
-    assert connected_adapter.actual_resolution == connected_adapter.design_resolution
+    with pytest.raises(DeviceConnectionError):
+        _ = connected_adapter.actual_resolution
 
 
 def test_connect_raises_when_window_missing() -> None:
@@ -243,9 +232,9 @@ def test_connect_raises_connection_error_on_controller_failure() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_click_no_scaling() -> None:
-    """1:1 resolution — click coords must pass through unchanged."""
-    cfg = _make_config(design_w=1600, design_h=900)
+def test_click_fractional_coords() -> None:
+    """click(fx, fy) must convert fractional coords to actual pixels."""
+    cfg = _make_config()
     adapter = DeviceAdapter(cfg)
     ctrl_mock = _make_controller_mock(resolution=(1600, 900))
 
@@ -260,16 +249,39 @@ def test_click_no_scaling() -> None:
             _fake_window("TestWindow")
         ]
         adapter.connect()
-        adapter.click(400, 300)
+        adapter.click(0.25, 0.5)
 
-    ctrl_mock.post_click.assert_called_once_with(400, 300)
+    # 0.25 * 1600 = 400, 0.5 * 900 = 450
+    ctrl_mock.post_click.assert_called_once_with(400, 450)
 
 
-def test_click_with_scaling() -> None:
-    """2× resolution — click coords must be doubled."""
-    cfg = _make_config(design_w=800, design_h=450)
+def test_click_center() -> None:
+    """click(0.5, 0.5) must map to the center of the actual resolution."""
+    cfg = _make_config()
     adapter = DeviceAdapter(cfg)
-    # Actual window is 1600×900 (2× design)
+    ctrl_mock = _make_controller_mock(resolution=(1920, 1080))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        adapter.connect()
+        adapter.click(0.5, 0.5)
+
+    # 0.5 * 1920 = 960, 0.5 * 1080 = 540
+    ctrl_mock.post_click.assert_called_once_with(960, 540)
+
+
+def test_swipe_fractional_coords() -> None:
+    """Swipe endpoints must be converted from fractional to actual pixels."""
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
     ctrl_mock = _make_controller_mock(resolution=(1600, 900))
 
     with (
@@ -283,31 +295,10 @@ def test_click_with_scaling() -> None:
             _fake_window("TestWindow")
         ]
         adapter.connect()
-        adapter.click(100, 50)
+        adapter.swipe(0.0, 0.0, 0.5, 0.25, duration=300)
 
-    ctrl_mock.post_click.assert_called_once_with(200, 100)
-
-
-def test_swipe_with_scaling() -> None:
-    """Swipe endpoints must both be scaled."""
-    cfg = _make_config(design_w=800, design_h=450)
-    adapter = DeviceAdapter(cfg)
-    ctrl_mock = _make_controller_mock(resolution=(1600, 900))
-
-    with (
-        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
-        patch(
-            "anime_game_afk.core.device.Win32Controller",
-            return_value=ctrl_mock,
-        ),
-    ):
-        mock_toolkit.find_desktop_windows.return_value = [
-            _fake_window("TestWindow")
-        ]
-        adapter.connect()
-        adapter.swipe(0, 0, 400, 225, duration=300)
-
-    ctrl_mock.post_swipe.assert_called_once_with(0, 0, 800, 450, 300)
+    # 0*1600=0, 0*900=0, 0.5*1600=800, 0.25*900=225
+    ctrl_mock.post_swipe.assert_called_once_with(0, 0, 800, 225, 300)
 
 
 # ---------------------------------------------------------------------------
@@ -315,13 +306,12 @@ def test_swipe_with_scaling() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_screenshot_returns_design_resolution_image() -> None:
-    """screenshot() must resize to design resolution when sizes differ."""
-    design_w, design_h = 1600, 900
-    actual_w, actual_h = 3200, 1800  # 2× resolution
+def test_screenshot_scales_down_to_max_height() -> None:
+    """screenshot() must scale down proportionally when height > MAX_HEIGHT (720)."""
+    actual_w, actual_h = 3200, 1800  # taller than 720
 
     actual_img = np.zeros((actual_h, actual_w, 3), dtype=np.uint8)
-    cfg = _make_config(design_w=design_w, design_h=design_h)
+    cfg = _make_config()
     adapter = DeviceAdapter(cfg)
     ctrl_mock = _make_controller_mock(
         resolution=(actual_w, actual_h), screencap_img=actual_img
@@ -340,16 +330,17 @@ def test_screenshot_returns_design_resolution_image() -> None:
         adapter.connect()
         img = adapter.screenshot()
 
-    assert img.shape == (design_h, design_w, 3)
+    # scale = 720 / 1800 = 0.4, new_w = int(3200 * 0.4) = 1280
+    assert img.shape == (720, 1280, 3)
 
 
-def test_screenshot_no_resize_when_sizes_match() -> None:
-    """screenshot() must NOT resize when actual == design resolution."""
-    img_data = np.ones((900, 1600, 3), dtype=np.uint8) * 127
-    cfg = _make_config(design_w=1600, design_h=900)
+def test_screenshot_no_resize_when_height_within_max() -> None:
+    """screenshot() must NOT resize when height ≤ MAX_HEIGHT (720)."""
+    img_data = np.ones((720, 1280, 3), dtype=np.uint8) * 127
+    cfg = _make_config()
     adapter = DeviceAdapter(cfg)
     ctrl_mock = _make_controller_mock(
-        resolution=(1600, 900), screencap_img=img_data
+        resolution=(1280, 720), screencap_img=img_data
     )
 
     with (
@@ -365,7 +356,7 @@ def test_screenshot_no_resize_when_sizes_match() -> None:
         adapter.connect()
         img = adapter.screenshot()
 
-    assert img.shape == (900, 1600, 3)
+    assert img.shape == (720, 1280, 3)
     # Pixel values must be preserved (no resize distortion)
     np.testing.assert_array_equal(img, img_data)
 
@@ -374,7 +365,7 @@ def test_screenshot_raw_returns_actual_resolution_image() -> None:
     """screenshot_raw() must return the image without resizing."""
     actual_w, actual_h = 3200, 1800
     actual_img = np.zeros((actual_h, actual_w, 3), dtype=np.uint8)
-    cfg = _make_config(design_w=1600, design_h=900)
+    cfg = _make_config()
     adapter = DeviceAdapter(cfg)
     ctrl_mock = _make_controller_mock(
         resolution=(actual_w, actual_h), screencap_img=actual_img

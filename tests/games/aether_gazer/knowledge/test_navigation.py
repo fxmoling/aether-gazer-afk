@@ -15,7 +15,8 @@ def test_direct_forward_edge():
     assert edge is not None
     assert edge.action.method == NavMethod.CLICK
     assert edge.action.coord is not None
-    assert edge.action.coord.x == 910
+    fx, fy = edge.action.coord
+    assert abs(fx - 0.569) < 0.01
 
 
 def test_direct_backward_edge():
