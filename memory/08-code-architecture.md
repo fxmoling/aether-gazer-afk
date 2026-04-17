@@ -193,7 +193,7 @@ Layer 7:  processes/     ← imports: tasks (L6)
 
 ```
 src/anime_game_afk/
-├── core/              # L1: types.py, device.py, errors.py (session.py deprecated)
+├── core/              # L1: types.py, device.py, errors.py
 ├── vision/            # L2: matcher.py, geometry.py, color.py, ocr.py (RapidOCR), types.py
 ├── runtime/           # L3: logger.py, config.py, state.py, clock.py, events.py, errors.py, run_log.py
 ├── ui/                # L9: app.py, api.py, bridge.py, task_manager.py, web/ (pywebview GUI)

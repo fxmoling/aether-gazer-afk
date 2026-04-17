@@ -42,5 +42,14 @@ game window size and aspect ratio.
 - Wave 4: `f1d518d` — vision pipeline (identify_page + index.json)
 - Wave 5: `2475400` — all tests updated (534 passing)
 
+## Config Cleanup (post-refactor)
+
+- **Deleted** `core/session.py` (GameSession) — fully replaced by DeviceAdapter
+- **Deleted** `games/aether_gazer/adapter.py` — empty wrapper around GameSession
+- **Deleted** `GameConfig.design_resolution` field — no consumers remain
+- **DeviceConfig** all fields now required (no unsafe defaults)
+- **GameConfig.to_device_config()** — single-point conversion, eliminates boilerplate
+- Commit: `0d49348`
+
 ## Design Spec
 `docs/superpowers/specs/2026-04-17-resolution-agnostic-pipeline-design.md`
