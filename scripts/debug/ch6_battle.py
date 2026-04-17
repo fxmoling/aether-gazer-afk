@@ -23,7 +23,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
+
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
 # ============================================================
 # Logging setup
@@ -148,17 +151,18 @@ BATTLE_KEYS = [0x4A, 0x4A, 0x55, 0x4A, 0x49, 0x4A, 0x4F, 0x52, 0x31, 0x32]
 KEY_NAMES = {0x4A:"J", 0x55:"U", 0x49:"I", 0x4F:"O", 0x52:"R", 0x31:"1", 0x32:"2",
              0x1B:"ESC", 0x0D:"Enter", 0x20:"Space", 0x57:"W"}
 
-def press(session: GameSession, key: int, reason: str):
+def press(device: DeviceAdapter, key: int, reason: str):
     name = KEY_NAMES.get(key, f"0x{key:02X}")
     log.info("ACTION: press [%s] -- %s", name, reason)
-    session.press_key(key)
+    device.press_key(key)
 
-def click(session: GameSession, x: int, y: int, reason: str):
-    log.info("ACTION: click (%d, %d) -- %s", x, y, reason)
-    session.click(x, y)
+def click(device: DeviceAdapter, x: int, y: int, reason: str):
+    fx, fy = x / _DESIGN_W, y / _DESIGN_H
+    log.info("ACTION: click (%d, %d) [%.3f, %.3f] -- %s", x, y, fx, fy, reason)
+    device.click(fx, fy)
 
-def save_snap(session: GameSession, label: str) -> np.ndarray:
-    img = session.screenshot()
+def save_snap(device: DeviceAdapter, label: str) -> np.ndarray:
+    img = device.screenshot()
     thumb = cv2.resize(img, (800, 450), interpolation=cv2.INTER_AREA)
     path = SNAP_DIR / f"ch6b_{label}.jpg"
     cv2.imwrite(str(path), thumb, [cv2.IMWRITE_JPEG_QUALITY, 65])
@@ -174,8 +178,8 @@ def main():
     parser.add_argument("--skip-prep", action="store_true", help="Skip initial prep battle click")
     args = parser.parse_args()
 
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
     detector = StateDetector()
 
     try:
@@ -187,12 +191,12 @@ def main():
         # Step 0: Click node then prep battle if needed
         if not args.skip_prep:
             log.info("STEP 0a: Clicking stage node 6-10 (1200, 310)")
-            click(session, 1200, 310, "Click stage 6-10 node to open detail panel")
+            click(device, 1200, 310, "Click stage 6-10 node to open detail panel")
             time.sleep(3)
             log.info("STEP 0b: Clicking prep battle button (1350, 840)")
-            click(session, 1350, 840, "Click prep battle button on detail panel")
+            click(device, 1350, 840, "Click prep battle button on detail panel")
             time.sleep(4)
-            img = save_snap(session, "s0_after_prep")
+            img = save_snap(device, "s0_after_prep")
             state, conf = detector.detect(img)
             log.info("STEP 0 result: state=%s conf=%.2f", state, conf)
 
@@ -208,7 +212,7 @@ def main():
             elapsed = int(time.time() - start_time)
 
             # Screenshot and detect
-            img = session.screenshot()
+            img = device.screenshot()
             state, conf = detector.detect(img)
 
             # Track same-state count
@@ -225,15 +229,15 @@ def main():
             if step % 20 == 0:
                 log.info("[%ds step=%d] state=%s conf=%.2f same_count=%d",
                          elapsed, step, state, conf, same_state_count)
-                save_snap(session, f"periodic_{elapsed}s")
+                save_snap(device, f"periodic_{elapsed}s")
 
             # Stuck detection
             if same_state_count > 100:
                 log.warning("STUCK: state=%s for %d steps. Saving snap and trying recovery.",
                            state, same_state_count)
-                save_snap(session, f"stuck_{elapsed}s_{state}")
+                save_snap(device, f"stuck_{elapsed}s_{state}")
                 # Generic recovery: try ESC
-                press(session, 0x1B, "Stuck recovery: try ESC")
+                press(device, 0x1B, "Stuck recovery: try ESC")
                 time.sleep(2)
                 same_state_count = 0
                 continue
@@ -248,25 +252,25 @@ def main():
 
             elif state == "mission_failed":
                 log.info("PAGE: Mission Failed screen detected")
-                save_snap(session, f"mission_failed_{elapsed}s")
-                press(session, 0x1B, "Close mission failed screen")
+                save_snap(device, f"mission_failed_{elapsed}s")
+                press(device, 0x1B, "Close mission failed screen")
                 time.sleep(3)
 
             elif state == "revive_prompt":
                 log.info("PAGE: Revive prompt detected -- accepting revival")
-                save_snap(session, f"revive_{elapsed}s")
-                press(session, 0x0D, "Accept revival (Enter) -- cost acceptable")
+                save_snap(device, f"revive_{elapsed}s")
+                press(device, 0x0D, "Accept revival (Enter) -- cost acceptable")
                 time.sleep(3)
 
             elif state == "skip_story_confirm":
                 log.info("PAGE: Skip story confirmation dialog")
-                press(session, 0x0D, "Confirm skip story (Enter)")
+                press(device, 0x0D, "Confirm skip story (Enter)")
                 time.sleep(3)
 
             elif state == "continuous_battle":
                 log.info("PAGE: Continuous battle prompt")
-                save_snap(session, f"continuous_{elapsed}s")
-                press(session, 0x0D, "Accept continuous battle (Enter)")
+                save_snap(device, f"continuous_{elapsed}s")
+                press(device, 0x0D, "Accept continuous battle (Enter)")
                 time.sleep(4)
 
             elif state == "prep_battle":
@@ -275,8 +279,8 @@ def main():
                 # If we just completed a battle, this means we're done
                 if step > 5:
                     log.info("Prep battle detected after battle -- may be complete or next stage")
-                    save_snap(session, f"prep_again_{elapsed}s")
-                click(session, 1350, 840, "Click prep battle to start next stage")
+                    save_snap(device, f"prep_again_{elapsed}s")
+                click(device, 1350, 840, "Click prep battle to start next stage")
                 time.sleep(4)
 
             elif state == "battle_hud":
@@ -288,31 +292,31 @@ def main():
                 press_name = KEY_NAMES.get(key, "?")
                 if same_state_count % 10 == 0:  # Log every 10th key to avoid spam
                     log.debug("Battle key: %s (idx=%d)", press_name, battle_key_idx)
-                session.press_key(key)  # Direct press without full log to reduce noise
+                device.press_key(key)  # Direct press without full log to reduce noise
                 battle_key_idx += 1
                 time.sleep(0.25)
 
             elif state == "stage_map":
                 log.info("PAGE: Stage map (progress indicator visible)")
-                save_snap(session, f"stage_map_{elapsed}s")
+                save_snap(device, f"stage_map_{elapsed}s")
                 if step <= 5:
                     # Initial entry: click the node first, then prep
                     log.info("Clicking stage node 6-10 area (1200, 310)")
-                    click(session, 1200, 310, "Click stage 6-10 node to open detail panel")
+                    click(device, 1200, 310, "Click stage 6-10 node to open detail panel")
                     time.sleep(3)
                     log.info("Now clicking prep battle (1350, 840)")
-                    click(session, 1350, 840, "Click prep battle button")
+                    click(device, 1350, 840, "Click prep battle button")
                     time.sleep(4)
                 elif step > 10:
                     log.info("Back at stage map after %d steps -- trying to re-enter battle", step)
                     # Scroll right to find next uncompleted node, click it
                     log.info("Swiping right to find next uncompleted node")
-                    session.swipe(400, 450, 1200, 450)  # swipe right to see earlier nodes
+                    device.swipe(400 / _DESIGN_W, 450 / _DESIGN_H, 1200 / _DESIGN_W, 450 / _DESIGN_H)
                     time.sleep(2)
                     # Click rightmost visible node area
-                    click(session, 1200, 350, "Click a node on the map")
+                    click(device, 1200, 350, "Click a node on the map")
                     time.sleep(3)
-                    click(session, 1350, 840, "Click prep battle button")
+                    click(device, 1350, 840, "Click prep battle button")
                     time.sleep(4)
 
             elif state == "unknown":
@@ -326,7 +330,7 @@ def main():
                     # First: try Space (dialogue/results)
                     if same_state_count % 3 == 0:
                         log.info("[%ds] Unknown state (cycle %d): pressing Space", elapsed, same_state_count)
-                    press(session, 0x20, "Unknown: Space (dialogue/result/advance)")
+                    press(device, 0x20, "Unknown: Space (dialogue/result/advance)")
                     time.sleep(0.4)
 
                 elif cycle < 10:
@@ -334,7 +338,7 @@ def main():
                     key = BATTLE_KEYS[battle_key_idx % len(BATTLE_KEYS)]
                     if same_state_count % 5 == 0:
                         log.info("[%ds] Unknown state (cycle %d): trying battle keys", elapsed, same_state_count)
-                    session.press_key(key)
+                    device.press_key(key)
                     battle_key_idx += 1
                     time.sleep(0.25)
 
@@ -342,16 +346,16 @@ def main():
                     # Then: try walking forward (exploration)
                     if same_state_count % 10 == 0:
                         log.info("[%ds] Unknown state (cycle %d): walking W", elapsed, same_state_count)
-                    session.press_key(0x57)  # W
+                    device.press_key(0x57)  # W
                     time.sleep(0.2)
 
                 elif cycle < 25:
                     # Then: try ESC+Enter combo (skippable cutscene)
                     if cycle == 20:
                         log.info("[%ds] Unknown state (cycle %d): trying ESC->Enter skip", elapsed, same_state_count)
-                        press(session, 0x1B, "Unknown: ESC (try cutscene skip)")
+                        press(device, 0x1B, "Unknown: ESC (try cutscene skip)")
                         time.sleep(1.5)
-                        press(session, 0x0D, "Unknown: Enter (confirm skip if dialog appeared)")
+                        press(device, 0x0D, "Unknown: Enter (confirm skip if dialog appeared)")
                         time.sleep(2)
                     else:
                         time.sleep(0.3)
@@ -370,9 +374,9 @@ def main():
         log.info("========================================")
 
     finally:
-        save_snap(session, "final")
-        session.disconnect()
-        log.info("Session disconnected. Log saved to ch6_battle.log")
+        save_snap(device, "final")
+        device.disconnect()
+        log.info("Disconnected. Log saved to ch6_battle.log")
 
 
 if __name__ == "__main__":

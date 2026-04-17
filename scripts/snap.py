@@ -27,7 +27,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
+
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
 # 输出目录
 OUT_DIR = Path("assets/aether_gazer/screenshots/deep")
@@ -40,7 +43,7 @@ THUMB_QUALITY = 65
 
 
 def snap(
-    session: GameSession,
+    device: DeviceAdapter,
     name: str,
     crop: tuple[int, int, int, int] | None = None,
 ) -> tuple[Path, Path]:
@@ -52,9 +55,9 @@ def snap(
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
 
-    # raw 用原始分辨率，thumb 用设计分辨率
-    img_raw = session.screenshot_raw()
-    img = session.screenshot()  # 设计分辨率 (1600x900)
+    # raw 用原始分辨率，thumb 用缩放后截图
+    img_raw = device.screenshot_raw()
+    img = device.screenshot()
     h, w = img.shape[:2]
 
     # 保存原始 PNG (实际窗口分辨率)
@@ -83,9 +86,9 @@ def snap(
     return raw_path, thumb_path
 
 
-def pixel_info(session: GameSession, x: int, y: int) -> None:
+def pixel_info(device: DeviceAdapter, x: int, y: int) -> None:
     """打印指定像素的信息"""
-    img = session.screenshot()
+    img = device.screenshot()
     px = img[y, x]
     b, g, r = int(px[0]), int(px[1]), int(px[2])
     brightness = b + g + r
@@ -107,30 +110,31 @@ def main():
                         help="查看像素BGR值 (不截图)")
     args = parser.parse_args()
 
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
 
     try:
         if args.info:
-            pixel_info(session, args.info[0], args.info[1])
+            pixel_info(device, args.info[0], args.info[1])
             return
 
         if args.click:
             x, y = args.click
-            print(f"click ({x}, {y})")
-            session.click(x, y)
+            fx, fy = x / _DESIGN_W, y / _DESIGN_H
+            print(f"click ({x}, {y}) -> fractional ({fx:.4f}, {fy:.4f})")
+            device.click(fx, fy)
             time.sleep(args.wait)
 
         if args.key:
             print(f"key 0x{args.key:02X}")
-            session.press_key(args.key)
+            device.press_key(args.key)
             time.sleep(args.wait)
 
         crop = tuple(args.crop) if args.crop else None
-        snap(session, args.name, crop=crop)
+        snap(device, args.name, crop=crop)
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 if __name__ == "__main__":

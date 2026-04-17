@@ -23,19 +23,22 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
 
 
 # 截图保存的最大宽度（用于展示/上传到 Claude）
 # 800px 宽度 + JPEG 压缩，确保每张 < 200KB，避免 20MB 上下文限制
 MAX_DISPLAY_WIDTH = 800
 
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
-def create_session() -> GameSession:
-    """创建并连接游戏会话"""
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
-    return session
+
+def create_device() -> DeviceAdapter:
+    """创建并连接设备"""
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
+    return device
 
 
 def save_screenshot(
@@ -88,9 +91,9 @@ def save_screenshot(
 
 def cmd_screenshot(args: argparse.Namespace) -> None:
     """截图命令"""
-    session = create_session()
+    device = create_device()
     try:
-        img = session.screenshot()
+        img = device.screenshot()
         h, w = img.shape[:2]
         logger.info("原始截图尺寸: {}x{}", w, h)
 
@@ -104,28 +107,29 @@ def cmd_screenshot(args: argparse.Namespace) -> None:
         save_screenshot(img, display_path, resize_for_display=True)
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 def cmd_click(args: argparse.Namespace) -> None:
     """点击命令，可选前后截图验证"""
-    session = create_session()
+    device = create_device()
     try:
         x, y = args.x, args.y
+        fx, fy = x / _DESIGN_W, y / _DESIGN_H
 
         if args.verify:
             # 点击前截图
-            before = session.screenshot()
+            before = device.screenshot()
             before_path = Path(f"assets/aether_gazer/screenshots/click_before.png")
             save_screenshot(before, before_path)
 
-        logger.info("点击坐标: ({}, {})", x, y)
-        session.click(x, y)
+        logger.info("点击坐标: ({}, {}) -> fractional ({:.4f}, {:.4f})", x, y, fx, fy)
+        device.click(fx, fy)
 
         if args.verify:
             time.sleep(args.wait)
             # 点击后截图
-            after = session.screenshot()
+            after = device.screenshot()
             after_path = Path(f"assets/aether_gazer/screenshots/click_after.png")
             save_screenshot(after, after_path)
 
@@ -160,35 +164,28 @@ def cmd_click(args: argparse.Namespace) -> None:
             logger.info("标记图已保存: {}", marked_path)
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 def cmd_info(args: argparse.Namespace) -> None:
     """显示窗口和截图信息"""
-    session = create_session()
+    device = create_device()
     try:
         # 获取分辨率信息
-        resolution = session._controller.resolution
-        logger.info("窗口分辨率 (MaaFw resolution): {}", resolution)
+        resolution = device.resolution
+        logger.info("设备分辨率: {}", resolution)
 
         # 截图并检查尺寸
-        img = session.screenshot()
+        img = device.screenshot()
         h, w = img.shape[:2]
         logger.info("截图尺寸: {}x{}", w, h)
-        logger.info("截图与窗口分辨率一致: {}", (w, h) == resolution)
 
         # 内存大小
         mem_mb = img.nbytes / (1024 * 1024)
         logger.info("截图内存大小: {:.1f} MB", mem_mb)
 
-        # 配置信息
-        logger.info("配置:")
-        logger.info("  screencap_method: {}", AETHER_GAZER_CONFIG.screencap_method)
-        logger.info("  mouse_method: {}", AETHER_GAZER_CONFIG.mouse_method)
-        logger.info("  keyboard_method: {}", AETHER_GAZER_CONFIG.keyboard_method)
-
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 def main() -> None:

@@ -19,9 +19,8 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
-from anime_game_afk.games.aether_gazer.nav.navigator import Navigator
-from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskSequence
+from anime_game_afk.core.device import DeviceAdapter
+from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
 from anime_game_afk.games.aether_gazer.tasks.daily import (
     CollectEventsRewards,
     CollectGuildRewards,
@@ -58,16 +57,14 @@ def main() -> None:
             logger.info("  {:15s} - {}", name, task.description)
         return
 
-    # 创建会话
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    # 创建设备
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
 
     try:
-        # 创建导航器和上下文
-        navigator = Navigator(session)
+        # 创建上下文
         ctx = TaskContext(
-            session=session,
-            navigator=navigator,
+            device=device,
             dry_run=args.dry_run,
         )
 
@@ -83,7 +80,7 @@ def main() -> None:
         # 确保在hub
         logger.info("=== 开始执行: {} ===", task.name)
         if not args.dry_run:
-            navigator.ensure_hub()
+            pass  # hub navigation handled by tasks themselves
 
         # 执行
         start_time = time.time()
@@ -104,7 +101,7 @@ def main() -> None:
             logger.info("  [{}] {} - {}", status, entry["task"], entry["action"])
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 if __name__ == "__main__":

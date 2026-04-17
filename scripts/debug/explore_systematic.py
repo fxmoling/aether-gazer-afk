@@ -30,7 +30,10 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
+
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
 # === 常量 ===
 DISPLAY_WIDTH = 800
@@ -342,24 +345,24 @@ def check_bottom_nav_present(img: np.ndarray) -> bool:
     return len(clusters) >= 5
 
 
-def ensure_hub(session: GameSession) -> bool:
+def ensure_hub(device: DeviceAdapter) -> bool:
     """确保当前在主大厅
 
     通过检查底部导航栏来判断。如果不在hub，尝试按ESC回到hub。
     最多尝试5次。
     """
     for attempt in range(5):
-        img = session.screenshot()
+        img = device.screenshot()
         if check_bottom_nav_present(img):
             logger.info("✅ 当前在主大厅 (attempt {})", attempt)
             return True
 
         logger.warning("⚠️ 不在主大厅，尝试 ESC 返回 (attempt {})", attempt)
-        session.press_key(0x1B)  # ESC
+        device.press_key(0x1B)  # ESC
         time.sleep(1.5)
 
     # 最后一次检查
-    img = session.screenshot()
+    img = device.screenshot()
     if check_bottom_nav_present(img):
         return True
 
@@ -367,13 +370,13 @@ def ensure_hub(session: GameSession) -> bool:
     return False
 
 
-def wake_ui(session: GameSession) -> None:
+def wake_ui(device: DeviceAdapter) -> None:
     """唤醒UI（某些页面UI会自动隐藏）"""
-    session.click(800, 450)
+    device.click(800 / _DESIGN_W, 450 / _DESIGN_H)
     time.sleep(0.5)
 
 
-def explore_page(session: GameSession, page_id: str, nav_info: dict) -> dict:
+def explore_page(device: DeviceAdapter, page_id: str, nav_info: dict) -> dict:
     """探索单个页面
 
     1. 从hub出发
@@ -390,23 +393,23 @@ def explore_page(session: GameSession, page_id: str, nav_info: dict) -> dict:
     }
 
     # 唤醒UI
-    wake_ui(session)
+    wake_ui(device)
     time.sleep(0.3)
 
     # 导航到目标
     if nav_info["nav_method"] == "click":
         x, y = nav_info["coord"]
         logger.info("→ 点击 ({}, {}) → {}", x, y, nav_info["name"])
-        session.click(x, y)
+        device.click(x / _DESIGN_W, y / _DESIGN_H)
     elif nav_info["nav_method"] == "key":
         key = nav_info["key_code"]
         logger.info("→ 按键 0x{:02X} → {}", key, nav_info["name"])
-        session.press_key(key)
+        device.press_key(key)
 
     time.sleep(nav_info["wait_after_click"])
 
     # 截图
-    img = session.screenshot()
+    img = device.screenshot()
     h, w = img.shape[:2]
 
     # 保存截图
@@ -441,11 +444,11 @@ def explore_page(session: GameSession, page_id: str, nav_info: dict) -> dict:
     if nav_info["back_method"] == "click":
         bx, by = nav_info["back_coord"]
         logger.info("← 返回: 点击 ({}, {})", bx, by)
-        session.click(bx, by)
+        device.click(bx / _DESIGN_W, by / _DESIGN_H)
     elif nav_info["back_method"] == "key":
         key = nav_info["back_key"]
         logger.info("← 返回: 按键 0x{:02X}", key)
-        session.press_key(key)
+        device.press_key(key)
 
     time.sleep(nav_info["wait_after_back"])
 
@@ -454,8 +457,8 @@ def explore_page(session: GameSession, page_id: str, nav_info: dict) -> dict:
 
 def explore_all(pages: list[str] | None = None, from_hub: bool = True) -> None:
     """系统化探索所有页面"""
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
 
     # 确定要探索的页面
     if pages:
@@ -470,14 +473,14 @@ def explore_all(pages: list[str] | None = None, from_hub: bool = True) -> None:
     try:
         # 确保在 hub
         if from_hub:
-            if not ensure_hub(session):
+            if not ensure_hub(device):
                 logger.error("无法定位到主大厅，中止探索")
                 return
 
         # 截图 hub 初始状态
-        wake_ui(session)
+        wake_ui(device)
         time.sleep(0.5)
-        hub_img = session.screenshot()
+        hub_img = device.screenshot()
         save_jpg(hub_img, BASE_DIR / "hub_initial")
         save_raw(hub_img, RAW_DIR / "hub_initial")
 
@@ -501,19 +504,19 @@ def explore_all(pages: list[str] | None = None, from_hub: bool = True) -> None:
             logger.info("{'='*60}")
 
             # 确保在 hub
-            if not ensure_hub(session):
+            if not ensure_hub(device):
                 logger.error("无法返回主大厅，尝试多次ESC")
                 for _ in range(3):
-                    session.press_key(0x1B)
+                    device.press_key(0x1B)
                     time.sleep(1.0)
-                if not ensure_hub(session):
+                if not ensure_hub(device):
                     logger.error("放弃页面: {}", page_id)
                     results[page_id] = {"page_id": page_id, "success": False, "error": "无法返回hub"}
                     continue
 
             # 探索页面
             try:
-                page_result = explore_page(session, page_id, nav_info)
+                page_result = explore_page(device, page_id, nav_info)
                 results[page_id] = page_result
                 logger.info("✅ {} 探索完成", page_id)
             except Exception as e:
@@ -521,15 +524,15 @@ def explore_all(pages: list[str] | None = None, from_hub: bool = True) -> None:
                 results[page_id] = {"page_id": page_id, "success": False, "error": str(e)}
                 # 尝试恢复
                 for _ in range(3):
-                    session.press_key(0x1B)
+                    device.press_key(0x1B)
                     time.sleep(1.0)
 
             # 每次探索后保存结果（防止中途崩溃丢失数据）
             save_results(results)
 
         # 最终回到 hub
-        ensure_hub(session)
-        final_img = session.screenshot()
+        ensure_hub(device)
+        final_img = device.screenshot()
         save_jpg(final_img, BASE_DIR / "hub_final")
 
         logger.info("\n{'='*60}")
@@ -539,7 +542,7 @@ def explore_all(pages: list[str] | None = None, from_hub: bool = True) -> None:
         logger.info("结果: {}", RESULTS_FILE)
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 def save_results(results: dict) -> None:

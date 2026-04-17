@@ -30,7 +30,10 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
+
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
 # === 输出目录 ===
 OUT_DIR = Path("assets/aether_gazer/screenshots/deep")
@@ -67,12 +70,12 @@ def save(img: np.ndarray, name: str) -> tuple[Path, Path]:
 
 
 class DeepExplorer:
-    def __init__(self, session: GameSession):
-        self.s = session
+    def __init__(self, device: DeviceAdapter):
+        self.s = device
         self.results = {}
 
     def click(self, x: int, y: int, wait: float = 1.5):
-        self.s.click(x, y)
+        self.s.click(x / _DESIGN_W, y / _DESIGN_H)
         time.sleep(wait)
 
     def key(self, code: int, wait: float = 1.5):
@@ -401,18 +404,18 @@ def main():
     parser.add_argument("--level1-only", action="store_true", help="只做一级探索")
     args = parser.parse_args()
 
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
 
     try:
-        explorer = DeepExplorer(session)
+        explorer = DeepExplorer(device)
         if args.level1_only:
             # 只截一级页面
             explorer.run_all(pages=args.page)
         else:
             explorer.run_all(pages=args.page)
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 if __name__ == "__main__":

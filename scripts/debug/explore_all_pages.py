@@ -25,7 +25,10 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.core.session import GameSession
+from anime_game_afk.core.device import DeviceAdapter
+
+# Design resolution for pixel→fractional coordinate conversion
+_DESIGN_W, _DESIGN_H = 1600, 900
 
 # === 配置 ===
 
@@ -108,15 +111,15 @@ def explore_all(dry_run: bool = False) -> None:
         logger.info("共 {} 个页面", len(all_buttons))
         return
 
-    session = GameSession(AETHER_GAZER_CONFIG)
-    session.connect()
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
+    device.connect()
 
     results = {}
 
     try:
         # 0. 先截图当前状态
         logger.info("=== 开始探索 ===")
-        img = session.screenshot()
+        img = device.screenshot()
         save_small_jpg(img, SCREENSHOT_DIR / "00_current_state")
         save_raw_png(img, RAW_DIR / "00_current_state")
 
@@ -125,17 +128,17 @@ def explore_all(dry_run: bool = False) -> None:
             logger.info("\n--- [{}/{}] 探索: {} ({}) ---", idx, len(all_buttons), page_id, btn["name"])
 
             # 点击唤醒UI（某些页面UI会隐藏）
-            session.click(800, 450)
+            device.click(800 / _DESIGN_W, 450 / _DESIGN_H)
             time.sleep(0.5)
 
             # 点击目标按钮
             x, y = btn["coord"]
             logger.info("点击 ({}, {}) → {}", x, y, btn["name"])
-            session.click(x, y)
+            device.click(x / _DESIGN_W, y / _DESIGN_H)
             time.sleep(2.0)  # 等待页面加载
 
             # 截图新页面
-            img = session.screenshot()
+            img = device.screenshot()
             h, w = img.shape[:2]
             jpg_path = save_small_jpg(img, SCREENSHOT_DIR / f"{idx:02d}_{page_id}")
             raw_path = save_raw_png(img, RAW_DIR / f"{idx:02d}_{page_id}")
@@ -151,11 +154,11 @@ def explore_all(dry_run: bool = False) -> None:
             # 返回主大厅
             bx, by = btn["back_coord"]
             logger.info("返回: 点击 ({}, {})", bx, by)
-            session.click(bx, by)
+            device.click(bx / _DESIGN_W, by / _DESIGN_H)
             time.sleep(1.5)
 
         # 最终状态
-        img = session.screenshot()
+        img = device.screenshot()
         save_small_jpg(img, SCREENSHOT_DIR / "99_final_state")
 
         # 保存探索结果
@@ -167,7 +170,7 @@ def explore_all(dry_run: bool = False) -> None:
         logger.info("截图目录: {}", SCREENSHOT_DIR)
 
     finally:
-        session.disconnect()
+        device.disconnect()
 
 
 def convert_existing() -> None:
