@@ -43,7 +43,7 @@ Layer 5: 用户工作流 (User Workflow)
    - 这是所有子页面的通用规则
 5. **补给区是充值页面**: shop → 补给区全是真钱商品，标记为禁止操作
 
-## 已交互式验证的坐标 (1600x900 分辨率) ✅
+## 已交互式验证的坐标 (原 1600x900，已转为 fractional) ✅
 
 ### Hub → Shop 导航
 | 步骤 | 坐标 | 备注 |
@@ -166,11 +166,13 @@ hub → click(940,855) → shop overview
 
 ## 分辨率注意事项
 
-**当前所有坐标基于 1600x900 分辨率**
-- session.py 使用 `set_screenshot_use_raw_size(True)`
-- MaaFw 的 post_click 会根据 controller.resolution 做坐标映射
-- 如果游戏窗口分辨率不是 1600x900，坐标可能需要按比例缩放
-- TODO: 添加分辨率检测和坐标归一化层
+**✅ 已完成分辨率无关重构 (2026-04-17)**
+- 所有坐标已转换为 fractional [0.0, 1.0]
+- `pages.py` 中 ~90 个 PageElement 坐标为 fractional tuple
+- `navigation.py` 中 ~40 个 NavAction 坐标为 fractional tuple
+- `device.click(fx, fy)` 自动转换为实际窗口像素
+- OCR 结果使用 `ClickPxOp` 自动从截图像素空间转换
+- 详见 `memory/10-resolution-agnostic-refactor.md`
 
 ### Battle Select 页面 ✅
 

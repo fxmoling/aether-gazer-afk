@@ -13,22 +13,29 @@
 
 ### 四层架构
 ```
-Op      — 原始设备调用 (ClickOp, PressKeyOp, HoldKeyOp, SwipeOp, SleepOp, ScreenshotOp)
+Op      — 原始设备调用 (ClickOp, ClickPxOp, PressKeyOp, HoldKeyOp, SwipeOp, SleepOp, ScreenshotOp)
 Action  — 可复用的 Op+Check 组合 (ReturnToHubAction, AttackCycleAction, ...)
 Check   — 只观察不改变 (AtHubCheck, FindTextCheck, ...)
 Task    — 业务流程编排 Op+Action+Check (禁止直接碰 ctx.device.* 和 vision.*)
 ```
 
+### 坐标约定 (2026-04-17 resolution-agnostic refactor)
+- **所有坐标使用 fractional [0.0, 1.0]**，不再使用像素坐标
+- `ClickOp(x=fx, y=fy)` — 直接传 fractional 坐标给 device
+- `ClickPxOp(px=cx, py=cy)` — OCR/vision 返回的像素坐标自动转换
+- `RapidClickPxAction` — 多次点击 OCR 像素坐标
+- 详见 `memory/10-resolution-agnostic-refactor.md`
+
 ### 命名规则
-- **XxxOp** = 原始设备调用 (6个，在 `ops/primitives.py`)
-- **XxxAction** = 可复用组合动作 (12个，在 `ops/navigate/`, `ops/interact/`, `ops/combat/`)
+- **XxxOp** = 原始设备调用 (7个，在 `ops/primitives.py`)
+- **XxxAction** = 可复用组合动作 (13个，在 `ops/navigate/`, `ops/interact/`, `ops/combat/`)
 - **XxxCheck** = 观察检查 (12个，在 `checks/`)
 
 ### Action 清单 (原"复合 Op"，已重命名)
 - `ReturnToHubAction` — 智能返回 hub (ESC/back/Enter循环，用 AtHubCheck 检测)
 - `GotoPageAction`, `GoBackAction`, `WakeHubUiAction` (导航)
 - `AttackCycleAction`, `WalkForwardAction`, `HandleReviveAction` (战斗)
-- `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction` (交互)
+- `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction`, `RapidClickPxAction` (交互)
 
 ### Hub 检测优化 (2026-04-08)
 - AtHubCheck 放宽关键词阈值: 4/4 → 2/4 即判定为 hub
