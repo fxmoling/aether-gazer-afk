@@ -1,20 +1,10 @@
 """Game constants for AetherGazer.
 
-Design resolution, match thresholds, timing defaults.
+Match thresholds, timing defaults, game mechanics.
 Pure values — no imports of cv2, device, or vision.
+
+Coordinate convention: all positions are fractional [0.0, 1.0].
 """
-from anime_game_afk.core.types import Resolution
-
-# Design coordinate system — all coordinates use this resolution
-DESIGN_RESOLUTION = Resolution(width=1600, height=900)
-
-# Screen center — used for wake-up clicks and idle dismissal
-SCREEN_CENTER_X = 800
-SCREEN_CENTER_Y = 450
-
-# Back button — top-left corner, shared by most pages
-BACK_BUTTON_X = 35
-BACK_BUTTON_Y = 35
 
 # Template matching thresholds
 MATCH_THRESHOLD = 0.65

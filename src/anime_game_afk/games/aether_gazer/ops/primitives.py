@@ -12,14 +12,8 @@ that Actions build on.
 Coordinate convention:
     All x/y coordinates are fractional values in [0.0, 1.0].
     (0.0, 0.0) = top-left, (1.0, 1.0) = bottom-right, (0.5, 0.5) = center.
-    Internally converted to design-resolution pixels (1600x900) before
-    passing to device.click().
-
-    Conversion: pixel_x = int(frac_x * DESIGN_WIDTH)
-                pixel_y = int(frac_y * DESIGN_HEIGHT)
-
-    Example: center click = ClickOp(x=0.5, y=0.5)
-             bottom-right = ClickOp(x=0.96, y=0.94)
+    Passed directly to DeviceAdapter.click()/swipe() which handles
+    conversion to actual window pixels.
 
 Available primitives:
 - ClickOp: click at fractional (x, y)
@@ -37,16 +31,6 @@ import numpy as np
 
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 
-# Design resolution for fractional → pixel conversion.
-# All fractional coordinates are relative to this resolution.
-_DESIGN_W = 1600
-_DESIGN_H = 900
-
-
-def _to_px(frac_x: float, frac_y: float) -> tuple[int, int]:
-    """Convert fractional [0.0, 1.0] coordinates to design-resolution pixels."""
-    return int(frac_x * _DESIGN_W), int(frac_y * _DESIGN_H)
-
 
 class ClickOp:
     """Click at a fractional screen coordinate.
@@ -63,15 +47,14 @@ class ClickOp:
         self._wait = wait
 
     async def run(self, ctx: OpContext) -> OpResult:
-        px, py = _to_px(self._x, self._y)
-        ctx.logger.debug(f"click ({self._x:.3f}, {self._y:.3f}) -> ({px}, {py})")
+        ctx.logger.debug(f"click ({self._x:.3f}, {self._y:.3f})")
         try:
-            ctx.device.click(px, py)
+            ctx.device.click(self._x, self._y)
             if self._wait > 0:
                 await asyncio.sleep(self._wait)
             return OpResult(
                 success=True,
-                data={"x": self._x, "y": self._y, "px": px, "py": py},
+                data={"x": self._x, "y": self._y},
             )
         except Exception as e:
             ctx.logger.error(f"click ({self._x:.3f},{self._y:.3f}) failed: {e}")
@@ -170,15 +153,15 @@ class SwipeOp:
         self._wait = wait
 
     async def run(self, ctx: OpContext) -> OpResult:
-        px1, py1 = _to_px(self._x1, self._y1)
-        px2, py2 = _to_px(self._x2, self._y2)
         ctx.logger.debug(
             f"swipe ({self._x1:.3f},{self._y1:.3f})->"
-            f"({self._x2:.3f},{self._y2:.3f}) "
-            f"[({px1},{py1})->({px2},{py2})] {self._duration}ms"
+            f"({self._x2:.3f},{self._y2:.3f}) {self._duration}ms"
         )
         try:
-            ctx.device.swipe(px1, py1, px2, py2, duration=self._duration)
+            ctx.device.swipe(
+                self._x1, self._y1, self._x2, self._y2,
+                duration=self._duration,
+            )
             if self._wait > 0:
                 await asyncio.sleep(self._wait)
             return OpResult(
