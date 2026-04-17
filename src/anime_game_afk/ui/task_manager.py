@@ -19,7 +19,6 @@ from loguru import logger
 
 # Imports from existing layers (L6, L3, L1) — UI only adds, never modifies
 from anime_game_afk.core.device import DeviceAdapter
-from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
 from anime_game_afk.games.aether_gazer.processes.daily_routine import (
     _DAILY_TASKS,
@@ -212,13 +211,9 @@ class TaskManager:
     def connect(self) -> dict[str, Any]:
         """Connect to the game window."""
         try:
-            config = DeviceConfig(
-                window_title=AETHER_GAZER_CONFIG.window_title,
-                screencap_method=AETHER_GAZER_CONFIG.screencap_method,
-                mouse_method=AETHER_GAZER_CONFIG.mouse_method,
-                keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
+            self._device = DeviceAdapter(
+                config=AETHER_GAZER_CONFIG.to_device_config(),
             )
-            self._device = DeviceAdapter(config=config)
             self._device.connect()
             if not self._device.connected:
                 return {"ok": False, "error": "无法连接到游戏窗口，请确认游戏已启动"}

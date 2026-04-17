@@ -135,13 +135,7 @@ def _run_cli(app_dir: Path) -> None:
         return registry
 
     def make_device_config() -> DeviceConfig:
-        return DeviceConfig(
-            window_title=AETHER_GAZER_CONFIG.window_title,
-            screencap_method=AETHER_GAZER_CONFIG.screencap_method,
-            mouse_method=AETHER_GAZER_CONFIG.mouse_method,
-            keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
-            design_resolution=AETHER_GAZER_CONFIG.design_resolution,
-        )
+        return AETHER_GAZER_CONFIG.to_device_config()
 
     def build_context_factory(device: DeviceAdapter):  # type: ignore[return]
         def factory(proc_def: ProcessDef) -> ProcessContext:

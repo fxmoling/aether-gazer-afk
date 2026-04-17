@@ -42,7 +42,6 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     # Late imports so the module can be parsed even if deps aren't installed.
     from anime_game_afk.core.device import DeviceAdapter
     from anime_game_afk.core.errors import WindowNotFoundError
-    from anime_game_afk.core.types import DeviceConfig
     from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
     from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
     from anime_game_afk.games.aether_gazer.processes.daily_routine import (
@@ -59,13 +58,7 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
 
     # ---- Connect device ---------------------------------------------------
     try:
-        config = DeviceConfig(
-            window_title=AETHER_GAZER_CONFIG.window_title,
-            screencap_method=AETHER_GAZER_CONFIG.screencap_method,
-            mouse_method=AETHER_GAZER_CONFIG.mouse_method,
-            keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
-        )
-        device = DeviceAdapter(config=config)
+        device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
         device.connect()
     except WindowNotFoundError as exc:
         return 1

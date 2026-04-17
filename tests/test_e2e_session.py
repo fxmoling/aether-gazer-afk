@@ -11,10 +11,9 @@ import asyncio
 import cv2
 import numpy as np
 from loguru import logger
-from maa.define import MaaWin32InputMethodEnum, MaaWin32ScreencapMethodEnum
 
 from anime_game_afk.core.device import DeviceAdapter, MAX_HEIGHT
-from anime_game_afk.core.types import DeviceConfig
+from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -28,13 +27,7 @@ from anime_game_afk.vision.ocr import ocr_once
 def main() -> None:
     logger.info("=== E2E Test: Resolution-Agnostic Pipeline ===")
 
-    config = DeviceConfig(
-        window_title="AetherGazer",
-        screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-        mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-        keyboard_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-    )
-    device = DeviceAdapter(config)
+    device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
 
     # 1. 连接
     logger.info("Step 1: 连接游戏窗口")

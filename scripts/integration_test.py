@@ -21,15 +21,14 @@ import numpy as np
 from loguru import logger
 
 # ── L1: Device ──
-from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.core.device import DeviceAdapter
+from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
 
 # ── L2: Vision ──
 from anime_game_afk.vision.matcher import match_template
 
 # ── L4: Knowledge ──
 from anime_game_afk.games.aether_gazer.knowledge.constants import (
-    DESIGN_RESOLUTION,
     MATCH_THRESHOLD,
 )
 from anime_game_afk.games.aether_gazer.knowledge.resources import (
@@ -48,9 +47,6 @@ from anime_game_afk.games.aether_gazer.ops.perception.detect_game_state import (
     detect_state,
 )
 
-# Use same MaaFw settings as the real config
-from maa.define import MaaWin32InputMethodEnum, MaaWin32ScreencapMethodEnum
-
 
 def separator(title: str) -> None:
     logger.info("=" * 60)
@@ -62,12 +58,7 @@ def test_layer1_device() -> DeviceAdapter:
     """L1: Connect to game window, take screenshot."""
     separator("L1: Device Adapter")
 
-    config = DeviceConfig(
-        window_title="AetherGazer",
-        screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-        mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-        keyboard_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-    )
+    config = AETHER_GAZER_CONFIG.to_device_config()
 
     device = DeviceAdapter(config)
 
@@ -79,10 +70,9 @@ def test_layer1_device() -> DeviceAdapter:
     # Screenshot (design resolution)
     img = device.screenshot()
     h, w = img.shape[:2]
-    logger.info(f"Screenshot: {w}x{h} (expected {DESIGN_RESOLUTION.width}x{DESIGN_RESOLUTION.height})")
-    assert w == DESIGN_RESOLUTION.width and h == DESIGN_RESOLUTION.height, \
-        f"Design resolution mismatch: got {w}x{h}"
-    logger.info("L1 PASS: screenshot at design resolution")
+    logger.info(f"Screenshot: {w}x{h}")
+    assert h <= 720, f"Screenshot height exceeds MAX_HEIGHT: got {h}"
+    logger.info("L1 PASS: screenshot at expected resolution")
 
     # Save for visual inspection
     out_path = Path("assets/aether_gazer/screenshots/integration_test.png")

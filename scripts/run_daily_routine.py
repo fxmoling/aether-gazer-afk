@@ -25,7 +25,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from loguru import logger
 
-from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.core.device import DeviceAdapter
 from anime_game_afk.core.errors import WindowNotFoundError
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
@@ -109,13 +108,7 @@ async def run(device: DeviceAdapter, run_log: RunLog) -> None:
 
 
 def main():
-    game_cfg = AETHER_GAZER_CONFIG
-    config = DeviceConfig(
-        window_title=game_cfg.window_title,
-        screencap_method=game_cfg.screencap_method,
-        mouse_method=game_cfg.mouse_method,
-        keyboard_method=game_cfg.keyboard_method,
-    )
+    config = AETHER_GAZER_CONFIG.to_device_config()
 
     device = DeviceAdapter(config)
     run_log = RunLog()

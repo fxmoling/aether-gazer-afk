@@ -7,6 +7,8 @@ from pathlib import Path
 
 from maa.define import MaaWin32InputMethodEnum, MaaWin32ScreencapMethodEnum
 
+from anime_game_afk.core.types import DeviceConfig
+
 
 @dataclass(frozen=True)
 class GameConfig:
@@ -18,9 +20,15 @@ class GameConfig:
     screencap_method: int = MaaWin32ScreencapMethodEnum.Background
     mouse_method: int = MaaWin32InputMethodEnum.SendMessage
     keyboard_method: int = MaaWin32InputMethodEnum.SendMessage
-    # 设计分辨率 — 已废弃，保留字段仅为向后兼容旧的 GameSession
-    # 新代码应使用 DeviceAdapter（基于 fractional 坐标 + 等比缩放截图）
-    design_resolution: tuple[int, int] = (1600, 900)
+
+    def to_device_config(self) -> DeviceConfig:
+        """Convert to a :class:`DeviceConfig` for :class:`DeviceAdapter`."""
+        return DeviceConfig(
+            window_title=self.window_title,
+            screencap_method=self.screencap_method,
+            mouse_method=self.mouse_method,
+            keyboard_method=self.keyboard_method,
+        )
 
 
 @dataclass(frozen=True)

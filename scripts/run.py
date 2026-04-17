@@ -54,18 +54,8 @@ DEFAULT_PLAN = (
 
 
 def _make_device_config() -> DeviceConfig:
-    """Convert the game's GameConfig to a DeviceConfig for DeviceAdapter.
-
-    GameConfig lives in config/ (higher layer) while DeviceAdapter lives in
-    core/ and accepts only DeviceConfig to avoid layer violations.
-    """
-    return DeviceConfig(
-        window_title=AETHER_GAZER_CONFIG.window_title,
-        screencap_method=AETHER_GAZER_CONFIG.screencap_method,
-        mouse_method=AETHER_GAZER_CONFIG.mouse_method,
-        keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
-        design_resolution=AETHER_GAZER_CONFIG.design_resolution,
-    )
+    """Convert the game's GameConfig to a DeviceConfig for DeviceAdapter."""
+    return AETHER_GAZER_CONFIG.to_device_config()
 
 
 def build_registry() -> ProcessRegistry:

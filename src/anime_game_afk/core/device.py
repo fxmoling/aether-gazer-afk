@@ -125,8 +125,9 @@ class DeviceAdapter:
 
     Example::
 
-        config = DeviceConfig(window_title="MyGame")
-        device = DeviceAdapter(config)
+        from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
+
+        device = DeviceAdapter(AETHER_GAZER_CONFIG.to_device_config())
         device.connect()
         img = device.screenshot()       # proportionally-scaled BGR ndarray
         device.click(0.5, 0.5)          # fractional center click

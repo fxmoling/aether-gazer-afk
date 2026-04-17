@@ -138,7 +138,6 @@ def generate_spec() -> str:
         "anime_game_afk.core.errors",
         "anime_game_afk.core.game_finder",
         "anime_game_afk.core.game_launcher",
-        "anime_game_afk.core.session",
         "anime_game_afk.vision",
         "anime_game_afk.vision.color",
         "anime_game_afk.vision.geometry",

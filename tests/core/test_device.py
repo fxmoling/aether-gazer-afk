@@ -30,7 +30,12 @@ def _make_config(
     window_title: str = "TestWindow",
 ) -> DeviceConfig:
     """Build a DeviceConfig for testing."""
-    return DeviceConfig(window_title=window_title)
+    return DeviceConfig(
+        window_title=window_title,
+        screencap_method=4,   # FramePool
+        mouse_method=256,     # SendMessageWithCursorPos
+        keyboard_method=256,  # SendMessageWithCursorPos
+    )
 
 
 def _fake_window(name: str, hwnd: int = 1, class_name: str = "FakeClass") -> MagicMock:

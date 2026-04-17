@@ -22,8 +22,8 @@ import cv2
 import numpy as np
 from loguru import logger
 
-from anime_game_afk.core.types import DeviceConfig
 from anime_game_afk.core.device import DeviceAdapter
+from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ENTER, VK_ESCAPE, key_name,
 )
@@ -36,8 +36,6 @@ from anime_game_afk.games.aether_gazer.ops.perception.detect_game_state import d
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageAction
-
-from maa.define import MaaWin32InputMethodEnum, MaaWin32ScreencapMethodEnum
 
 # ── Verified coordinates from memory/06-ui-mapping-paradigm.md ──
 
@@ -156,13 +154,7 @@ async def run_test(device: DeviceAdapter) -> None:
 
 
 def main() -> None:
-    config = DeviceConfig(
-        window_title="AetherGazer",
-        screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-        mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-        keyboard_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-    )
-
+    config = AETHER_GAZER_CONFIG.to_device_config()
     device = DeviceAdapter(config)
     device.connect()
     logger.info(f"Connected: {device.actual_resolution}")
