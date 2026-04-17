@@ -18,8 +18,8 @@ class GameConfig:
     screencap_method: int = MaaWin32ScreencapMethodEnum.Background
     mouse_method: int = MaaWin32InputMethodEnum.SendMessage
     keyboard_method: int = MaaWin32InputMethodEnum.SendMessage
-    # 设计分辨率 — 所有坐标以此为基准存储
-    # 运行时自动缩放到实际窗口分辨率
+    # 设计分辨率 — 已废弃，保留字段仅为向后兼容旧的 GameSession
+    # 新代码应使用 DeviceAdapter（基于 fractional 坐标 + 等比缩放截图）
     design_resolution: tuple[int, int] = (1600, 900)
 
 

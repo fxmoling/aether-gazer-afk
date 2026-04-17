@@ -56,4 +56,3 @@ class DeviceConfig:
     screencap_method: int = 0   # MaaWin32ScreencapMethodEnum.Background
     mouse_method: int = 0       # MaaWin32InputMethodEnum.SendMessage
     keyboard_method: int = 0    # MaaWin32InputMethodEnum.SendMessage
-    design_resolution: tuple[int, int] = (1600, 900)

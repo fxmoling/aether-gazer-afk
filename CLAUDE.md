@@ -90,6 +90,27 @@ The following tools are available globally on this system:
 - Use Unix-style paths in shell commands (forward slashes)
 - The `winget` package manager is currently broken on this system; use direct downloads or `curl` for installing tools
 
+## 分辨率与多分辨率适配 — 设计约束
+
+**开发测试环境使用 1600×900（16:9），但不能假设所有用户都是此分辨率。**
+
+用户的游戏窗口可能是：
+- 不同分辨率：1920×1080、1280×720、2560×1440 等
+- 不同宽高比：16:9、16:10、4:3、21:9 等
+- 窗口化 vs 全屏，窗口大小可变
+
+**强制设计规则**:
+1. **坐标必须使用归一化比例**（0.0~1.0），不得硬编码像素坐标
+2. **模板匹配必须考虑缩放**——模板和截图分辨率不一致时需要缩放对齐
+3. **OCR 不受分辨率影响**（自带缩放），但 region 裁剪坐标仍需归一化
+4. **UI 布局假设**：游戏 UI 元素的相对位置（比例）在不同分辨率下基本一致，但不同宽高比下布局可能有差异（如 4:3 下左右留黑边或 UI 重排）
+
+**当前状态**:
+- `DeviceAdapter.screenshot()` 已有自动缩放到设计分辨率的逻辑
+- `src/` 代码中的坐标已部分迁移到 fractional coordinates（0.0~1.0）
+- 模板匹配尚未处理多分辨率适配
+- 需要在截图层或匹配层统一处理分辨率归一化
+
 ## UI 坐标定位 — 禁止规则
 
 **禁止使用像素亮度/颜色扫描来定位 UI 元素坐标。** 这个方法已反复证明不可靠：

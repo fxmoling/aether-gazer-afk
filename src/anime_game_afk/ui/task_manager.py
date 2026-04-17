@@ -217,7 +217,6 @@ class TaskManager:
                 screencap_method=AETHER_GAZER_CONFIG.screencap_method,
                 mouse_method=AETHER_GAZER_CONFIG.mouse_method,
                 keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
-                design_resolution=AETHER_GAZER_CONFIG.design_resolution,
             )
             self._device = DeviceAdapter(config=config)
             self._device.connect()

@@ -64,12 +64,10 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
             screencap_method=AETHER_GAZER_CONFIG.screencap_method,
             mouse_method=AETHER_GAZER_CONFIG.mouse_method,
             keyboard_method=AETHER_GAZER_CONFIG.keyboard_method,
-            design_resolution=AETHER_GAZER_CONFIG.design_resolution,
         )
         device = DeviceAdapter(config=config)
         device.connect()
     except WindowNotFoundError as exc:
-        _emit({"type": "error", "msg": str(exc)})
         return 1
     except Exception as exc:
         _emit({"type": "error", "msg": f"Connection failed: {exc}"})

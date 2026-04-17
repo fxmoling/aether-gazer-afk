@@ -2,9 +2,18 @@
 
 Responsibilities:
 - Window discovery and connection lifecycle (connect / disconnect)
-- Screenshot capture with automatic design-resolution scaling
-- Input delegation (click, swipe, press_key, hold_key)
+- Screenshot capture with proportional scaling (height-capped, aspect-ratio preserved)
+- Input delegation via fractional coordinates (click, swipe, press_key, hold_key)
 - Custom click implementation that hides cursor instead of BlockInput
+
+Coordinate convention:
+    All click/swipe coordinates are **fractional** values in [0.0, 1.0].
+    (0.0, 0.0) = top-left, (1.0, 1.0) = bottom-right, (0.5, 0.5) = center.
+    Internally converted to actual window pixels for input delivery.
+
+Screenshot scaling:
+    Captures are scaled down proportionally so that height ≤ MAX_HEIGHT (720).
+    Aspect ratio is always preserved — no stretching.  Never upscales.
 
 Explicitly out of scope:
 - Resource loading (no ``maa.resource.Resource``)
@@ -28,6 +37,12 @@ from anime_game_afk.core.errors import (
     WindowNotFoundError,
 )
 from anime_game_afk.core.types import DeviceConfig, Resolution
+
+# Maximum screenshot output height.  Captures taller than this are scaled
+# down proportionally (preserving aspect ratio).  Shorter captures are
+# returned as-is (never upscaled).  720 keeps ~32 px icons readable and
+# matches the effective OCR resolution.
+MAX_HEIGHT = 720
 
 # Win32 API constants and functions
 _user32 = ctypes.windll.user32
@@ -105,16 +120,16 @@ def _send_click(hwnd, client_x: int, client_y: int) -> None:
 class DeviceAdapter:
     """Low-level device I/O adapter wrapping MaaFramework's Win32 controller.
 
-    All public coordinate arguments are in *design resolution* space.
-    The adapter scales them to the actual window resolution automatically.
+    All click/swipe coordinates are **fractional** ``(fx, fy)`` in [0.0, 1.0].
+    Screenshots are proportionally scaled so height ≤ ``MAX_HEIGHT``.
 
     Example::
 
         config = DeviceConfig(window_title="MyGame")
         device = DeviceAdapter(config)
         device.connect()
-        img = device.screenshot()          # design-res BGR ndarray
-        device.click(800, 450)             # design-res coords
+        img = device.screenshot()       # proportionally-scaled BGR ndarray
+        device.click(0.5, 0.5)          # fractional center click
         device.disconnect()
     """
 
@@ -122,14 +137,12 @@ class DeviceAdapter:
         self._config = config
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
-        # Custom click bypasses MaaFw's BlockInput; enabled after connect()
         self._use_custom_click: bool = False
 
-        design_w, design_h = config.design_resolution
-        self._design = Resolution(width=design_w, height=design_h)
-        self._actual = Resolution(width=design_w, height=design_h)
-        self._scale_x: float = 1.0
-        self._scale_y: float = 1.0
+        # Actual window resolution — set on connect(), None when disconnected.
+        self._actual: Resolution | None = None
+        # Last screenshot output dimensions (after proportional scaling).
+        self._screenshot_res: Resolution | None = None
 
     # ------------------------------------------------------------------
     # Properties
@@ -146,14 +159,27 @@ class DeviceAdapter:
         return self._config
 
     @property
-    def design_resolution(self) -> Resolution:
-        """Target resolution used for all input/output coordinates."""
-        return self._design
+    def actual_resolution(self) -> Resolution:
+        """Real window resolution detected after :meth:`connect`.
+
+        Raises ``DeviceConnectionError`` if not connected.
+        """
+        if self._actual is None:
+            raise DeviceConnectionError("Not connected — actual_resolution unavailable")
+        return self._actual
 
     @property
-    def actual_resolution(self) -> Resolution:
-        """Real window resolution detected after :meth:`connect`."""
-        return self._actual
+    def resolution(self) -> tuple[int, int]:
+        """Current screenshot output dimensions ``(width, height)`` after scaling.
+
+        This is what downstream vision code (matcher, OCR) should use as
+        the coordinate reference frame.
+
+        Raises ``DeviceConnectionError`` if no screenshot has been taken yet.
+        """
+        if self._screenshot_res is None:
+            raise DeviceConnectionError("No screenshot taken yet — resolution unknown")
+        return (self._screenshot_res.width, self._screenshot_res.height)
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -233,17 +259,6 @@ class DeviceAdapter:
 
         actual_w, actual_h = self._controller.resolution
         self._actual = Resolution(width=actual_w, height=actual_h)
-        self._scale_x = actual_w / self._design.width
-        self._scale_y = actual_h / self._design.height
-
-        if self._scale_x != 1.0 or self._scale_y != 1.0:
-            logger.warning(
-                "Resolution scaling active: design={}x{} actual={}x{} "
-                "scale=({:.3f}, {:.3f})",
-                self._design.width, self._design.height,
-                actual_w, actual_h,
-                self._scale_x, self._scale_y,
-            )
 
         logger.info(
             "DeviceAdapter connected: window={!r} resolution={}x{}",
@@ -257,13 +272,8 @@ class DeviceAdapter:
         """Release the controller and reset all connection state."""
         self._controller = None
         self._hwnd = None
-        # Reset actual resolution back to design so stale callers don't
-        # operate with an old scale factor.
-        self._actual = Resolution(
-            width=self._design.width, height=self._design.height
-        )
-        self._scale_x = 1.0
-        self._scale_y = 1.0
+        self._actual = None
+        self._screenshot_res = None
         logger.info("DeviceAdapter disconnected: window={!r}", self._config.window_title)
 
     # ------------------------------------------------------------------
@@ -271,10 +281,13 @@ class DeviceAdapter:
     # ------------------------------------------------------------------
 
     def screenshot(self) -> np.ndarray:
-        """Capture a screenshot scaled to design resolution.
+        """Capture a screenshot, proportionally scaled so height ≤ MAX_HEIGHT.
+
+        Aspect ratio is always preserved.  Images shorter than MAX_HEIGHT
+        are returned as-is (never upscaled).
 
         Returns:
-            BGR ``numpy`` array of shape ``(design_h, design_w, 3)``.
+            BGR ``numpy`` array at proportionally-scaled resolution.
 
         Raises:
             ScreenshotError: Controller returned ``None`` for the image.
@@ -290,12 +303,13 @@ class DeviceAdapter:
             raise ScreenshotError("post_screencap returned None")
 
         h, w = img.shape[:2]
-        if w != self._design.width or h != self._design.height:
-            img = cv2.resize(
-                img,
-                (self._design.width, self._design.height),
-                interpolation=cv2.INTER_AREA,
-            )
+        if h > MAX_HEIGHT:
+            scale = MAX_HEIGHT / h
+            new_w = int(w * scale)
+            img = cv2.resize(img, (new_w, MAX_HEIGHT), interpolation=cv2.INTER_AREA)
+            h, w = MAX_HEIGHT, new_w
+
+        self._screenshot_res = Resolution(width=w, height=h)
         return img
 
     def screenshot_raw(self) -> np.ndarray:
@@ -320,43 +334,40 @@ class DeviceAdapter:
             raise ScreenshotError("post_screencap returned None")
         return img
 
-    def click(self, x: int, y: int) -> None:
-        """Send a mouse click at design-resolution coordinates.
-
-        Uses MaaFramework's SendMessageWithCursorPos internally.
-        This briefly moves the physical cursor and calls BlockInput,
-        but is the only reliable method for Unity games.
+    def click(self, fx: float, fy: float) -> None:
+        """Send a mouse click at fractional coordinates.
 
         Args:
-            x: Horizontal position in design-resolution pixels.
-            y: Vertical position in design-resolution pixels.
+            fx: Horizontal position as fraction [0.0, 1.0].
+            fy: Vertical position as fraction [0.0, 1.0].
 
         Raises:
             DeviceConnectionError: Not connected.
         """
         self._ensure_connected()
         assert self._controller is not None
+        assert self._actual is not None
 
-        ax = int(x * self._scale_x)
-        ay = int(y * self._scale_y)
+        ax = int(fx * self._actual.width)
+        ay = int(fy * self._actual.height)
         self._controller.post_click(ax, ay).wait()
-        logger.debug("click ({}, {}) -> actual ({}, {})", x, y, ax, ay)
+        logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {})", fx, fy, ax, ay)
 
     def swipe(
         self,
-        x1: int,
-        y1: int,
-        x2: int,
-        y2: int,
+        fx1: float,
+        fy1: float,
+        fx2: float,
+        fy2: float,
         duration: int = 500,
     ) -> None:
-        """Perform a pointer swipe between two design-resolution points.
+        """Perform a pointer swipe between two fractional coordinates.
 
         Args:
-            x1: Start X in design-resolution pixels.
-            y1: Start Y in design-resolution pixels.
-            x2: End X in design-resolution pixels.
-            y2: End Y in design-resolution pixels.
+            fx1: Start X as fraction [0.0, 1.0].
+            fy1: Start Y as fraction [0.0, 1.0].
+            fx2: End X as fraction [0.0, 1.0].
+            fy2: End Y as fraction [0.0, 1.0].
             duration: Swipe duration in milliseconds (default 500).
 
         Raises:
@@ -364,11 +375,17 @@ class DeviceAdapter:
         """
         self._ensure_connected()
         assert self._controller is not None
+        assert self._actual is not None
 
-        ax1, ay1 = int(x1 * self._scale_x), int(y1 * self._scale_y)
-        ax2, ay2 = int(x2 * self._scale_x), int(y2 * self._scale_y)
+        ax1 = int(fx1 * self._actual.width)
+        ay1 = int(fy1 * self._actual.height)
+        ax2 = int(fx2 * self._actual.width)
+        ay2 = int(fy2 * self._actual.height)
         self._controller.post_swipe(ax1, ay1, ax2, ay2, duration).wait()
-        logger.debug("swipe ({},{}) -> ({},{})", x1, y1, x2, y2)
+        logger.debug(
+            "swipe ({:.3f},{:.3f}) -> ({:.3f},{:.3f})",
+            fx1, fy1, fx2, fy2,
+        )
 
     def press_key(self, vk_code: int) -> None:
         """Send a single key press (press + release cycle).
