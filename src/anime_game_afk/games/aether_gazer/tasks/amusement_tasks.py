@@ -12,6 +12,7 @@ from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickPxOp,
     ClickOp,
     PressKeyOp,
     SleepOp,
@@ -90,7 +91,7 @@ class AmusementStreetDaily:
             cx = income.region.x + income.region.w // 2
             cy = income.region.y + income.region.h // 2
             ctx.logger.info(f"  Found '领取收益' at ({cx},{cy})")
-            await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
             await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)  # Dismiss reward popup
         else:
             ctx.logger.info("  '领取收益' not found (nothing to collect)")
@@ -116,7 +117,7 @@ class AmusementStreetDaily:
                     confirm = confirm_result.data
                     bx = confirm.region.x + confirm.region.w // 2
                     by = confirm.region.y + confirm.region.h // 2
-                    await ClickOp(x=bx, y=by, wait=1.5).run(ctx)
+                    await ClickPxOp(px=bx, py=by, wait=1.5).run(ctx)
                 else:
                     await ClickOp(x=0.5, y=0.917, wait=1.5).run(ctx)  # fallback (800,825 @ 1600x900)
                 continue
@@ -132,14 +133,14 @@ class AmusementStreetDaily:
                     f"  dispatch[{dispatch_round}]: clicking 一键派遣 "
                     f"at ({dx},{dy})"
                 )
-                await ClickOp(x=dx, y=dy, wait=1.5).run(ctx)
+                await ClickPxOp(px=dx, py=dy, wait=1.5).run(ctx)
                 # Dismiss any confirmation popup
                 popup_confirm = await FindTextCheck(target="确定").evaluate(ctx)
                 if popup_confirm.passed:
                     pc = popup_confirm.data
                     bx = pc.region.x + pc.region.w // 2
                     by = pc.region.y + pc.region.h // 2
-                    await ClickOp(x=bx, y=by, wait=1.0).run(ctx)
+                    await ClickPxOp(px=bx, py=by, wait=1.0).run(ctx)
                 else:
                     await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
                 if run_log:
@@ -163,7 +164,7 @@ class AmusementStreetDaily:
                     f"  dispatch[{dispatch_round}]: found '派遣完成' "
                     f"at ({cx},{cy})"
                 )
-                await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+                await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
                 continue
 
             # Nothing actionable found — done

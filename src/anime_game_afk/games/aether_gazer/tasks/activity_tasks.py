@@ -18,6 +18,7 @@ from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickPxOp,
     ClickOp,
     PressKeyOp,
     ScreenshotOp,
@@ -195,12 +196,13 @@ class JointDefenseSweep:
         if h_label:
             hx = h_label.region.x + h_label.region.w // 2
             hy = h_label.region.y + h_label.region.h // 2
-            click_x = hx
-            click_y = hy + 50  # Activity entrance is ~50px below H
+            click_px = hx
+            click_py = hy + 50  # Activity entrance is ~50px below H
             ctx.logger.info(
                 f"  nav: H found at ({hx},{hy}), "
-                f"clicking activity at ({click_x},{click_y})"
+                f"clicking activity at ({click_px},{click_py})"
             )
+            await ClickPxOp(px=click_px, py=click_py, wait=0.5).run(ctx)
         else:
             # Fallback from verified data
             click_x, click_y = 0.858, 0.211  # 1372,190 @ 1600x900
@@ -208,8 +210,7 @@ class JointDefenseSweep:
                 f"  nav: H not found via OCR, "
                 f"using fallback ({click_x},{click_y})"
             )
-
-        await ClickOp(x=click_x, y=click_y, wait=0.5).run(ctx)
+            await ClickOp(x=click_x, y=click_y, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_activity_page")
 
@@ -280,7 +281,7 @@ class JointDefenseSweep:
             f"  search: '联防协议' found at ({jdx},{jdy}) "
             f"conf={found.confidence:.2f}"
         )
-        await ClickOp(x=jdx, y=jdy, wait=0.5).run(ctx)
+        await ClickPxOp(px=jdx, py=jdy, wait=0.5).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "jd_panel")
@@ -316,7 +317,7 @@ class JointDefenseSweep:
         cx = btn.region.x + btn.region.w // 2
         cy = btn.region.y + btn.region.h // 2
         ctx.logger.info(f"  challenge: clicking '{btn.text}' at ({cx},{cy})")
-        await ClickOp(x=cx, y=cy, wait=1.0).run(ctx)
+        await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
 
         # Handle "前置章节" story prompt — dismiss with ESC (取消)
         r = await OcrScanCheck().evaluate(ctx)
@@ -354,7 +355,7 @@ class JointDefenseSweep:
             ctx.logger.info(
                 f"  info: clicking '{btn.text}' at ({cx},{cy})"
             )
-            await ClickOp(x=cx, y=cy, wait=0.3).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=0.3).run(ctx)
         else:
             ctx.logger.info("  info: '信息集纳' not found, may already be selected")
         if run_log:
@@ -381,7 +382,7 @@ class JointDefenseSweep:
         cx = quake.region.x + quake.region.w // 2
         cy = quake.region.y + quake.region.h // 2
         ctx.logger.info(f"  quake: clicking '震动' at ({cx},{cy})")
-        await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+        await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_battle_panel")
         return True
@@ -412,7 +413,7 @@ class JointDefenseSweep:
                 if quake:
                     cx = quake.region.x + quake.region.w // 2
                     cy = quake.region.y + quake.region.h // 2
-                    await ClickOp(x=cx, y=cy, wait=2.0).run(ctx)
+                    await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
 
         # Step 1: Click << (min) to reset multiplier
         ctx.logger.info(
@@ -452,7 +453,7 @@ class JointDefenseSweep:
                 if quake:
                     cx = quake.region.x + quake.region.w // 2
                     cy = quake.region.y + quake.region.h // 2
-                    await ClickOp(x=cx, y=cy, wait=2.0).run(ctx)
+                    await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
                     await ClickOp(
                         x=self._MIN_MULTI_X, y=self._MIN_MULTI_Y, wait=0.3,
                     ).run(ctx)
@@ -470,7 +471,7 @@ class JointDefenseSweep:
         sx = sweep.region.x + sweep.region.w // 2
         sy = sweep.region.y + sweep.region.h // 2
         ctx.logger.info(f"  sweep: clicking '扫荡' at ({sx},{sy})")
-        await ClickOp(x=sx, y=sy, wait=0.3).run(ctx)
+        await ClickPxOp(px=sx, py=sy, wait=0.3).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_sweep_confirm")
         return True

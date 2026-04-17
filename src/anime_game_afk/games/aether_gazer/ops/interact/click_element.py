@@ -45,12 +45,13 @@ class ClickElementAction:
                       f"Use force_unsafe=True to override.",
             )
 
+        fx, fy = elem.coord
         ctx.logger.info(
             f"Clicking {self._element_name} at "
-            f"({elem.coord.x}, {elem.coord.y}) on {self._page_id}"
+            f"({fx:.3f}, {fy:.3f}) on {self._page_id}"
         )
         await ClickOp(
-            x=elem.coord.x / 1600, y=elem.coord.y / 900, wait=self._wait,
+            x=fx, y=fy, wait=self._wait,
         ).run(ctx)
         return OpResult(
             success=True,

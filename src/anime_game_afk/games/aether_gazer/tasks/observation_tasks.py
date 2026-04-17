@@ -10,7 +10,10 @@ from typing import TYPE_CHECKING
 
 from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_G, VK_T
-from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import RapidClickAction
+from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import (
+    RapidClickAction,
+    RapidClickPxAction,
+)
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
 )
@@ -100,7 +103,7 @@ class MimiStationCollect:
             cx = x_btn.region.x + x_btn.region.w // 2
             cy = x_btn.region.y + x_btn.region.h // 2
             ctx.logger.info(f"  Found '{x_btn.text}' at ({cx},{cy}), clicking ×4")
-            await RapidClickAction(x=cx, y=cy, times=4, interval=2.0).run(ctx)
+            await RapidClickPxAction(px=cx, py=cy, times=4, interval=2.0).run(ctx)
             if run_log:
                 run_log.snap(ctx.device, "mimi_after_x_btn")
         else:

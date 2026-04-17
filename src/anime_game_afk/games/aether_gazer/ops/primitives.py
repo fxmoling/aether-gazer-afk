@@ -61,6 +61,45 @@ class ClickOp:
             return OpResult(success=False, error=str(e))
 
 
+class ClickPxOp:
+    """Click at a pixel coordinate from OCR/vision results.
+
+    Converts screenshot-space pixel coords to fractional coords using
+    the current screenshot resolution from ``ctx.device.resolution``.
+
+    Use this when clicking OCR-detected text or template match positions.
+
+    Args:
+        px: Horizontal pixel position in screenshot space.
+        py: Vertical pixel position in screenshot space.
+        wait: Seconds to wait after clicking (keyword-only, default 0.15).
+    """
+
+    def __init__(self, px: int, py: int, *, wait: float = 0.15) -> None:
+        self._px = px
+        self._py = py
+        self._wait = wait
+
+    async def run(self, ctx: OpContext) -> OpResult:
+        img_w, img_h = ctx.device.resolution
+        fx = self._px / img_w
+        fy = self._py / img_h
+        ctx.logger.debug(
+            f"click_px ({self._px}, {self._py}) -> frac ({fx:.3f}, {fy:.3f})"
+        )
+        try:
+            ctx.device.click(fx, fy)
+            if self._wait > 0:
+                await asyncio.sleep(self._wait)
+            return OpResult(
+                success=True,
+                data={"px": self._px, "py": self._py, "fx": fx, "fy": fy},
+            )
+        except Exception as e:
+            ctx.logger.error(f"click_px ({self._px},{self._py}) failed: {e}")
+            return OpResult(success=False, error=str(e))
+
+
 class PressKeyOp:
     """Press a virtual key code.
 

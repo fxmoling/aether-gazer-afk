@@ -251,8 +251,7 @@ class RecoveryManager:
                 return False
 
         # Click center of screen to dismiss "tap to start"
-        # Design resolution: 1600x900
-        self._device.click(800, 450)
+        self._device.click(0.5, 0.5)
         await asyncio.sleep(3.0)
 
         # Press Enter to confirm any login prompts

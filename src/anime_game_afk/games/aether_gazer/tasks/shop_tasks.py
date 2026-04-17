@@ -25,6 +25,7 @@ from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageAct
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickPxOp,
     ClickOp,
     PressKeyOp,
     ScreenshotOp,
@@ -210,7 +211,7 @@ class BuyIntelShards:
                 break
 
             # Click the item → popup opens
-            await ClickOp(x=cx, y=cy, wait=0.5).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=0.5).run(ctx)
 
             # Safety check: verify popup has "情报"
             has_intel = await HasTextCheck(target="情报").evaluate(ctx)
@@ -361,7 +362,7 @@ class ClaimFreeStamina:
         # Click the free label area (the item card is near the text)
         fx = free_label.region.x + free_label.region.w // 2
         fy = free_label.region.y + free_label.region.h // 2
-        await ClickOp(x=fx, y=fy, wait=1.5).run(ctx)
+        await ClickPxOp(px=fx, py=fy, wait=1.5).run(ctx)
 
         # ── Step 4: Verify and confirm popup ──
         r = await ScreenshotOp().run(ctx)
@@ -386,7 +387,7 @@ class ClaimFreeStamina:
             ctx.logger.info(
                 f"[Step 4] Clicking confirm at ({cx},{cy})"
             )
-            await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
 
         # Dismiss any result popup
         ctx.logger.info("[Step 4] Dismissing result popup")
@@ -661,10 +662,9 @@ class ClaimDailyStaminaPacks:
             ctx.logger.error("  panel: 'Stamina' element not in knowledge")
             return False
 
-        click_x = stamina_elem.coord.x
-        click_y = stamina_elem.coord.y
+        click_x, click_y = stamina_elem.coord
         ctx.logger.info(
-            f"  panel: clicking stamina at fixed coord ({click_x},{click_y})"
+            f"  panel: clicking stamina at fixed coord ({click_x:.3f},{click_y:.3f})"
         )
         await ClickOp(x=click_x, y=click_y, wait=2.0).run(ctx)
 
@@ -706,16 +706,15 @@ class ClaimDailyStaminaPacks:
                 dx = tab.region.x + tab.region.w // 2
                 dy = tab.region.y + tab.region.h // 2
                 ctx.logger.info(f"  tab: OCR fallback '每日补给' at ({dx},{dy})")
-                await ClickOp(x=dx, y=dy, wait=1.5).run(ctx)
+                await ClickPxOp(px=dx, py=dy, wait=1.5).run(ctx)
                 if run_log:
                     run_log.snap(ctx.device, "daily_stamina_tab_clicked")
                 return True
             return False
 
-        dx = daily_elem.coord.x
-        dy = daily_elem.coord.y
+        dx, dy = daily_elem.coord
         ctx.logger.info(
-            f"  tab: clicking '每日补给' at fixed coord ({dx},{dy})"
+            f"  tab: clicking '每日补给' at fixed coord ({dx:.3f},{dy:.3f})"
         )
         await ClickOp(x=dx, y=dy, wait=1.5).run(ctx)
         if run_log:

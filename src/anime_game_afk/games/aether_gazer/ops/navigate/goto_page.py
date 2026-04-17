@@ -30,9 +30,8 @@ _MAX_RETRIES = 2
 async def _execute_nav_action(ctx: OpContext, action: NavAction) -> None:
     """Execute a single NavAction using primitive ops."""
     if action.method == NavMethod.CLICK and action.coord:
-        await ClickOp(
-            x=action.coord.x / 1600, y=action.coord.y / 900, wait=0.0,
-        ).run(ctx)
+        fx, fy = action.coord
+        await ClickOp(x=fx, y=fy, wait=0.0).run(ctx)
     elif action.method == NavMethod.KEY and action.key_code:
         await PressKeyOp(key=action.key_code, wait=0.0).run(ctx)
     elif action.method == NavMethod.ESC:

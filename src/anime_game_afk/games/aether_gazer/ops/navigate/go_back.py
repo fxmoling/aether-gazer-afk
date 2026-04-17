@@ -37,11 +37,12 @@ class GoBackAction:
         if edge is not None:
             action = edge.action
             if action.method == NavMethod.CLICK and action.coord:
+                fx, fy = action.coord
                 ctx.logger.info(
-                    f"Go back: click ({action.coord.x}, {action.coord.y})"
+                    f"Go back: click ({fx:.3f}, {fy:.3f})"
                 )
                 await ClickOp(
-                    x=action.coord.x / 1600, y=action.coord.y / 900,
+                    x=fx, y=fy,
                     wait=action.wait_after,
                 ).run(ctx)
             elif action.method == NavMethod.KEY and action.key_code:

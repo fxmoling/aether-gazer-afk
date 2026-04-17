@@ -32,12 +32,10 @@ class NavigateToChapter:
             # Default: stay at current chapter
             return TaskResult(status="success", data={"chapter": 0})
 
-        # Scroll down by clicking a relative position for the target chapter.
-        # Chapter entries are stacked vertically; each chapter_index step
-        # moves one row down from the top of the list area.
-        # Original pixel formula: target_y = 200 + chapter * 80
+        # Chapter entries stacked vertically; fractional Y position
+        # based on original 1600×900 reference: y_px = 200 + chapter * 80
         target_y = (200 + self._chapter * _CHAPTER_ROW_HEIGHT) / 900
-        await ClickOp(x=0.5, y=target_y, wait=1.5).run(ctx)  # x=800 @ 1600x900
+        await ClickOp(x=0.5, y=target_y, wait=1.5).run(ctx)
 
         ctx.logger.info(f"Navigated to chapter index {self._chapter}")
         return TaskResult(

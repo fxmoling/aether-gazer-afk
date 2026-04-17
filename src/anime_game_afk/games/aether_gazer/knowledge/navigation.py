@@ -3,13 +3,14 @@
 Defines page-to-page edges with action sequences.
 Supports both hub-level navigation and sub-page drill-down.
 Pure data — no cv2, no device, no vision imports.
+
+All click coordinates are fractional [0.0, 1.0].
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 
-from anime_game_afk.core.types import Point
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ESCAPE,
     VK_G,
@@ -29,9 +30,9 @@ class NavMethod(Enum):
 class NavAction:
     """Single navigation step."""
     method: NavMethod
-    coord: Point | None = None    # For CLICK method
-    key_code: int | None = None   # For KEY method
-    wait_after: float = 1.5       # Seconds to wait after action
+    coord: tuple[float, float] | None = None  # (fx, fy) for CLICK method
+    key_code: int | None = None                # For KEY method
+    wait_after: float = 1.5                    # Seconds to wait after action
 
 
 @dataclass(frozen=True)
@@ -42,9 +43,9 @@ class NavEdge:
     action: NavAction
 
 
-def _click(x: int, y: int, wait: float = 2.0) -> NavAction:
-    """Shorthand for a click navigation action."""
-    return NavAction(NavMethod.CLICK, coord=Point(x, y), wait_after=wait)
+def _click(fx: float, fy: float, wait: float = 2.0) -> NavAction:
+    """Shorthand for a click navigation action (fractional coords)."""
+    return NavAction(NavMethod.CLICK, coord=(fx, fy), wait_after=wait)
 
 
 def _key(vk: int, wait: float = 2.0) -> NavAction:
@@ -60,33 +61,33 @@ def _esc(wait: float = 1.5) -> NavAction:
 # ── Hub-level navigation ──
 
 _HUB_FORWARD: list[NavEdge] = [
-    NavEdge("main_hub", "character",      _click(675, 850)),
-    NavEdge("main_hub", "gacha",          _click(790, 850)),
-    NavEdge("main_hub", "shop",           _click(910, 850)),
-    NavEdge("main_hub", "guild",          _click(1025, 850)),
-    NavEdge("main_hub", "inventory",      _click(1140, 850)),
-    NavEdge("main_hub", "amusement",      _click(1257, 850)),
-    NavEdge("main_hub", "battle_select",  _click(1465, 850)),
-    NavEdge("main_hub", "tactics",        _click(100, 170)),
-    NavEdge("main_hub", "training",       _click(100, 260)),
-    NavEdge("main_hub", "events",         _click(100, 370)),
-    NavEdge("main_hub", "player_info",    _click(50, 40)),
+    NavEdge("main_hub", "character",      _click(0.422, 0.944)),
+    NavEdge("main_hub", "gacha",          _click(0.494, 0.944)),
+    NavEdge("main_hub", "shop",           _click(0.569, 0.944)),
+    NavEdge("main_hub", "guild",          _click(0.641, 0.944)),
+    NavEdge("main_hub", "inventory",      _click(0.713, 0.944)),
+    NavEdge("main_hub", "amusement",      _click(0.786, 0.944)),
+    NavEdge("main_hub", "battle_select",  _click(0.916, 0.944)),
+    NavEdge("main_hub", "tactics",        _click(0.063, 0.189)),
+    NavEdge("main_hub", "training",       _click(0.063, 0.289)),
+    NavEdge("main_hub", "events",         _click(0.063, 0.411)),
+    NavEdge("main_hub", "player_info",    _click(0.031, 0.044)),
     NavEdge("main_hub", "daily_tasks",    _key(VK_G)),
     NavEdge("main_hub", "mail",           _key(VK_H)),
     NavEdge("main_hub", "settings_panel", _key(VK_TAB)),
 ]
 
 _HUB_BACKWARD: list[NavEdge] = [
-    NavEdge("character",      "main_hub", _click(35, 35, 1.5)),
+    NavEdge("character",      "main_hub", _click(0.022, 0.039, 1.5)),
     NavEdge("gacha",          "main_hub", _esc()),
-    NavEdge("shop",           "main_hub", _click(35, 35, 1.5)),
-    NavEdge("guild",          "main_hub", _click(35, 35, 1.5)),
-    NavEdge("inventory",      "main_hub", _click(35, 35, 1.5)),
-    NavEdge("amusement",      "main_hub", _click(48, 48, 1.5)),
-    NavEdge("battle_select",  "main_hub", _click(35, 35, 1.5)),
-    NavEdge("tactics",        "main_hub", _click(35, 35, 1.5)),
-    NavEdge("training",       "main_hub", _click(35, 35, 1.5)),
-    NavEdge("events",         "main_hub", _click(35, 35, 1.5)),
+    NavEdge("shop",           "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("guild",          "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("inventory",      "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("amusement",      "main_hub", _click(0.030, 0.053, 1.5)),
+    NavEdge("battle_select",  "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("tactics",        "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("training",       "main_hub", _click(0.022, 0.039, 1.5)),
+    NavEdge("events",         "main_hub", _click(0.022, 0.039, 1.5)),
     NavEdge("player_info",    "main_hub", _esc()),
     NavEdge("daily_tasks",    "main_hub", _esc()),
     NavEdge("mail",           "main_hub", _esc()),
@@ -97,26 +98,26 @@ _HUB_BACKWARD: list[NavEdge] = [
 
 _SUB_FORWARD: list[NavEdge] = [
     # Shop sub-pages
-    NavEdge("shop",              "shop_trade",        _click(89, 817)),
-    NavEdge("shop",              "shop_supply",       _click(399, 816)),
-    NavEdge("shop_trade",        "shop_daily",        _click(130, 125)),
-    NavEdge("shop_trade",        "shop_trade_center", _click(130, 225)),
-    NavEdge("shop_supply",       "shop_daily_supply", _click(560, 130)),
+    NavEdge("shop",              "shop_trade",        _click(0.056, 0.908)),
+    NavEdge("shop",              "shop_supply",       _click(0.249, 0.907)),
+    NavEdge("shop_trade",        "shop_daily",        _click(0.081, 0.139)),
+    NavEdge("shop_trade",        "shop_trade_center", _click(0.081, 0.250)),
+    NavEdge("shop_supply",       "shop_daily_supply", _click(0.350, 0.144)),
     # Battle sub-pages
-    NavEdge("battle_select",     "battle_intel",      _click(195, 860)),
-    NavEdge("battle_intel",      "main_story_map",    _click(533, 450)),
+    NavEdge("battle_select",     "battle_intel",      _click(0.122, 0.956)),
+    NavEdge("battle_intel",      "main_story_map",    _click(0.333, 0.500)),
 ]
 
 _SUB_BACKWARD: list[NavEdge] = [
     # Shop back to parent (all use back arrow to shop overview)
-    NavEdge("shop_trade",        "shop",    _click(35, 35, 1.5)),
-    NavEdge("shop_daily",        "shop",    _click(35, 35, 1.5)),
-    NavEdge("shop_trade_center", "shop",    _click(35, 35, 1.5)),
-    NavEdge("shop_supply",       "shop",    _click(35, 35, 1.5)),
-    NavEdge("shop_daily_supply", "shop",    _click(35, 35, 1.5)),
+    NavEdge("shop_trade",        "shop",    _click(0.022, 0.039, 1.5)),
+    NavEdge("shop_daily",        "shop",    _click(0.022, 0.039, 1.5)),
+    NavEdge("shop_trade_center", "shop",    _click(0.022, 0.039, 1.5)),
+    NavEdge("shop_supply",       "shop",    _click(0.022, 0.039, 1.5)),
+    NavEdge("shop_daily_supply", "shop",    _click(0.022, 0.039, 1.5)),
     # Battle back
-    NavEdge("battle_intel",      "battle_select", _click(35, 35, 1.5)),
-    NavEdge("main_story_map",    "battle_select", _click(35, 35, 1.5)),
+    NavEdge("battle_intel",      "battle_select", _click(0.022, 0.039, 1.5)),
+    NavEdge("main_story_map",    "battle_select", _click(0.022, 0.039, 1.5)),
 ]
 
 _ALL_EDGES = _HUB_FORWARD + _HUB_BACKWARD + _SUB_FORWARD + _SUB_BACKWARD

@@ -12,6 +12,7 @@ from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickPxOp,
     ClickOp,
     PressKeyOp,
     SleepOp,
@@ -63,7 +64,7 @@ class GuildSupplyClaim:
             cx = supply.region.x + supply.region.w // 2
             cy = supply.region.y + supply.region.h // 2
             ctx.logger.info(f"  Found '矩阵补给' at ({cx},{cy})")
-            await ClickOp(x=cx, y=cy, wait=2.0).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
         else:
             # OCR can't find the button — skip to avoid clicking wrong things
             ctx.logger.warning(
@@ -86,7 +87,7 @@ class GuildSupplyClaim:
             cx = claim.region.x + claim.region.w // 2
             cy = claim.region.y + claim.region.h // 2
             ctx.logger.info(f"  Found '领取' at ({cx},{cy})")
-            await ClickOp(x=cx, y=cy, wait=1.5).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
             # Dismiss reward popup
             await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
             claimed = True

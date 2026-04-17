@@ -28,6 +28,7 @@ from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_SPACE,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
+    ClickPxOp,
     ClickOp,
     PressKeyOp,
     ScreenshotOp,
@@ -194,7 +195,9 @@ class SkipStartupPopups:
                         ctx.logger.info(
                             f"  [startup][{attempt}] Clicking '{kw}' at ({cx},{cy})"
                         )
-                        await ClickOp(x=cx / 1600, y=cy / 900, wait=1.5).run(ctx)
+                        await ClickPxOp(
+                            px=cx, py=cy, wait=1.5,
+                        ).run(ctx)
                         last_action = f"click_{kw}"
                         snap = await ScreenshotOp().run(ctx)
                         prev_img = snap.data if snap.success else None
