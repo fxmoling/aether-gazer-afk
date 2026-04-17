@@ -3,7 +3,10 @@
 Loads page templates from index.json, matches against screenshot
 using vision.matcher. Returns (page_id, confidence).
 
-Migrated from pages/template_identifier.py.
+Templates are stored at a reference resolution (``ref_height``).  When the
+screenshot height differs, templates are proportionally scaled before
+matching.  Search regions are stored as fractional coordinates [0..1]
+and converted to pixel coordinates at runtime.
 """
 from __future__ import annotations
 
@@ -32,7 +35,8 @@ _page_templates: dict[str, list[dict]] | None = None
 def _load_templates() -> dict[str, list[dict]]:
     """Load page templates from index.json.
 
-    Returns dict: page_id -> list of {image, search_region}.
+    Returns dict: page_id -> list of {image, ref_height, search_frac}.
+    ``search_frac`` is a fractional tuple (fx1, fy1, fx2, fy2) or None.
     Cached at module level after first call.
     """
     global _page_templates
@@ -56,23 +60,53 @@ def _load_templates() -> dict[str, list[dict]]:
     for page_id, templates in index.items():
         loaded = []
         for tpl in templates:
-            # index.json paths are relative to project root (e.g. "assets/aether_gazer/templates/xxx.png")
-            # Do NOT prepend TEMPLATE_DIR again — that would double the path.
             raw_path = tpl["path"]
             img_path = Path(raw_path) if not Path(raw_path).is_absolute() else Path(raw_path)
             img = cv2.imread(str(img_path))
             if img is None:
                 continue
             search = tpl.get("search")
-            region = None
+            search_frac: tuple[float, float, float, float] | None = None
             if search and len(search) == 4:
-                x1, y1, x2, y2 = search
-                region = Rect(x1, y1, x2 - x1, y2 - y1)
-            loaded.append({"image": img, "region": region})
+                search_frac = tuple(search)  # type: ignore[assignment]
+            ref_height = tpl.get("ref_height", 900)
+            loaded.append({
+                "image": img,
+                "ref_height": ref_height,
+                "search_frac": search_frac,
+            })
         if loaded:
             _page_templates[page_id] = loaded
 
     return _page_templates
+
+
+def _prepare_template(
+    tpl_image: np.ndarray,
+    ref_height: int,
+    screenshot_h: int,
+) -> np.ndarray:
+    """Scale template to match the screenshot resolution."""
+    if ref_height == screenshot_h:
+        return tpl_image
+    scale = screenshot_h / ref_height
+    new_w = max(1, int(tpl_image.shape[1] * scale))
+    new_h = max(1, int(tpl_image.shape[0] * scale))
+    return cv2.resize(tpl_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+
+def _frac_to_pixel_region(
+    search_frac: tuple[float, float, float, float],
+    img_w: int,
+    img_h: int,
+) -> Rect:
+    """Convert fractional search region to pixel Rect."""
+    fx1, fy1, fx2, fy2 = search_frac
+    x1 = int(fx1 * img_w)
+    y1 = int(fy1 * img_h)
+    x2 = int(fx2 * img_w)
+    y2 = int(fy2 * img_h)
+    return Rect(x1, y1, x2 - x1, y2 - y1)
 
 
 def identify(screenshot: np.ndarray) -> tuple[str, float]:
@@ -80,19 +114,20 @@ def identify(screenshot: np.ndarray) -> tuple[str, float]:
 
     Returns (page_id, confidence). Returns ("unknown", 0.0) if
     no page matches above MATCH_THRESHOLD.
-
-    This is a pure utility function — usable by other ops directly.
     """
     templates = _load_templates()
     best_page = "unknown"
     best_score = 0.0
+    img_h, img_w = screenshot.shape[:2]
 
     for page_id, tpl_list in templates.items():
         scores = []
         for tpl in tpl_list:
-            result = match_template(
-                screenshot, tpl["image"], region=tpl["region"],
-            )
+            scaled = _prepare_template(tpl["image"], tpl["ref_height"], img_h)
+            region = None
+            if tpl["search_frac"] is not None:
+                region = _frac_to_pixel_region(tpl["search_frac"], img_w, img_h)
+            result = match_template(screenshot, scaled, region=region)
             scores.append(result.score)
         if scores:
             avg = sum(scores) / len(scores)
@@ -111,11 +146,14 @@ def is_on_page(screenshot: np.ndarray, page_id: str) -> bool:
     tpl_list = templates.get(page_id, [])
     if not tpl_list:
         return False
+    img_h, img_w = screenshot.shape[:2]
     scores = []
     for tpl in tpl_list:
-        result = match_template(
-            screenshot, tpl["image"], region=tpl["region"],
-        )
+        scaled = _prepare_template(tpl["image"], tpl["ref_height"], img_h)
+        region = None
+        if tpl["search_frac"] is not None:
+            region = _frac_to_pixel_region(tpl["search_frac"], img_w, img_h)
+        result = match_template(screenshot, scaled, region=region)
         scores.append(result.score)
     avg = sum(scores) / len(scores) if scores else 0.0
     return avg >= MATCH_THRESHOLD
