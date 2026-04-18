@@ -30,12 +30,16 @@ def _run(coro):
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
-def test_wake_hub_ui_clicks_center():
+def test_wake_hub_ui_unknown_state():
+    """On non-hub state, clicks back button to navigate. Never presses ESC."""
     device = MockDevice()
     ctx = OpContext(device=device)
     result = _run(WakeHubUiAction().run(ctx))
     assert result.success
-    assert (0.5, 0.5) in device.click_log
+    # Should click back button position (0.022, 0.039)
+    assert any(abs(x - 0.022) < 0.01 and abs(y - 0.039) < 0.01 for x, y in device.click_log)
+    # Must NOT press ESC (the whole point of the rewrite)
+    assert len(device.key_log) == 0
 
 
 def test_go_back_unknown_presses_esc():
