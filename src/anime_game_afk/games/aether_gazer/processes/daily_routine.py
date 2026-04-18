@@ -17,6 +17,8 @@ Task order:
 """
 from __future__ import annotations
 
+from typing import Any
+
 from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import ReturnToHub
 from anime_game_afk.games.aether_gazer.tasks.mail_tasks import CollectAllMail
 from anime_game_afk.games.aether_gazer.tasks.shop_tasks import (
@@ -45,27 +47,30 @@ from anime_game_afk.games.aether_gazer.processes.base import (
 )
 
 
-# All daily tasks in execution order
-_DAILY_TASKS = [
-    ("startup", SkipStartupPopups),                   # 0. 启动/跳过弹窗 (已在hub则自动跳过)
-    ("mail", CollectAllMail),                          # 1. 领取所有邮件
-    ("intel_shards", BuyIntelShards),                  # 2. 购买情报碎片
-    ("stamina_packs", ClaimDailyStaminaPacks),         # 3. 领取吨吨值福利包
-    ("free_stamina", ClaimFreeStamina),                # 4. 领取商店免费体力
-    ("mimi_station", MimiStationCollect),              # 5. 弥弥观测站
-    ("guild_supply", GuildSupplyClaim),                # 6. 公会矩阵补给
-    ("amusement", AmusementStreetDaily),               # 7. 游园街日常管理
-    ("joint_defense", JointDefenseSweep),              # 8. 联防协议扫荡
-    ("missions", DailyWeeklyMissionClaim),             # 9. 每日/周常任务领取
-    ("tactics", TacticsTaskClaim),                     # 10. 对策协议任务领取
+# All daily tasks: (id, class, display_name, safe)
+_DAILY_TASKS: list[tuple[str, type, str, bool]] = [
+    ("startup", SkipStartupPopups, "启动游戏", True),
+    ("mail", CollectAllMail, "领取邮件", True),
+    ("intel_shards", BuyIntelShards, "购买情报", False),
+    ("stamina_packs", ClaimDailyStaminaPacks, "领取体力包", True),
+    ("free_stamina", ClaimFreeStamina, "商店免费体力", True),
+    ("mimi_station", MimiStationCollect, "弥弥观测站", True),
+    ("guild_supply", GuildSupplyClaim, "公会补给", True),
+    ("amusement", AmusementStreetDaily, "游园街日常", True),
+    ("joint_defense", JointDefenseSweep, "联防协议", False),
+    ("missions", DailyWeeklyMissionClaim, "每日周常任务", True),
+    ("tactics", TacticsTaskClaim, "对策协议", True),
 ]
 
 
 class DailyRoutine:
     """Complete all daily tasks and claim rewards.
 
-    Runs 10 tasks in sequence, returning to hub between each.
+    Runs tasks in sequence, returning to hub between each.
     Each task failure is caught independently.
+
+    Supports ``ctx.config["enabled_tasks"]`` to filter which tasks run.
+    If not set, all tasks run (backward compatible).
     """
     name = "daily_routine"
     description = (
@@ -73,12 +78,30 @@ class DailyRoutine:
         "missions, tactics, guild, amusement street"
     )
 
+    @classmethod
+    def task_defs(cls) -> list[dict[str, Any]]:
+        """Return task metadata for UI discovery."""
+        return [
+            {
+                "id": task_id,
+                "name": display_name,
+                "description": task_cls().description
+                if hasattr(task_cls, "description") else "",
+                "safe": safe,
+            }
+            for task_id, task_cls, display_name, safe in _DAILY_TASKS
+        ]
+
     async def execute(self, ctx: ProcessContext) -> ProcessResult:
         hub = ReturnToHub()
         completed: list[str] = []
         failed: list[str] = []
 
-        # Must reach hub first
+        enabled_tasks: set[str] | None = None
+        raw = ctx.config.get("enabled_tasks")
+        if raw is not None:
+            enabled_tasks = set(raw)
+
         ctx.logger.info("=== DailyRoutine: starting ===")
         result = await hub.execute(ctx)
         if result.status != "success":
@@ -86,39 +109,50 @@ class DailyRoutine:
             return ProcessResult(status="failed", message="Cannot reach hub")
 
         total = len(_DAILY_TASKS)
-        for i, (task_name, task_cls) in enumerate(_DAILY_TASKS):
+        for i, (task_id, task_cls, _display, _safe) in enumerate(_DAILY_TASKS):
+            # Skip tasks not in the enabled set
+            if enabled_tasks is not None and task_id not in enabled_tasks:
+                ctx.notify_task(task_id, "skipped", "disabled by user")
+                continue
+
             ctx.logger.info(
-                f"--- DailyRoutine: task {i+1}/{total} — {task_name} ---"
+                f"--- DailyRoutine: task {i+1}/{total} — {task_id} ---"
             )
+            ctx.notify_task(task_id, "running")
+
             try:
                 task = task_cls()
                 if await task.can_run(ctx):
                     result = await task.execute(ctx)
                     if result.status == "success":
-                        # Include data summary if available
-                        summary = task_name
+                        summary = task_id
                         if result.data:
                             for key in ("purchased", "claimed", "count"):
                                 if key in result.data:
-                                    summary = f"{task_name}({result.data[key]})"
+                                    summary = f"{task_id}({result.data[key]})"
                                     break
                         completed.append(summary)
-                        ctx.logger.info(f"  {task_name}: success")
+                        ctx.notify_task(task_id, "success", result.message)
+                        ctx.logger.info(f"  {task_id}: success")
                     elif result.status == "skipped":
-                        completed.append(f"{task_name}(skipped)")
+                        completed.append(f"{task_id}(skipped)")
+                        ctx.notify_task(task_id, "skipped", result.message)
                         ctx.logger.info(
-                            f"  {task_name}: skipped — {result.message}"
+                            f"  {task_id}: skipped — {result.message}"
                         )
                     else:
-                        failed.append(task_name)
+                        failed.append(task_id)
+                        ctx.notify_task(task_id, "failed", result.message)
                         ctx.logger.warning(
-                            f"  {task_name}: {result.status} — {result.message}"
+                            f"  {task_id}: {result.status} — {result.message}"
                         )
                 else:
-                    ctx.logger.info(f"  {task_name}: can_run=False, skipping")
+                    ctx.notify_task(task_id, "skipped", "can_run=False")
+                    ctx.logger.info(f"  {task_id}: can_run=False, skipping")
             except Exception as exc:
-                failed.append(task_name)
-                ctx.logger.error(f"  {task_name}: crashed — {exc}")
+                failed.append(task_id)
+                ctx.notify_task(task_id, "failed", str(exc))
+                ctx.logger.error(f"  {task_id}: crashed — {exc}")
 
             # Return to hub between tasks
             await hub.execute(ctx)

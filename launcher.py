@@ -75,19 +75,13 @@ def _run_cli(app_dir: Path) -> None:
     from anime_game_afk.core.game_finder import find_aether_gazer
     from anime_game_afk.core.types import DeviceConfig
     from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-    from anime_game_afk.games.aether_gazer.orchestrator.pipeline import (
-        Pipeline,
-        ProcessRegistry,
-    )
+    from anime_game_afk.games.aether_gazer.orchestrator.pipeline import Pipeline
     from anime_game_afk.games.aether_gazer.orchestrator.types import (
         ProcessDef,
         load_plan,
     )
     from anime_game_afk.games.aether_gazer.processes.base import ProcessContext
-    from anime_game_afk.games.aether_gazer.processes.daily_routine import DailyRoutine
-    from anime_game_afk.games.aether_gazer.processes.push_main_story import (
-        PushMainStory,
-    )
+    from anime_game_afk.games.aether_gazer.registry import build_registry
     from anime_game_afk.games.aether_gazer.tasks.startup_tasks import (
         LaunchAndReachHub,
         ensure_game_running,
@@ -127,12 +121,6 @@ def _run_cli(app_dir: Path) -> None:
     print("  AetherGazer AFK - 深空之眼自动化 (CLI)")
     print("=" * 60)
     print()
-
-    def build_registry() -> ProcessRegistry:
-        registry = ProcessRegistry()
-        registry.register("daily_routine", DailyRoutine)
-        registry.register("push_main_story", PushMainStory)
-        return registry
 
     def make_device_config() -> DeviceConfig:
         return AETHER_GAZER_CONFIG.to_device_config()

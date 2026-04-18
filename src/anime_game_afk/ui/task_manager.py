@@ -20,9 +20,7 @@ from loguru import logger
 # Imports from existing layers (L6, L3, L1) — UI only adds, never modifies
 from anime_game_afk.core.device import DeviceAdapter
 from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
-from anime_game_afk.games.aether_gazer.processes.daily_routine import (
-    _DAILY_TASKS,
-)
+from anime_game_afk.games.aether_gazer.registry import build_registry
 from anime_game_afk.runtime.logger import get_logger
 
 
@@ -57,7 +55,6 @@ class TaskManager:
 
     def __init__(self) -> None:
         self._pipelines: list[PipelineDef] = []
-        self._device: DeviceAdapter | None = None
         self._process: subprocess.Popen | None = None
         self._reader: threading.Thread | None = None
         self._stderr_reader: threading.Thread | None = None
@@ -68,6 +65,9 @@ class TaskManager:
         self._completed_count = 0
         self._total_count = 0
         self._logger = get_logger("ui.task_manager")
+        # Verify-then-release: no persistent device
+        self._game_verified = False
+        self._resolution: str | None = None
 
         self._load_pipelines()
         self._load_config()
@@ -81,43 +81,29 @@ class TaskManager:
     # ------------------------------------------------------------------
 
     def _load_pipelines(self) -> None:
-        """Discover available pipelines from the process registry."""
-        # Chinese display names for each task
-        _TASK_NAMES: dict[str, str] = {
-            "startup": "启动游戏",
-            "mail": "领取邮件",
-            "intel_shards": "购买情报",
-            "stamina_packs": "领取体力包",
-            "free_stamina": "商店免费体力",
-            "mimi_station": "弥弥观测站",
-            "guild_supply": "公会补给",
-            "amusement": "游园街日常",
-            "joint_defense": "联防协议",
-            "missions": "每日周常任务",
-            "tactics": "对策协议",
-        }
+        """Discover available pipelines from the shared ProcessRegistry."""
+        registry = build_registry()
 
-        # daily_routine — build tasks from _DAILY_TASKS
-        daily_tasks = []
-        for task_id, task_cls in _DAILY_TASKS:
-            task_obj = task_cls()
-            daily_tasks.append(
-                TaskState(
-                    id=task_id,
-                    name=_TASK_NAMES.get(task_id, task_id),
-                    description=getattr(task_obj, "description", ""),
-                    safe=getattr(task_obj, "safe", True),
-                )
-            )
+        for name in registry.available():
+            factory = registry.get_factory(name)
 
-        self._pipelines.append(
-            PipelineDef(
-                id="daily_routine",
-                name="日常任务",
-                description="完成每日任务：邮件、商店、体力、公会等",
-                tasks=daily_tasks,
-            )
-        )
+            # Build task list from process metadata
+            tasks: list[TaskState] = []
+            if hasattr(factory, "task_defs"):
+                for td in factory.task_defs():
+                    tasks.append(TaskState(
+                        id=td["id"],
+                        name=td.get("name", td["id"]),
+                        description=td.get("description", ""),
+                        safe=td.get("safe", True),
+                    ))
+
+            self._pipelines.append(PipelineDef(
+                id=name,
+                name=getattr(factory, "name", name),
+                description=getattr(factory, "description", ""),
+                tasks=tasks,
+            ))
 
     # ------------------------------------------------------------------
     # Config persistence
@@ -209,29 +195,28 @@ class TaskManager:
         return True
 
     def connect(self) -> dict[str, Any]:
-        """Connect to the game window."""
+        """Verify game window is accessible. Connect, get info, release."""
         try:
-            self._device = DeviceAdapter(
+            device = DeviceAdapter(
                 config=AETHER_GAZER_CONFIG.to_device_config(),
             )
-            self._device.connect()
-            if not self._device.connected:
+            device.connect()
+            if not device.connected:
                 return {"ok": False, "error": "无法连接到游戏窗口，请确认游戏已启动"}
-            res = self._device.actual_resolution
+            res = device.actual_resolution
             res_str = f"{res.width}x{res.height}" if res else "unknown"
-            self._logger.info("已连接到游戏窗口，分辨率: {}", res_str)
+            device.disconnect()  # Release immediately — worker owns real connection
+            self._game_verified = True
+            self._resolution = res_str
+            self._logger.info("游戏窗口已验证，分辨率: {}", res_str)
             return {"ok": True, "resolution": res_str}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
     def disconnect(self) -> dict[str, Any]:
-        """Disconnect from the game window."""
-        if self._device:
-            try:
-                self._device.disconnect()
-            except Exception:
-                pass
-            self._device = None
+        """Reset verified state."""
+        self._game_verified = False
+        self._resolution = None
         return {"ok": True}
 
     def get_status(self) -> dict[str, Any]:
@@ -240,7 +225,7 @@ class TaskManager:
         if self._running and self._start_time > 0:
             elapsed = time.time() - self._start_time
         return {
-            "connected": self._device is not None and self._device.connected,
+            "connected": self._game_verified,
             "running": self._running,
             "elapsed_s": round(elapsed, 1),
             "completed": self._completed_count,
@@ -251,7 +236,7 @@ class TaskManager:
         """Start executing a pipeline in a subprocess worker."""
         if self._running:
             return {"ok": False, "error": "已有任务在运行中"}
-        if not self._device or not self._device.connected:
+        if not self._game_verified:
             return {"ok": False, "error": "请先连接游戏窗口"}
 
         pipeline = self._find_pipeline(pipeline_id)

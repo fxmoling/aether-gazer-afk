@@ -63,6 +63,22 @@ class ProcessRegistry:
             )
         return self._factories[name]()
 
+    def get_factory(self, name: str) -> Any:
+        """Return the registered factory callable without instantiating.
+
+        Useful for accessing class methods (e.g. ``task_defs()``)
+        before deciding to create an instance.
+
+        Raises:
+            KeyError: If the process name is not registered.
+        """
+        if name not in self._factories:
+            available = ", ".join(sorted(self._factories.keys()))
+            raise KeyError(
+                f"Unknown process '{name}'. Available: [{available}]"
+            )
+        return self._factories[name]
+
     def available(self) -> list[str]:
         """Return sorted list of registered process names."""
         return sorted(self._factories.keys())

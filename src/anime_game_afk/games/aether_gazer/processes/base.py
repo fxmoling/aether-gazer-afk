@@ -8,6 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
+from anime_game_afk.games.aether_gazer.orchestrator.listener import (
+    PipelineListener,
+)
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext
 
 
@@ -21,8 +24,14 @@ class ProcessResult:
 
 @dataclass
 class ProcessContext(TaskContext):
-    """Extended context for processes. Adds process-level config."""
+    """Extended context for processes. Adds process-level config and listener."""
     config: dict[str, Any] = field(default_factory=dict)
+    listener: PipelineListener | None = None
+
+    def notify_task(self, task_id: str, status: str, message: str = "") -> None:
+        """Fire a task status event if a listener is attached."""
+        if self.listener is not None:
+            self.listener.on_task_status(task_id, status, message)
 
 
 @runtime_checkable
