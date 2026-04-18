@@ -1,10 +1,10 @@
-# Hub 检测与 Idle 状态处理 (2026-04-18)
+# Hub 检测与 Idle 状态处理 (2026-04-18, updated 2026-04-18)
 
 ## Hub 两种状态
 
 | 状态 | UI 可见 | 检测方法 | 模板匹配 |
 |------|---------|----------|----------|
-| **Active Hub** | ✅ 底部导航栏、按钮、设置 | 3个模板: goto_battle, mr_icon, uid_icon | TM_CCOEFF_NORMED, threshold=0.65 |
+| **Active Hub** | ✅ 底部导航栏、按钮、设置 | 2个模板: goto_battle, mr_icon | TM_CCOEFF_NORMED, threshold=0.80 |
 | **Idle Hub** | ❌ ~5秒无操作后UI隐藏 | 1个模板: disc_icon (圆形蒙版) | TM_CCORR_NORMED, threshold=0.85 |
 
 ## 关键设计决策
