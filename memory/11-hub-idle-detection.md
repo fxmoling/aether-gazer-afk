@@ -33,6 +33,28 @@
 - AtHubCheck 先检查 main_hub, 所以不影响逻辑
 - identify() 返回 main_hub (3模板平均分更高)
 
+## E2E 测试结果 (2026-04-18)
+
+**11/11 任务全部通过, 总耗时 240.1 秒 (4分钟)**
+
+| 任务 | 状态 | 耗时 |
+|------|------|------|
+| startup | ✅ success | 3.6s |
+| mail | ✅ success | 9.4s |
+| intel | ✅ success | 27.9s |
+| stamina_packs | ✅ success | 30.3s |
+| free_stamina | ⏭ skipped | 26.8s |
+| mimi | ✅ success | 30.7s |
+| guild | ✅ success | 15.2s |
+| amusement | ✅ success | 24.0s |
+| joint_defense | ✅ success | 50.9s |
+| missions | ✅ success | 11.7s |
+| tactics | ✅ success | 9.7s |
+
+### 修复的问题
+- OCR 搜索区域 Rect 从 1600×900 坐标更新为 1280×720
+- `ocr_once()` 增加空裁剪保护，防止零宽度图像导致 RapidOCR 崩溃
+
 ## 模板文件
 
 | 模板 | 文件 | 尺寸 | ref_height | mask |
@@ -52,7 +74,8 @@
 | AtHubCheck 模板命中 | ~36ms |
 | OCR fallback | ~1596ms |
 
-## Commit
+## Commits
 
 - `bfc41f0` — feat: hub idle detection with masked template matching
 - `a1c0bf7` — chore: track all template PNGs in git
+- `b6d1fd6` — fix: scale OCR search regions from 1600×900 to 1280×720
