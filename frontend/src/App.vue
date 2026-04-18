@@ -1,11 +1,19 @@
 <template>
   <div class="app">
-    <Sidebar :currentPage="currentPage" @navigate="currentPage = $event" />
-    <main class="main-content">
-      <TasksView v-if="currentPage === 'tasks'" />
-      <LogsView v-if="currentPage === 'logs'" />
-      <SettingsView v-if="currentPage === 'settings'" />
-    </main>
+    <!-- Update notification banner -->
+    <div v-if="updateAvailable" class="update-bar">
+      <span>🎉 新版本 <b>v{{ updateVersion }}</b> 可用</span>
+      <a :href="updateUrl" target="_blank" class="update-link">前往下载</a>
+      <button class="update-dismiss" @click="updateAvailable = false">✕</button>
+    </div>
+    <div class="app-body">
+      <Sidebar :currentPage="currentPage" @navigate="currentPage = $event" />
+      <main class="main-content">
+        <TasksView v-if="currentPage === 'tasks'" />
+        <LogsView v-if="currentPage === 'logs'" />
+        <SettingsView v-if="currentPage === 'settings'" />
+      </main>
+    </div>
   </div>
 </template>
 
@@ -15,6 +23,7 @@ import Sidebar from './components/Sidebar.vue'
 import TasksView from './views/TasksView.vue'
 import LogsView from './views/LogsView.vue'
 import SettingsView from './views/SettingsView.vue'
+import { api } from './composables/useApi'
 import {
   loadPipelines,
   loadRecentLogs,
@@ -28,7 +37,23 @@ import {
 } from './composables/useStore'
 
 const currentPage = ref('tasks')
+const updateAvailable = ref(false)
+const updateVersion = ref('')
+const updateUrl = ref('')
 let statusInterval = null
+
+async function checkUpdateOnStartup() {
+  try {
+    const result = await api.checkUpdate()
+    if (result && result.ok && result.has_update) {
+      updateAvailable.value = true
+      updateVersion.value = result.latest_version
+      updateUrl.value = result.release_url || 'https://github.com/fxmoling/anime-game-afk/releases/latest'
+    }
+  } catch {
+    // Silently ignore update check failures on startup
+  }
+}
 
 onMounted(async () => {
   // Wait for pywebview ready
@@ -51,6 +76,12 @@ onMounted(async () => {
   window.onError = onError
   window.appendLog = appendLog
   window.onRunComplete = onRunComplete
+
+  // Check for updates (non-blocking, after UI is ready)
+  const settings = await api.getSettings()
+  if (settings && settings.auto_update !== false) {
+    checkUpdateOnStartup()
+  }
 })
 
 onUnmounted(() => {
@@ -77,7 +108,14 @@ body {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 .main-content {
@@ -85,6 +123,45 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Update notification bar */
+.update-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: linear-gradient(90deg, #1b5e20, #2e7d32);
+  color: #e8f5e9;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.update-link {
+  color: #fff;
+  background: rgba(255,255,255,0.15);
+  padding: 2px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.update-link:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.update-dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #a5d6a7;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+.update-dismiss:hover {
+  color: white;
 }
 
 /* Shared button styles */

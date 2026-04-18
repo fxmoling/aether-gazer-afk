@@ -1,0 +1,85 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp version into source
+        shell: python
+        run: |
+          import re, pathlib
+
+          version = "${{ steps.version.outputs.VERSION }}"
+
+          # __init__.py
+          init = pathlib.Path("src/anime_game_afk/__init__.py")
+          init.write_text(
+              re.sub(r'__version__ = "[^"]*"',
+                     f'__version__ = "{version}"',
+                     init.read_text(encoding="utf-8")),
+              encoding="utf-8",
+          )
+
+          # pyproject.toml (first occurrence only)
+          toml = pathlib.Path("pyproject.toml")
+          toml.write_text(
+              re.sub(r'version = "[^"]*"',
+                     f'version = "{version}"',
+                     toml.read_text(encoding="utf-8"),
+                     count=1),
+              encoding="utf-8",
+          )
+
+          print(f"Stamped version {version}")
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e ".[dev]"
+          pip install pyinstaller
+
+      - name: Run tests
+        run: pytest tests/ -x --tb=short
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build distribution
+        run: python build.py --zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.VERSION }}
+          files: dist/anime-game-afk.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

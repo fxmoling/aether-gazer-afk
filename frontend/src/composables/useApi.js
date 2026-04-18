@@ -41,4 +41,6 @@ export const api = {
     apiCall('save_settings', windowTitle, taskDelay),
   detectGame: () => apiCall('detect_game'),
   launchGame: () => apiCall('launch_game'),
+  checkUpdate: () => apiCall('check_update'),
+  setAutoUpdate: (enabled) => apiCall('set_auto_update', enabled),
 }

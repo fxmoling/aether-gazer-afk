@@ -17,22 +17,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
-
 from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck, OnPageCheck
-from anime_game_afk.games.aether_gazer.checks.state import ScreenUnchangedCheck
-from anime_game_afk.games.aether_gazer.knowledge.keys import (
-    VK_ENTER,
-    VK_ESCAPE,
-    VK_SPACE,
-)
+from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.primitives import (
-    ClickPxOp,
     ClickOp,
     PressKeyOp,
-    ScreenshotOp,
-    SleepOp,
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
@@ -74,50 +64,22 @@ class SkipStartupPopups:
     async def execute(self, ctx: TaskContext) -> TaskResult:
         ctx.logger.info("  [startup] Starting popup dismissal loop")
 
-        prev_img: np.ndarray | None = None
-        unchanged_count = 0
-        last_action = ""
-
         for attempt in range(self._max_attempts):
-            # ── Fast hub check (template only, 5ms) ──
+            # ── Hub check (template) ──
             on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
             if on_hub.passed:
-                # Try OCR verification if available
-                r = await OcrScanCheck().evaluate(ctx)
-                ocr = r.data if r.passed else None
-                if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
-                    ctx.logger.info(
-                        f"  [startup] Hub reached after {attempt} attempts"
-                    )
-                    return TaskResult(
-                        status="success",
-                        message=f"Hub reached after {attempt} attempts",
-                        data={"attempts": attempt},
-                    )
-                # OCR unavailable or didn't match — trust template if it matched
-                if ocr is None or len(ocr) == 0:
-                    ctx.logger.info(
-                        f"  [startup] Hub reached (template only, "
-                        f"OCR unavailable) after {attempt} attempts"
-                    )
-                    return TaskResult(
-                        status="success",
-                        message=f"Hub reached (template) after {attempt} attempts",
-                        data={"attempts": attempt},
-                    )
-                # Template matched but OCR found OTHER text — might be exit dialog on top
-                if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
-                    ctx.logger.info(
-                        f"  [startup][{attempt}] Exit dialog on hub — cancelling"
-                    )
-                    await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-                    continue
+                ctx.logger.info(
+                    f"  [startup] Hub reached after {attempt} attempts"
+                )
+                return TaskResult(
+                    status="success",
+                    message=f"Hub reached after {attempt} attempts",
+                    data={"attempts": attempt},
+                )
 
-            # ── OCR the screen ──
+            # ── Hub check (OCR fallback) ──
             r = await OcrScanCheck().evaluate(ctx)
             ocr = r.data if r.passed else None
-
-            # ── Hub check via OCR alone ──
             if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
                 ctx.logger.info(
                     f"  [startup] Hub reached (OCR) after {attempt} attempts"
@@ -128,128 +90,19 @@ class SkipStartupPopups:
                     data={"attempts": attempt},
                 )
 
-            # ── Login screen: "点击任意区域进入游戏" or game title ──
-            if ocr and (ocr.has("进入游戏") or ocr.has("点击任意")
-                    or ocr.has("点击屏幕") or ocr.has("开始游戏")
-                    or ocr.has("触摸开始") or ocr.has("深空之眼")):
-                ctx.logger.info(
-                    f"  [startup][{attempt}] Login screen — clicking center"
-                )
-                await ClickOp(x=0.5, y=0.5, wait=3.0).run(ctx)  # center (800,450 @ 1600x900)
-                last_action = "login_click"
-                # Capture for stuck detection
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
-                unchanged_count = 0
-                continue
-
-            # ── Loading screen ──
-            if ocr and (ocr.has("加载") or ocr.has("loading") or ocr.has("检查更新")
-                    or ocr.has("下载") or ocr.has("解压")):
-                ctx.logger.debug(
-                    f"  [startup][{attempt}] Loading screen, waiting..."
-                )
-                await SleepOp(seconds=3.0).run(ctx)
-                last_action = "wait_loading"
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
-                unchanged_count = 0
-                continue
-
-            # ── Idle/screensaver ──
-            if ocr and ocr.has("正在播放"):
-                ctx.logger.info(
-                    f"  [startup][{attempt}] Idle screen — clicking to wake"
-                )
-                await ClickOp(x=0.5, y=0.444, wait=1.5).run(ctx)  # (800,400 @ 1600x900)
-                last_action = "wake_idle"
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
-                unchanged_count = 0
-                continue
-
-            # ── Exit game dialog ──
+            # ── Exit dialog — only case that needs ESC ──
             if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
                 ctx.logger.info(
                     f"  [startup][{attempt}] Exit dialog — pressing ESC"
                 )
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-                last_action = "cancel_exit"
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
-                unchanged_count = 0
                 continue
 
-            # ── Event/announcement popup (try close button) ──
-            if ocr and (ocr.has("活动") or ocr.has("公告") or ocr.has("通知")
-                    or ocr.has("版本更新") or ocr.has("新赛季") or ocr.has("限时")):
-                # Try X button in top-right
-                ctx.logger.info(
-                    f"  [startup][{attempt}] Event popup — clicking top-right close"
-                )
-                await ClickOp(x=0.963, y=0.056, wait=1.5).run(ctx)  # top-right close (1540,50 @ 1600x900)
-                last_action = "close_event"
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
-                unchanged_count = 0
-                continue
-
-            # ── Clickable dismiss buttons (conservative list) ──
-            # Only match specific button-like keywords, NOT "确认/确定" in body text
-            handled = False
-            if ocr:
-                for kw in ["关闭", "知道了", "已知晓", "明天再来", "稍后再说"]:
-                    match = ocr.find(kw)
-                    if match:
-                        cx = match.region.x + match.region.w // 2
-                        cy = match.region.y + match.region.h // 2
-                        ctx.logger.info(
-                            f"  [startup][{attempt}] Clicking '{kw}' at ({cx},{cy})"
-                        )
-                        await ClickPxOp(
-                            px=cx, py=cy, wait=1.5,
-                        ).run(ctx)
-                        last_action = f"click_{kw}"
-                        snap = await ScreenshotOp().run(ctx)
-                        prev_img = snap.data if snap.success else None
-                        unchanged_count = 0
-                        handled = True
-                        break
-
-            if not handled:
-                # No specific keyword found — check if screen is stuck
-                if prev_img is not None:
-                    unchanged_check = await ScreenUnchangedCheck(
-                        prev_image=prev_img,
-                    ).evaluate(ctx)
-                    if unchanged_check.passed:
-                        unchanged_count += 1
-                    else:
-                        unchanged_count = 0
-                else:
-                    unchanged_count = 0
-
-                if unchanged_count >= 3:
-                    # Screen stuck — aggressive dismiss
-                    ctx.logger.info(
-                        f"  [startup][{attempt}] Screen stuck "
-                        f"({unchanged_count} unchanged) — aggressive dismiss"
-                    )
-                    await self._aggressive_dismiss(ctx)
-                    unchanged_count = 0
-                    last_action = "aggressive"
-                else:
-                    # Default: try ESC then click center
-                    ctx.logger.debug(
-                        f"  [startup][{attempt}] Unknown screen — ESC + click center"
-                    )
-                    await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-                    await ClickOp(x=0.5, y=0.5, wait=1.5).run(ctx)  # center (800,450 @ 1600x900)
-                    last_action = "esc_click"
-
-                # Capture current screen for next iteration's stuck detection
-                snap = await ScreenshotOp().run(ctx)
-                prev_img = snap.data if snap.success else None
+            # ── Not at hub — click to dismiss whatever is on screen ──
+            ctx.logger.debug(
+                f"  [startup][{attempt}] Not at hub — clicking (0.4, 0.05)"
+            )
+            await ClickOp(x=0.4, y=0.05, wait=1.5).run(ctx)
 
         # Max attempts exceeded — final check
         ctx.logger.warning(
@@ -263,20 +116,6 @@ class SkipStartupPopups:
             status="failed",
             message=f"Could not reach hub after {self._max_attempts} attempts",
         )
-
-    async def _aggressive_dismiss(self, ctx: TaskContext) -> None:
-        """Try multiple strategies when screen is stuck."""
-        # Try keys
-        for key, name in [(VK_ESCAPE, "ESC"), (VK_ENTER, "Enter"), (VK_SPACE, "Space")]:
-            await PressKeyOp(key=key, wait=0.5).run(ctx)
-
-        # Try common close button positions (fractional coords)
-        for x, y in [(0.963, 0.056), (0.5, 0.778), (0.5, 0.5)]:  # (1540,50), (800,700), (800,450) @ 1600x900
-            await ClickOp(x=x, y=y, wait=0.8).run(ctx)
-
-            hub_result = await AtHubCheck().evaluate(ctx)
-            if hub_result.passed:
-                return
 
 
 class LaunchAndReachHub:

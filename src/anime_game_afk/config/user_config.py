@@ -106,6 +106,7 @@ class UserConfig:
             },
             "settings": {
                 "auto_detect_games": True,
+                "auto_update": True,
                 "search_drives": ["C:", "D:", "E:"],
                 "log_level": "INFO",
             },
@@ -209,3 +210,11 @@ class UserConfig:
     def log_level(self) -> str:
         """Return configured log level."""
         return self._settings().get("log_level", "INFO")
+
+    def auto_update(self) -> bool:
+        """Whether to check for updates on startup."""
+        return bool(self._settings().get("auto_update", True))
+
+    def set_auto_update(self, enabled: bool) -> None:
+        """Enable or disable automatic update checks."""
+        self._settings()["auto_update"] = enabled

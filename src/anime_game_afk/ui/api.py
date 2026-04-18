@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from anime_game_afk import __version__
 from anime_game_afk.ui.bridge import LogForwarder
 from anime_game_afk.ui.task_manager import TaskManager
 
@@ -91,10 +92,11 @@ class Api:
         cfg = UserConfig.load()
         game = cfg.raw.get("games", {}).get("aether_gazer", {})
         return {
-            "version": "0.1.0",
+            "version": __version__,
             "window_title": game.get("window_title", "AetherGazer"),
             "game_exe_path": game.get("game_exe_path", ""),
             "task_delay": game.get("task_delay", 1.0),
+            "auto_update": cfg.auto_update(),
         }
 
     def save_settings(
@@ -108,6 +110,31 @@ class Api:
             game = cfg._game("aether_gazer")
             game["window_title"] = window_title
             game["task_delay"] = task_delay
+            cfg.save()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Auto-update
+    # ------------------------------------------------------------------
+
+    def check_update(self) -> dict[str, Any]:
+        """Check GitHub for a newer release version."""
+        from anime_game_afk.updater import check_for_update
+
+        result = check_for_update(timeout=8.0)
+        if result is None:
+            return {"ok": False, "error": "无法连接到 GitHub，请检查网络。"}
+        return {"ok": True, **result}
+
+    def set_auto_update(self, enabled: bool) -> dict[str, Any]:
+        """Toggle the auto-update check on startup."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            cfg.set_auto_update(enabled)
             cfg.save()
             return {"ok": True}
         except Exception as e:

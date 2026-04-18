@@ -140,7 +140,8 @@ settings.json
 user_config.json
 
 # User-specific runtime config (game paths, UI state)
-/config/
+/config/user_config.yaml
+/config/ui_state.json
 
 # Superpowers plugin cache
 .superpowers/
@@ -153,10 +154,6 @@ user_config.json
 
 # Project documentation maintenance files
 CLAUDE.md
-README.md
-!./README.md
-
-.references/
 
 # Directory README files (except root)
 src/README.md
@@ -164,6 +161,7 @@ tests/README.md
 assets/README.md
 docs/README.md
 .references/README.md
+.references/
 # Git worktrees
 .worktrees/
 

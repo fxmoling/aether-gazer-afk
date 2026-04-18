@@ -12,7 +12,6 @@ from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_G, VK_T
 from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import (
     RapidClickAction,
-    RapidClickPxAction,
 )
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
@@ -84,7 +83,7 @@ class MimiStationCollect:
         if run_log:
             run_log.snap(ctx.device, "mimi_station")
 
-        # Step 3: 一键领取 ×4
+        # Step 3: 一键领取 ×20
         ctx.logger.info(
             f"[Step 3] Rapid click 一键领取 at ({_MIMI_CLAIM_X},{_MIMI_CLAIM_Y}) ×20"
         )
@@ -94,25 +93,8 @@ class MimiStationCollect:
         if run_log:
             run_log.snap(ctx.device, "mimi_after_claim")
 
-        # Step 4: Find x10 and click (weekly reward — only x10, skip otherwise)
-        ctx.logger.info("[Step 4] Search for x10 缩短遣回 (weekly reward)")
-        x_btn_result = await FindTextCheck(target="x10").evaluate(ctx)
-        if not x_btn_result.passed:
-            x_btn_result = await FindTextCheck(target="X10").evaluate(ctx)
-
-        if x_btn_result.passed:
-            x_btn = x_btn_result.data
-            cx = x_btn.region.x + x_btn.region.w // 2
-            cy = x_btn.region.y + x_btn.region.h // 2
-            ctx.logger.info(f"  Found '{x_btn.text}' at ({cx},{cy}), clicking ×20")
-            await RapidClickPxAction(px=cx, py=cy, times=20, interval=0.15).run(ctx)
-            if run_log:
-                run_log.snap(ctx.device, "mimi_after_x_btn")
-        else:
-            ctx.logger.info("  x10 not found (weekly reward unavailable, skipping)")
-
-        # Step 5: Return to hub
-        ctx.logger.info("[Step 5] Return to hub")
+        # Step 4: Return to hub
+        ctx.logger.info("[Step 4] Return to hub")
         await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_done")

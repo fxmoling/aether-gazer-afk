@@ -8,11 +8,37 @@
       </div>
       <div class="info-row">
         <span class="info-label">版本</span>
-        <span class="info-value">{{ settings.version || '0.1.0' }}</span>
+        <span class="info-value">{{ settings.version || '-' }}</span>
       </div>
       <div class="info-row">
         <span class="info-label">游戏</span>
         <span class="info-value">深空之眼 (Aether Gazer)</span>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>更新</h3>
+      <div class="setting-row">
+        <label>自动检查更新</label>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="form.autoUpdate" @change="onAutoUpdateToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <label></label>
+        <button class="btn btn-secondary" @click="checkUpdate" :disabled="checking">
+          {{ checking ? '检查中...' : '🔍 检查更新' }}
+        </button>
+        <span v-if="updateMsg" class="update-msg" :class="updateMsgClass">
+          {{ updateMsg }}
+        </span>
+      </div>
+      <div v-if="updateInfo && updateInfo.has_update" class="update-banner">
+        <span>🎉 新版本 <b>v{{ updateInfo.latest_version }}</b> 可用！当前版本: v{{ updateInfo.current_version }}</span>
+        <a class="btn btn-primary btn-sm" :href="updateInfo.release_url" target="_blank" @click="openRelease">
+          前往下载
+        </a>
       </div>
     </div>
 
@@ -72,7 +98,9 @@
 
     <div class="settings-footer">
       <span class="footer-text">
-        深空之眼自动化工具 · 仅供学习交流使用
+        深空之眼自动化工具 ·
+        <a href="https://github.com/fxmoling/anime-game-afk" target="_blank" class="footer-link">GitHub</a>
+        · 仅供学习交流使用
       </span>
     </div>
   </div>
@@ -83,27 +111,33 @@ import { ref, reactive, onMounted } from 'vue'
 import { api } from '../composables/useApi'
 
 const settings = reactive({
-  version: '0.1.0',
+  version: '',
   game_exe_path: '',
 })
 
 const form = reactive({
   windowTitle: 'AetherGazer',
   taskDelay: 1.0,
+  autoUpdate: true,
 })
 
 const saving = ref(false)
 const saveMsg = ref('')
 const saveOk = ref(false)
 const detecting = ref(false)
+const checking = ref(false)
+const updateMsg = ref('')
+const updateMsgClass = ref('')
+const updateInfo = ref(null)
 
 onMounted(async () => {
   const data = await api.getSettings()
   if (data) {
-    settings.version = data.version || '0.1.0'
+    settings.version = data.version || ''
     settings.game_exe_path = data.game_exe_path || ''
     form.windowTitle = data.window_title || 'AetherGazer'
     form.taskDelay = data.task_delay ?? 1.0
+    form.autoUpdate = data.auto_update !== false
   }
 })
 
@@ -131,6 +165,39 @@ async function detectGamePath() {
   } else {
     alert('未找到游戏安装路径。请确认游戏已安装。')
   }
+}
+
+async function onAutoUpdateToggle() {
+  await api.setAutoUpdate(form.autoUpdate)
+}
+
+async function checkUpdate() {
+  checking.value = true
+  updateMsg.value = ''
+  updateInfo.value = null
+
+  const result = await api.checkUpdate()
+  checking.value = false
+
+  if (!result || !result.ok) {
+    updateMsg.value = result?.error || '检查失败'
+    updateMsgClass.value = 'err'
+    setTimeout(() => { updateMsg.value = '' }, 5000)
+    return
+  }
+
+  if (result.has_update) {
+    updateInfo.value = result
+    updateMsg.value = ''
+  } else {
+    updateMsg.value = '✔ 已是最新版本'
+    updateMsgClass.value = 'ok'
+    setTimeout(() => { updateMsg.value = '' }, 5000)
+  }
+}
+
+function openRelease() {
+  // pywebview will handle target="_blank" as external browser
 }
 </script>
 
@@ -238,6 +305,84 @@ async function detectGamePath() {
 .save-msg.ok { color: #4caf50; }
 .save-msg.err { color: #f44336; }
 
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px !important;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #333;
+  border-radius: 22px;
+  transition: 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #999;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #2196f3;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background: white;
+}
+
+/* Update banner */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #1a2a1a;
+  border: 1px solid #2e7d32;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #c8e6c9;
+}
+
+.update-banner a {
+  white-space: nowrap;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+.update-msg {
+  font-size: 13px;
+}
+
+.update-msg.ok { color: #4caf50; }
+.update-msg.err { color: #f44336; }
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
 .settings-footer {
   margin-top: 40px;
   padding-top: 16px;
@@ -248,5 +393,14 @@ async function detectGamePath() {
 .footer-text {
   color: #444;
   font-size: 12px;
+}
+
+.footer-link {
+  color: #4fc3f7;
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
 }
 </style>
