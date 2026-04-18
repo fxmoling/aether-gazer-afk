@@ -373,27 +373,24 @@ class JointDefenseSweep:
     async def _click_quake(
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
-        """Click '震动' node on the map. Retries if map is still loading."""
-        for attempt in range(3):
-            r = await OcrScanCheck().evaluate(ctx)
-            if not r.passed:
-                ctx.logger.error("  quake: OCR scan failed")
-                return False
-            ocr = r.data
-            quake = ocr.find("震动")
-            if quake is not None:
-                cx = quake.region.x + quake.region.w // 2
-                cy = quake.region.y + quake.region.h // 2
-                ctx.logger.info(f"  quake: clicking '震动' at ({cx},{cy})")
-                await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
-                if run_log:
-                    run_log.snap(ctx.device, "jd_battle_panel")
-                return True
-            ctx.logger.info(f"  quake: '震动' not found, retrying ({attempt+1}/3)")
-            await SleepOp(seconds=1.5).run(ctx)
+        """Click '震动' node on the map."""
+        r = await OcrScanCheck().evaluate(ctx)
+        if not r.passed:
+            ctx.logger.error("  quake: OCR scan failed")
+            return False
+        ocr = r.data
+        quake = ocr.find("震动")
+        if quake is None:
+            ctx.logger.error("  quake: '震动' not found on map")
+            return False
 
-        ctx.logger.error("  quake: '震动' not found after retries")
-        return False
+        cx = quake.region.x + quake.region.w // 2
+        cy = quake.region.y + quake.region.h // 2
+        ctx.logger.info(f"  quake: clicking '震动' at ({cx},{cy})")
+        await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
+        if run_log:
+            run_log.snap(ctx.device, "jd_battle_panel")
+        return True
 
     # ------------------------------------------------------------------
     # Step 7: Max multiplier and sweep
