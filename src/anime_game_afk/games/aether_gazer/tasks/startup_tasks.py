@@ -20,9 +20,11 @@ from pathlib import Path
 from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck, OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ESCAPE
+from anime_game_afk.games.aether_gazer.ops.interact.rapid_click import RapidClickAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
     PressKeyOp,
+    SleepOp,
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
@@ -68,27 +70,37 @@ class SkipStartupPopups:
             # ── Hub check (template) ──
             on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
             if on_hub.passed:
-                ctx.logger.info(
-                    f"  [startup] Hub reached after {attempt} attempts"
-                )
-                return TaskResult(
-                    status="success",
-                    message=f"Hub reached after {attempt} attempts",
-                    data={"attempts": attempt},
+                # Confirm: wait 0.5s and check again to avoid popup-gap false positive
+                await SleepOp(seconds=0.5).run(ctx)
+                confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
+                if confirm.passed:
+                    ctx.logger.info(
+                        f"  [startup] Hub confirmed after {attempt} attempts"
+                    )
+                    return TaskResult(
+                        status="success",
+                        message=f"Hub reached after {attempt} attempts",
+                        data={"attempts": attempt},
+                    )
+                ctx.logger.debug(
+                    f"  [startup][{attempt}] Hub detected but lost on recheck"
                 )
 
             # ── Hub check (OCR fallback) ──
             r = await OcrScanCheck().evaluate(ctx)
             ocr = r.data if r.passed else None
             if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
-                ctx.logger.info(
-                    f"  [startup] Hub reached (OCR) after {attempt} attempts"
-                )
-                return TaskResult(
-                    status="success",
-                    message=f"Hub reached after {attempt} attempts",
-                    data={"attempts": attempt},
-                )
+                await SleepOp(seconds=0.5).run(ctx)
+                confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
+                if confirm.passed:
+                    ctx.logger.info(
+                        f"  [startup] Hub confirmed (OCR) after {attempt} attempts"
+                    )
+                    return TaskResult(
+                        status="success",
+                        message=f"Hub reached after {attempt} attempts",
+                        data={"attempts": attempt},
+                    )
 
             # ── Exit dialog — only case that needs ESC ──
             if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
@@ -98,11 +110,13 @@ class SkipStartupPopups:
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
                 continue
 
-            # ── Not at hub — click to dismiss whatever is on screen ──
+            # ── Not at hub — rapid click blank area to dismiss popups ──
             ctx.logger.debug(
-                f"  [startup][{attempt}] Not at hub — clicking (0.4, 0.05)"
+                f"  [startup][{attempt}] Not at hub — rapid clicking (0.4, 0.05) ×5"
             )
-            await ClickOp(x=0.4, y=0.05, wait=1.5).run(ctx)
+            await RapidClickAction(
+                x=0.4, y=0.05, times=5, interval=0.15,
+            ).run(ctx)
 
         # Max attempts exceeded — final check
         ctx.logger.warning(
