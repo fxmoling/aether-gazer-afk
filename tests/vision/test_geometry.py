@@ -1,4 +1,4 @@
-"""Tests for vision.geometry — crop, resize, find_contours.
+"""Tests for vision.geometry — crop, resize.
 
 All tests use synthetically generated NumPy arrays; no real game assets needed.
 """
@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from anime_game_afk.core.types import Rect
-from anime_game_afk.vision.geometry import crop, find_contours, resize
+from anime_game_afk.vision.geometry import crop, resize
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -126,64 +126,3 @@ def test_resize_three_channel_image() -> None:
     img = np.zeros((_IMG_H, _IMG_W, 3), dtype=np.uint8)
     result = resize(img, width=50, height=40)
     assert result.shape == (40, 50, 3)
-
-
-# ---------------------------------------------------------------------------
-# find_contours
-# ---------------------------------------------------------------------------
-
-
-def _image_with_white_rect(
-    x: int, y: int, w: int, h: int, img_h: int = 200, img_w: int = 200
-) -> np.ndarray:
-    """Return a black greyscale image with a white filled rectangle."""
-    img = np.zeros((img_h, img_w), dtype=np.uint8)
-    img[y : y + h, x : x + w] = 255
-    return img
-
-
-def test_find_contours_single_rect() -> None:
-    """A single white rectangle on a black background yields one Rect."""
-    img = _image_with_white_rect(x=10, y=20, w=30, h=40)
-    results = find_contours(img, min_area=1)
-    assert len(results) == 1
-    r = results[0]
-    assert r.x == 10
-    assert r.y == 20
-    assert r.w == 30
-    assert r.h == 40
-
-
-def test_find_contours_two_separate_rects() -> None:
-    """Two non-overlapping rectangles yield two separate Rect objects."""
-    img = np.zeros((200, 200), dtype=np.uint8)
-    img[10:30, 10:40] = 255   # rect A: w=30, h=20
-    img[100:140, 100:160] = 255  # rect B: w=60, h=40
-    results = find_contours(img, min_area=1)
-    assert len(results) == 2
-
-
-def test_find_contours_min_area_filters_small_rects() -> None:
-    """Rectangles whose bounding-box area is below min_area are excluded."""
-    img = np.zeros((200, 200), dtype=np.uint8)
-    img[5:10, 5:10] = 255    # 5×5 = area 25 — below threshold
-    img[50:80, 50:90] = 255  # 40×30 = area 1200 — above threshold
-    results = find_contours(img, min_area=100)
-    assert len(results) == 1
-    r = results[0]
-    assert r.w * r.h >= 100
-
-
-def test_find_contours_empty_image_returns_empty_list() -> None:
-    """All-black image has no contours."""
-    img = np.zeros((100, 100), dtype=np.uint8)
-    results = find_contours(img, min_area=1)
-    assert results == []
-
-
-def test_find_contours_bgr_image_converted_to_grey() -> None:
-    """find_contours accepts a 3-channel BGR image."""
-    img = np.zeros((200, 200, 3), dtype=np.uint8)
-    img[20:50, 20:60] = (255, 255, 255)  # white rectangle
-    results = find_contours(img, min_area=1)
-    assert len(results) == 1

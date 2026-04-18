@@ -17,47 +17,11 @@ from anime_game_afk.vision.ocr import (
 )
 
 
-class HasTextCheck:
-    """Check if specific text exists anywhere on screen.
-
-    Returns passed=True if text is found. data is the TextResult if found.
-    """
-
-    def __init__(
-        self,
-        target: str,
-        region: Rect | None = None,
-        threshold: float = 0.5,
-    ) -> None:
-        self._target = target
-        self._region = region
-        self._threshold = threshold
-
-    async def evaluate(self, ctx: OpContext) -> CheckResult:
-        img = ctx.device.screenshot()
-        result = ocr_find(img, self._target, region=self._region,
-                          threshold=self._threshold)
-        if result is None:
-            return CheckResult(
-                passed=False,
-                message=f"'{self._target}' not found",
-            )
-        return CheckResult(
-            passed=True,
-            data=result,
-            message=(
-                f"found '{self._target}' at "
-                f"({result.region.x},{result.region.y}) "
-                f"conf={result.confidence:.2f}"
-            ),
-        )
-
-
 class FindTextCheck:
-    """Find specific text and return its position.
+    """Find specific text on screen and return its position.
 
-    Same as HasTextCheck but semantically emphasizes position retrieval.
-    data contains the TextResult with region coordinates for clicking.
+    Returns passed=True if text is found. data is the TextResult with
+    region coordinates for clicking.
     """
 
     def __init__(
@@ -88,6 +52,10 @@ class FindTextCheck:
                 f"conf={result.confidence:.2f}"
             ),
         )
+
+
+# Backward compatibility alias
+HasTextCheck = FindTextCheck
 
 
 class FindAllTextCheck:

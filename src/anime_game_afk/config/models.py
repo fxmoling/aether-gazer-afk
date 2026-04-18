@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from maa.define import MaaWin32InputMethodEnum, MaaWin32ScreencapMethodEnum
@@ -29,23 +29,3 @@ class GameConfig:
             mouse_method=self.mouse_method,
             keyboard_method=self.keyboard_method,
         )
-
-
-@dataclass(frozen=True)
-class StaminaConfig:
-    """体力消耗配置"""
-
-    auto_use_potion: bool = False
-    max_potions: int = 0
-    target_stage: str = ""
-
-
-@dataclass
-class TaskResult:
-    """任务执行结果"""
-
-    success: bool
-    task_name: str
-    message: str = ""
-    duration: float = 0.0
-    screenshots: list[Path] = field(default_factory=list)

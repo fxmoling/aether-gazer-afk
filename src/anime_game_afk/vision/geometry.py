@@ -1,4 +1,4 @@
-"""Image geometry utilities — crop, resize, contour detection.
+"""Image geometry utilities — crop, resize.
 
 Pure functions. No state, no side effects.
 """
@@ -40,35 +40,3 @@ def resize(image: np.ndarray, width: int, height: int) -> np.ndarray:
         Resized image.
     """
     return cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
-
-
-def find_contours(
-    image: np.ndarray,
-    min_area: int = 100,
-) -> list[Rect]:
-    """Find external contours in a greyscale or binary image.
-
-    Converts to greyscale if needed, applies a 127-threshold, then locates
-    external contours via ``cv2.RETR_EXTERNAL``.
-
-    Args:
-        image: Greyscale or BGR image.
-        min_area: Minimum bounding-box area (w*h) to include in results.
-
-    Returns:
-        List of bounding :class:`Rect` objects for each qualifying contour.
-    """
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
-
-    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    rects: list[Rect] = []
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        if w * h >= min_area:
-            rects.append(Rect(x, y, w, h))
-    return rects
