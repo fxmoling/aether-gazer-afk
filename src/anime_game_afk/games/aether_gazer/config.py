@@ -16,7 +16,7 @@ else:
 AETHER_GAZER_CONFIG = GameConfig(
     name="深空之眼",
     window_title="AetherGazer",
-    resource_path=_BASE / "assets" / "aether_gazer" / "resource",
+    resource_path=_BASE / "assets" / "aether_gazer",  # placeholder; resource/ removed (unused)
     # FramePool: DXGI 帧池捕获，不发送窗口消息，游戏无法检测
     screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
     # SendMessageWithCursorPos: 光标会瞬间闪动+BlockInput，但是Unity唯一有效输入方式

@@ -81,23 +81,21 @@ Layer 7:  processes/     ← imports: tasks (L6)
 - No psutil dependency — pure subprocess + Win32 API
 - 13 unit tests in `tests/core/test_game_launcher.py`
 
-### Startup Tasks (tasks/startup_tasks.py)
-- **SkipStartupPopups**: Multi-strategy popup dismissal loop
-  - Checks: hub detection (template + OCR) → loading → login → idle → popup keywords → aggressive dismiss
-  - OCR keywords: _LOADING_KEYWORDS (9), _DISMISS_KEYWORDS (9), _LOGIN_KEYWORDS (4), _EVENT_POPUP_KEYWORDS (6)
-  - "前往" (go to event) → ESC instead of click (safety)
-  - Aggressive mode: ESC/Enter/Space + 6 known close button positions
-  - max_attempts configurable (default 60)
-- **LaunchAndReachHub**: Wraps SkipStartupPopups as a Task with metadata
+### Startup Tasks (tasks/startup_tasks.py) — updated 2026-04-18
+- **SkipStartupPopups**: 仅在游戏首次启动时运行 (game_was_launched=True)
+  - 快速连点 (0.4, 0.05) ×5 消除弹窗，间隔 0.15s
+  - Hub 检测后双重确认 (wait 0.5s + recheck)，防止弹窗间隙误判
+  - 退出对话框用 ESC 取消
+  - max_attempts=40
+- **游戏已运行时**: DailyRoutine 跳过 startup，直接 ReturnToHub（处理 idle 等状态）
+- **LaunchAndReachHub**: 保留但仅 CLI 模式使用
 - **ensure_game_running()**: Phase 1 function — call before DeviceAdapter.connect()
-- 13 unit tests in `tests/games/aether_gazer/tasks/test_startup_tasks.py`
+- 13 unit tests
 
-### Pipeline Integration
-- `scripts/run.py` updated with `--launch`, `--no-launch`, `--detect-game` flags
-- Phase 1 (pre-connection): resolve game exe + ensure running
-- Phase 2 (post-connection): skip popups via LaunchAndReachHub
-- Auto-detect saves to `config/user_config.yaml` for future runs
-- `default.yaml` updated with launch documentation
+### Pipeline Integration — updated 2026-04-18
+- Worker 子进程自动处理：检测游戏 → 未运行则启动 → 连接 → 传 `game_was_launched` 标志
+- DailyRoutine 根据 `game_was_launched` 决定是否跑 startup task
+- 用户只需点"▶ 开始"，无需手动连接/启动游戏
 
 ## Post-Wave Changes (2026-04-05 session 2)
 

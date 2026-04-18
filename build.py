@@ -54,13 +54,12 @@ def generate_spec() -> str:
     # if MAA_AGENT_BINARY.exists():
     #     agent_datas.append((str(MAA_AGENT_BINARY), "MaaAgentBinary"))
 
-    # Collect project assets -> assets/ (excluding debug screenshots)
+    # Collect project assets -> assets/ (only templates remain)
     assets_dir = PROJECT_ROOT / "assets"
     project_datas = []
     if assets_dir.exists():
-        # Walk assets and skip screenshots/ dirs (debug-only, ~244MB)
         for sub in assets_dir.rglob("*"):
-            if sub.is_file() and "screenshots" not in sub.parts:
+            if sub.is_file():
                 rel = sub.relative_to(assets_dir)
                 project_datas.append((str(sub), f"assets/{rel.parent}"))
 

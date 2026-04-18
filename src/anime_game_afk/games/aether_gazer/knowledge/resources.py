@@ -22,7 +22,6 @@ ASSETS_ROOT = _BASE / "assets" / "aether_gazer"
 TEMPLATE_DIR = ASSETS_ROOT / "templates"
 TEXT_TEMPLATE_DIR = TEMPLATE_DIR / "text"
 TEMPLATE_INDEX = TEMPLATE_DIR / "index.json"
-SCREENSHOT_DIR = ASSETS_ROOT / "screenshots"
 
 
 @dataclass(frozen=True)

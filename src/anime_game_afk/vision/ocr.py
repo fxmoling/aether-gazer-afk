@@ -27,8 +27,7 @@ import numpy as np
 from loguru import logger as _loguru
 
 from anime_game_afk.core.types import Rect
-from anime_game_afk.vision.matcher import match_template
-from anime_game_afk.vision.types import MatchResult, TextResult
+from anime_game_afk.vision.types import TextResult
 
 # Lazy-loaded RapidOCR engine (initialized on first use)
 _ocr_engine = None
@@ -214,39 +213,6 @@ def ocr_once(
     return OcrResult(items)
 
 
-def recognize_text(
-    image: np.ndarray,
-    region: Rect | None = None,
-    templates: dict[str, np.ndarray] | None = None,
-    threshold: float = 0.7,
-) -> list[TextResult]:
-    """Recognize text in an image region.
-
-    When *templates* are provided, uses template matching (exact image match).
-    When *templates* is None, uses RapidOCR for real text recognition.
-
-    Args:
-        image: BGR source image.
-        region: Optional sub-region to restrict the search.
-        templates: If provided, uses template matching instead of OCR.
-                   Mapping of ``{text_label: template_image}``.
-        threshold: Minimum confidence (0.0-1.0) to include a result.
-
-    Returns:
-        List of TextResult sorted by confidence descending.
-    """
-    # Explicit templates → always use template matching
-    if templates is not None:
-        return _template_recognize(image, region, templates, threshold)
-
-    # No templates → use real OCR
-    engine = _get_ocr_engine()
-    if engine is not None:
-        return _ocr_recognize(engine, image, region, threshold)
-    else:
-        return []
-
-
 def ocr_full(
     image: np.ndarray,
     region: Rect | None = None,
@@ -366,27 +332,3 @@ def _ocr_recognize(
 
     texts.sort(key=lambda r: r.confidence, reverse=True)
     return texts
-
-
-def _template_recognize(
-    image: np.ndarray,
-    region: Rect | None,
-    templates: dict[str, np.ndarray] | None,
-    threshold: float,
-) -> list[TextResult]:
-    """Fallback: template matching for known text snippets."""
-    if not templates:
-        return []
-
-    results: list[TextResult] = []
-    for text, tpl in templates.items():
-        match = match_template(image, tpl, region=region, threshold=threshold)
-        if match.matched:
-            results.append(TextResult(
-                text=text,
-                confidence=match.score,
-                region=Rect(match.x, match.y, match.w, match.h),
-            ))
-
-    results.sort(key=lambda r: r.confidence, reverse=True)
-    return results

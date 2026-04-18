@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from anime_game_afk.core.types import Rect
-from anime_game_afk.vision.color import color_ratio, find_color_regions
+from anime_game_afk.vision.color import color_ratio
 
 # ---------------------------------------------------------------------------
 # Colour constants
@@ -41,58 +41,6 @@ def _make_red_on_white(
     img = np.full((img_h, img_w, 3), _WHITE_BGR, dtype=np.uint8)
     img[rect_y : rect_y + rect_h, rect_x : rect_x + rect_w] = _RED_BGR
     return img
-
-
-# ---------------------------------------------------------------------------
-# find_color_regions
-# ---------------------------------------------------------------------------
-
-
-def test_find_color_regions_single_red_square() -> None:
-    """A single red rectangle on white returns exactly one bounding rect."""
-    img = _make_red_on_white(rect_x=20, rect_y=30, rect_w=40, rect_h=50)
-    results = find_color_regions(img, _RED_HSV_LOW, _RED_HSV_HIGH, min_area=1)
-    assert len(results) == 1
-    r = results[0]
-    assert r.x == 20
-    assert r.y == 30
-    assert r.w == 40
-    assert r.h == 50
-
-
-def test_find_color_regions_two_separate_red_rects() -> None:
-    """Two non-overlapping red rectangles yield two separate results."""
-    img = np.full((_IMG_H, _IMG_W, 3), _WHITE_BGR, dtype=np.uint8)
-    img[10:30, 10:40] = _RED_BGR   # rect A
-    img[100:120, 100:140] = _RED_BGR  # rect B
-    results = find_color_regions(img, _RED_HSV_LOW, _RED_HSV_HIGH, min_area=1)
-    assert len(results) == 2
-
-
-def test_find_color_regions_no_matching_color_returns_empty() -> None:
-    """All-white image has no red pixels; result should be empty."""
-    img = np.full((_IMG_H, _IMG_W, 3), _WHITE_BGR, dtype=np.uint8)
-    results = find_color_regions(img, _RED_HSV_LOW, _RED_HSV_HIGH, min_area=1)
-    assert results == []
-
-
-def test_find_color_regions_min_area_filters_tiny_regions() -> None:
-    """Regions whose area is below min_area are excluded."""
-    img = np.full((_IMG_H, _IMG_W, 3), _WHITE_BGR, dtype=np.uint8)
-    img[5:8, 5:8] = _RED_BGR       # 3×3 = area 9 — tiny
-    img[50:90, 50:100] = _RED_BGR  # 50×40 = area 2000 — large
-    results = find_color_regions(img, _RED_HSV_LOW, _RED_HSV_HIGH, min_area=100)
-    assert len(results) == 1
-    assert results[0].w * results[0].h >= 100
-
-
-def test_find_color_regions_returns_rect_objects() -> None:
-    """Each element in the result list is a Rect."""
-    img = _make_red_on_white(rect_x=10, rect_y=10, rect_w=20, rect_h=20)
-    results = find_color_regions(img, _RED_HSV_LOW, _RED_HSV_HIGH, min_area=1)
-    assert len(results) >= 1
-    for r in results:
-        assert isinstance(r, Rect)
 
 
 # ---------------------------------------------------------------------------

@@ -38,11 +38,6 @@ def _parse_version(v: str) -> tuple[int, ...]:
     return tuple(parts) or (0,)
 
 
-def current_version() -> str:
-    """Return the running application version string."""
-    return __version__
-
-
 def check_for_update(timeout: float = 5.0) -> dict[str, Any] | None:
     """Check GitHub for a newer release.
 
