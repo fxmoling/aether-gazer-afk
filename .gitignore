@@ -124,6 +124,7 @@ debug_images/
 !assets/*/resource/image/*.png
 # And keep template images (needed for page identification)
 !assets/*/templates/*.png
+!assets/*/templates/**/*.png
 
 # Watchdog files
 .watchdog-prompt.md
@@ -163,3 +164,7 @@ docs/README.md
 .references/README.md
 # Git worktrees
 .worktrees/
+
+# Frontend build artifacts (built files are in src/anime_game_afk/ui/web/)
+frontend/node_modules/
+frontend/dist/
