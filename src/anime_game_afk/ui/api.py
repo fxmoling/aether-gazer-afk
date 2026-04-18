@@ -79,3 +79,103 @@ class Api:
     def get_recent_logs(self, count: int = 200) -> list[dict[str, str]]:
         """Get recent log entries from the ring buffer."""
         return self._lf.get_recent(count)
+
+    # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+
+    def get_settings(self) -> dict[str, Any]:
+        """Get current user settings."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        cfg = UserConfig.load()
+        game = cfg.raw.get("games", {}).get("aether_gazer", {})
+        return {
+            "version": "0.1.0",
+            "window_title": game.get("window_title", "AetherGazer"),
+            "game_exe_path": game.get("game_exe_path", ""),
+            "task_delay": game.get("task_delay", 1.0),
+        }
+
+    def save_settings(
+        self, window_title: str, task_delay: float,
+    ) -> dict[str, Any]:
+        """Save user settings to config file."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            game = cfg._game("aether_gazer")
+            game["window_title"] = window_title
+            game["task_delay"] = task_delay
+            cfg.save()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Game launch
+    # ------------------------------------------------------------------
+
+    def detect_game(self) -> dict[str, Any]:
+        """Check if the game is running, return exe path if found."""
+        from anime_game_afk.core.game_finder import find_aether_gazer
+        from anime_game_afk.core.game_launcher import GameLauncher
+
+        launcher = GameLauncher(
+            exe_path="AetherGazer.exe",
+            window_title="AetherGazer",
+        )
+        running = launcher.is_running()
+
+        result: dict[str, Any] = {"running": running}
+
+        if not running:
+            # Try to find the game exe
+            found = find_aether_gazer()
+            result["game_exe"] = found.get("game_exe") or ""
+        else:
+            # Get path from running process
+            from anime_game_afk.core.game_finder import GameFinder
+            finder = GameFinder()
+            path = finder._find_from_running_process("AetherGazer.exe")
+            result["game_exe"] = path or ""
+
+        return result
+
+    def launch_game(self) -> dict[str, Any]:
+        """Launch the game and wait for its window to appear."""
+        from anime_game_afk.config.user_config import UserConfig
+        from anime_game_afk.core.game_finder import find_aether_gazer
+        from anime_game_afk.core.game_launcher import GameLauncher
+
+        cfg = UserConfig.load()
+        exe_path = cfg.game_exe_path("aether_gazer")
+
+        if not exe_path:
+            # Auto-detect
+            found = find_aether_gazer()
+            exe_path = found.get("game_exe") or ""
+            if exe_path:
+                cfg.set_game_exe_path("aether_gazer", exe_path)
+                cfg.save()
+
+        if not exe_path:
+            return {
+                "ok": False,
+                "error": "未找到游戏路径。请在设置中手动指定游戏 exe 路径。",
+            }
+
+        window_title = cfg.window_title("aether_gazer") or "AetherGazer"
+        launcher = GameLauncher(
+            exe_path=exe_path,
+            window_title=window_title,
+        )
+
+        if launcher.is_running():
+            return {"ok": True, "message": "游戏已在运行"}
+
+        ok = launcher.ensure_running(timeout=120)
+        if ok:
+            return {"ok": True, "message": "游戏已启动"}
+        return {"ok": False, "error": "游戏启动超时，请手动启动游戏"}

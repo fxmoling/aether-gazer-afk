@@ -1,49 +1,81 @@
-# anime-game-afk
+# AetherGazer AFK — 深空之眼自动日常工具
 
-Automated game task execution for mobile/PC games using MaaFramework.
+自动完成深空之眼每日任务：邮件、商店、体力、公会、游园街、联防协议等。
 
-## Supported Games
+## 下载与使用
 
-- **深空之眼 (AetherGazer)** — daily routines, main story push, resource farming
+### 1. 下载
 
-## Architecture
+从 [Releases](../../releases) 页面下载最新版 `anime-game-afk.zip`。
 
-9-layer design with strict downward dependencies:
+### 2. 解压并运行
 
-| Layer | Location | Purpose |
-|-------|----------|---------|
-| 0 | (external) | MaaFramework C++ engine |
-| 1 | `core/` | Device adapter — screenshot, click, key press |
-| 2 | `vision/` | Game-agnostic computer vision tools |
-| 3 | `runtime/` | Logging, config, state management |
-| 4 | `games/*/knowledge/` | Pure game data models |
-| 5 | `games/*/ops/` | Atomic operations |
-| 6 | `games/*/tasks/` | Composable multi-step tasks |
-| 7 | `games/*/processes/` | User-visible features |
-| 8 | `games/*/orchestrator/` | Pipeline + YAML plan execution |
+1. 解压到任意目录（建议英文路径）
+2. 双击 `anime-game-afk.exe`
+3. 界面打开后：
+   - 如果游戏未运行 → 点击 **🎮 启动游戏**（自动检测游戏路径）
+   - 如果游戏已运行 → 点击 **连接**
+4. 勾选要执行的任务，点击 **▶ 开始**
 
-See `docs/superpowers/specs/2026-04-05-architecture-redesign-design.md` for full spec.
+### 3. 系统要求
 
-## Quick Start
+- **Windows 10/11**（需要 Edge 浏览器 / WebView2 Runtime，系统自带）
+- **深空之眼 PC 版**，窗口化运行，16:9 分辨率（推荐 1280×720 或 1920×1080）
+- 游戏窗口不要最小化（可以在后台，但不能最小化）
+
+## 支持的任务
+
+| 任务 | 说明 |
+|------|------|
+| 启动游戏 | 跳过开屏弹窗 |
+| 领取邮件 | 一键领取所有邮件 |
+| 购买情报 | 每日商店情报碎片 |
+| 领取体力包 | 吨吨值福利包（每日补给） |
+| 商店免费体力 | 商店冷却剂/移转之辉 |
+| 弥弥观测站 | 缩短回归 + 领取奖励 |
+| 公会补给 | 矩阵补给 + 公会任务奖励 |
+| 游园街日常 | 自动放置、投喂、领取、委托、游园任务 |
+| 联防协议 | 自动扫荡 + 领取奖励 |
+| 每日周常任务 | 一键领取任务奖励 |
+| 对策协议 | 领取任务奖励 |
+
+## 常见问题
+
+**Q: 连接失败 / 找不到游戏窗口**
+A: 确认游戏已启动且处于主界面。游戏窗口标题应为 "AetherGazer"。
+
+**Q: 分辨率不支持**
+A: 游戏窗口必须是 16:9 比例（如 1280×720、1920×1080）。在游戏设置中调整。
+
+**Q: 任务执行失败**
+A: 确保游戏处于主界面（大厅），不在战斗/加载中。查看日志页面了解详情。
+
+**Q: 自动启动游戏找不到路径**
+A: 在设置页面手动指定游戏 exe 路径，或确保桌面有游戏快捷方式。
+
+## 开发
 
 ```bash
-# Install dependencies
-pip install -e .
+# 安装依赖
+pip install -e ".[dev]"
 
-# Run with default plan
-python scripts/run.py
+# 运行测试
+pytest tests/
 
-# Run with custom plan
-python scripts/run.py --plan my_plan.yaml
+# 构建发布版
+python build.py --zip
+
+# 前端开发
+cd frontend && npm install && npm run dev
 ```
 
-## Development
+## 技术栈
 
-- Python 3.11+
-- `docs/coding-standards.md` — coding conventions
-- `docs/pages/aether_gazer/` — game page documentation with coordinates
-- `memory/` — project memory for AI-assisted development
+- Python 3.11 + MaaFramework（屏幕截取/点击）
+- Vue 3 + Vite（前端 UI）
+- pywebview + WebView2（桌面窗口）
+- PyInstaller（打包分发）
 
-## Status
+## 免责声明
 
-Wave 1 (Layers 1-3) and Wave 2 (Layers 4-5) complete. 284 tests passing. Wave 3-4 in progress.
+本工具仅供学习交流使用。使用本工具产生的任何后果由用户自行承担。

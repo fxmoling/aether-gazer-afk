@@ -19,15 +19,21 @@ from typing import Any
 
 import yaml
 
+import sys
+
 from anime_game_afk.runtime.logger import get_logger
 
 logger = get_logger("config.user_config")
 
-# Paths relative to project root
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_CONFIG_DIR = _PROJECT_ROOT / "config"
+# Resolve config directory: in frozen (PyInstaller) mode, use the exe's
+# parent directory; in source mode, use the project root.
+if getattr(sys, "frozen", False):
+    _APP_ROOT = Path(sys.executable).resolve().parent
+else:
+    _APP_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+_CONFIG_DIR = _APP_ROOT / "config"
 _USER_CONFIG_PATH = _CONFIG_DIR / "user_config.yaml"
-_TEMPLATE_PATH = _CONFIG_DIR / "user_config.yaml"
 
 
 class UserConfig:

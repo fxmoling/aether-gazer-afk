@@ -36,4 +36,9 @@ export const api = {
   startRun: (pipelineId) => apiCall('start_run', pipelineId),
   stopRun: () => apiCall('stop_run'),
   getRecentLogs: (count = 200) => apiCall('get_recent_logs', count),
+  getSettings: () => apiCall('get_settings'),
+  saveSettings: (windowTitle, taskDelay) =>
+    apiCall('save_settings', windowTitle, taskDelay),
+  detectGame: () => apiCall('detect_game'),
+  launchGame: () => apiCall('launch_game'),
 }

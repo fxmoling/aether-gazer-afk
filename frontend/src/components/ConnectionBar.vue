@@ -8,6 +8,14 @@
     </div>
     <div class="conn-actions">
       <button
+        v-if="!state.connected"
+        class="btn btn-secondary"
+        :disabled="launching"
+        @click="handleLaunchGame"
+      >
+        {{ launching ? '启动中...' : '🎮 启动游戏' }}
+      </button>
+      <button
         class="btn btn-primary"
         :disabled="connecting || state.connected"
         @click="handleConnect"
@@ -28,8 +36,10 @@
 <script setup>
 import { ref } from 'vue'
 import { state, connect, disconnect } from '../composables/useStore'
+import { api } from '../composables/useApi'
 
 const connecting = ref(false)
+const launching = ref(false)
 
 async function handleConnect() {
   connecting.value = true
@@ -42,6 +52,23 @@ async function handleConnect() {
 
 async function handleDisconnect() {
   await disconnect()
+}
+
+async function handleLaunchGame() {
+  launching.value = true
+  const result = await api.launchGame()
+  launching.value = false
+  if (result && result.ok) {
+    // Game launched, auto-connect
+    connecting.value = true
+    const connResult = await connect()
+    connecting.value = false
+    if (!connResult.ok) {
+      alert('游戏已启动，但连接失败。请稍后点击"连接"按钮。')
+    }
+  } else {
+    alert(result?.error || '启动失败')
+  }
 }
 </script>
 
