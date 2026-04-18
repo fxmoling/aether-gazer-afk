@@ -90,6 +90,17 @@ The following tools are available globally on this system:
 - Use Unix-style paths in shell commands (forward slashes)
 - The `winget` package manager is currently broken on this system; use direct downloads or `curl` for installing tools
 
+## 临时文件规则
+
+**所有 LLM/脚本生成的临时文件（调试截图、测试输出、日志等）必须放在 `.tmp/` 目录下。**
+
+- `.tmp/` 已在 `.gitignore` 中，不会被提交
+- **禁止**在项目根目录或任意子目录下散落临时文件（如 `debug_*.png`、`screenshot_*.png`、`test_output/`）
+- 调试截图 → `.tmp/debug/`
+- 脚本测试输出 → `.tmp/test_output/`
+- 临时日志 → `.tmp/logs/`
+- 会话记录 → `.tmp/` 根目录
+
 ## 分辨率与多分辨率适配 — 设计约束
 
 **开发测试环境使用 1600×900（16:9），但不能假设所有用户都是此分辨率。**

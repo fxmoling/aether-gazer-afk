@@ -110,6 +110,7 @@ node_modules/
 # Temporary folders
 tmp/
 temp/
+test_output/
 
 # Game-specific
 screenshots/
