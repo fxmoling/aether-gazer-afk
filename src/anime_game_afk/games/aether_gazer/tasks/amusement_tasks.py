@@ -30,16 +30,17 @@ _FEED_X, _FEED_Y = 0.855, 0.918                 # 一键投喂 button (1368,826 
 
 
 class AmusementStreetDaily:
-    """Daily 游园街 management: place, feed, collect, dispatch.
+    """Daily 游园街 management: place, feed, collect, dispatch, claim park tasks.
 
     Flow: hub → 游园街(1257,850) → 游园街面板(1240,860)
           → 自动放置(1084,826) → 一键投喂(1368,826)
           → 领取收益(OCR) → 派遣完成/可委托(OCR) → 确定(Enter)
-          → 一键派遣(OCR) → ESC×2 → return to hub
+          → 一键派遣(OCR) → 游园任务(OCR) → 一键领取(OCR)
+          → dismiss popups → ESC×2 → return to hub
 
     Identification methods:
     - Fixed coord: 游园街, 游园街面板, 自动放置, 一键投喂
-    - OCR: 领取收益, 派遣完成/可委托, 一键派遣
+    - OCR: 领取收益, 派遣完成/可委托, 一键派遣, 游园任务, 一键领取
     - Keyboard: Enter (confirm), ESC (close panels)
     """
 
@@ -176,8 +177,40 @@ class AmusementStreetDaily:
         if run_log:
             run_log.snap(ctx.device, "amusement_after_dispatch")
 
-        # Step 7: ESC ×2 + return to hub
-        ctx.logger.info("[Step 7] ESC ×2 + return to hub")
+        # Step 7: Click 游园任务 and claim rewards
+        ctx.logger.info("[Step 7] Find and claim 游园任务 rewards")
+        park_result = await FindTextCheck(target="游园任务").evaluate(ctx)
+        if park_result.passed:
+            park = park_result.data
+            px = park.region.x + park.region.w // 2
+            py = park.region.y + park.region.h // 2
+            ctx.logger.info(f"  Found '游园任务' at ({px},{py})")
+            await ClickPxOp(px=px, py=py, wait=1.5).run(ctx)
+
+            # OCR find 一键领取
+            claim_result = await FindTextCheck(target="一键领取").evaluate(ctx)
+            if claim_result.passed:
+                claim = claim_result.data
+                cx = claim.region.x + claim.region.w // 2
+                cy = claim.region.y + claim.region.h // 2
+                ctx.logger.info(f"  Found '一键领取' at ({cx},{cy})")
+                await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
+            else:
+                ctx.logger.info("  '一键领取' not found (no rewards to claim)")
+
+            # Dismiss popups: Enter ×3
+            for _ in range(3):
+                await PressKeyOp(key=VK_ENTER, wait=0.5).run(ctx)
+            # Click top-center ×2 to dismiss remaining overlays
+            await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
+            await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
+            if run_log:
+                run_log.snap(ctx.device, "amusement_after_park_tasks")
+        else:
+            ctx.logger.info("  '游园任务' not found, skipping park task rewards")
+
+        # Step 8: ESC ×2 + return to hub
+        ctx.logger.info("[Step 8] ESC ×2 + return to hub")
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
         await ReturnToHubAction().run(ctx)

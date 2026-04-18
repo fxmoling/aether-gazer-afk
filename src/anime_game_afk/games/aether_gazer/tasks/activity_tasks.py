@@ -163,8 +163,12 @@ class JointDefenseSweep:
         ctx.logger.info("[Step 8] Confirm sweep and dismiss result")
         await self._confirm_and_dismiss(ctx, run_log)
 
-        # ── Step 9: Return to hub ──
-        ctx.logger.info("[Step 9] Return to hub")
+        # ── Step 9: Collect 联防协议 rewards ──
+        ctx.logger.info("[Step 9] Navigate back to collect 联防协议 rewards")
+        await self._collect_joint_defense_rewards(ctx, run_log)
+
+        # ── Step 10: Return to hub ──
+        ctx.logger.info("[Step 10] Return to hub")
         await self._safe_return_to_hub(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_final_hub")
@@ -528,6 +532,50 @@ class JointDefenseSweep:
 
         if run_log:
             run_log.snap(ctx.device, "jd_after_dismiss")
+
+    # ------------------------------------------------------------------
+    # Step 9: Collect 联防协议 rewards
+    # ------------------------------------------------------------------
+
+    async def _collect_joint_defense_rewards(
+        self, ctx: TaskContext, run_log: RunLog | None,
+    ) -> None:
+        """Navigate back to 联防协议 detail page and click 一键领取 rewards.
+
+        After sweep dismissal, press back to return to the 联防协议 detail
+        page (where 前往挑战 was visible), then click the bottom-most orange
+        一键领取 button to claim all completion rewards.
+        """
+        # Navigate back from challenge map to 联防协议 detail page
+        for i in range(4):
+            ctx.logger.info(f"  rewards: pressing back [{i}]")
+            await ClickOp(x=0.022, y=0.039, wait=1.0).run(ctx)
+
+            # Check if we see 前往挑战 — means we're on 联防协议 detail page
+            r = await OcrScanCheck().evaluate(ctx)
+            if r.passed and r.data.has("前往挑战"):
+                ctx.logger.info("  rewards: reached 联防协议 detail page")
+                break
+        else:
+            ctx.logger.warning(
+                "  rewards: could not reach 联防协议 detail page"
+            )
+            return
+
+        # Click bottom-most 一键领取 button (fixed position on left panel)
+        # This is the reward collection button at the bottom of the rewards list
+        _REWARD_CLAIM_X, _REWARD_CLAIM_Y = 0.17, 0.88
+        ctx.logger.info(
+            f"  rewards: clicking bottom 一键领取 at "
+            f"({_REWARD_CLAIM_X},{_REWARD_CLAIM_Y})"
+        )
+        await ClickOp(x=_REWARD_CLAIM_X, y=_REWARD_CLAIM_Y, wait=1.5).run(ctx)
+
+        # Dismiss any reward popup
+        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+
+        if run_log:
+            run_log.snap(ctx.device, "jd_rewards_collected")
 
     # ------------------------------------------------------------------
     # Safe return to hub

@@ -1,6 +1,6 @@
 """Guild tasks — daily guild rewards.
 
-GuildSupplyClaim: Claim daily 矩阵补给 from guild page.
+GuildSupplyClaim: Claim daily 矩阵补给 + 公会任务 rewards from guild page.
 """
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
-    ClickPxOp,
     ClickOp,
     PressKeyOp,
     SleepOp,
@@ -22,22 +21,36 @@ from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 if TYPE_CHECKING:
     from anime_game_afk.runtime.run_log import RunLog
 
-# Verified coordinates (2026-04-06, 1025,850 @ 1600x900)
-_GUILD_X, _GUILD_Y = 0.641, 0.944  # Hub bottom bar 公会 button
+# Hub bottom bar 公会 button (1025,850 @ 1600x900)
+_GUILD_X, _GUILD_Y = 0.641, 0.944
+
+# Guild bottom bar tabs (verified from guild_main.png at 1280×720)
+_SUPPLY_TAB_X, _SUPPLY_TAB_Y = 0.926, 0.958    # 矩阵补给 tab
+_TASK_TAB_X, _TASK_TAB_Y = 0.797, 0.958         # 公会任务 tab
+
+# 领取 button inside 矩阵补给 panel (estimated center of claim button)
+_SUPPLY_CLAIM_X, _SUPPLY_CLAIM_Y = 0.5, 0.65
+
+# 一键领取 button for 公会任务 (same position as daily tasks claim)
+_GUILD_DAILY_CLAIM_X, _GUILD_DAILY_CLAIM_Y = 0.925, 0.956
 
 
 class GuildSupplyClaim:
-    """Claim daily 矩阵补给 (Matrix Supply) from guild.
+    """Claim daily 矩阵补给 and 公会任务 rewards from guild.
 
-    Flow: hub → 公会(1025,850) → 矩阵补给(OCR) → 领取(OCR) → return to hub
+    Flow: hub → 公会 → OCR verify 矩阵补给 (guild membership check)
+          → click 矩阵补给 tab → 领取 (fixed coord) → Enter
+          → click 公会任务 tab → 一键领取 → Enter → return to hub
+
+    If OCR cannot find 矩阵补给, user likely has no guild — skip entirely.
 
     Identification methods:
-    - Fixed coord: 公会 button on hub bottom bar
-    - OCR: 矩阵补给 (bottom bar of guild page), 领取 (claim button)
+    - Fixed coord: 公会 button, guild bottom bar tabs, 领取, 一键领取
+    - OCR: 矩阵补给 text (guild membership verification only)
     """
 
     name = "guild_supply_claim"
-    description = "Claim daily 矩阵补给 from guild"
+    description = "Claim daily 矩阵补给 and 公会任务 rewards"
     category = "daily"
     requires_pages = ("main_hub", "guild")
     requires_ocr = True
@@ -52,57 +65,71 @@ class GuildSupplyClaim:
 
         # Step 1: Click 公会
         ctx.logger.info(f"[Step 1] Click 公会 at ({_GUILD_X},{_GUILD_Y})")
-        await ClickOp(x=_GUILD_X, y=_GUILD_Y, wait=1.0).run(ctx)
+        await ClickOp(x=_GUILD_X, y=_GUILD_Y, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "guild_page")
 
-        # Step 2: Find and click 矩阵补给
-        ctx.logger.info("[Step 2] Find and click '矩阵补给'")
+        # Step 2: Verify guild membership via OCR
+        ctx.logger.info("[Step 2] OCR verify '矩阵补给' (guild membership check)")
         supply_result = await FindTextCheck(target="矩阵补给").evaluate(ctx)
-        if supply_result.passed:
-            supply = supply_result.data
-            cx = supply.region.x + supply.region.w // 2
-            cy = supply.region.y + supply.region.h // 2
-            ctx.logger.info(f"  Found '矩阵补给' at ({cx},{cy})")
-            await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
-        else:
-            # OCR can't find the button — skip to avoid clicking wrong things
+        if not supply_result.passed:
             ctx.logger.warning(
-                "  '矩阵补给' not found via OCR, skipping guild supply"
+                "  '矩阵补给' not found — user may not be in a guild, skipping"
             )
             await ReturnToHubAction().run(ctx)
             return TaskResult(
                 status="skipped",
-                message="矩阵补给 button not found via OCR",
+                message="矩阵补给 not found (no guild membership)",
             )
+
+        # Step 3: Click 矩阵补给 tab (fixed coord from guild bottom bar)
+        ctx.logger.info(
+            f"[Step 3] Click 矩阵补给 tab at ({_SUPPLY_TAB_X},{_SUPPLY_TAB_Y})"
+        )
+        await ClickOp(x=_SUPPLY_TAB_X, y=_SUPPLY_TAB_Y, wait=1.5).run(ctx)
         if run_log:
-            run_log.snap(ctx.device, "guild_supply")
+            run_log.snap(ctx.device, "guild_supply_panel")
 
-        # Step 3: Find and click 领取
-        ctx.logger.info("[Step 3] Find and click '领取'")
-        claim_result = await FindTextCheck(target="领取").evaluate(ctx)
-        claimed = False
-        if claim_result.passed:
-            claim = claim_result.data
-            cx = claim.region.x + claim.region.w // 2
-            cy = claim.region.y + claim.region.h // 2
-            ctx.logger.info(f"  Found '领取' at ({cx},{cy})")
-            await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
-            # Dismiss reward popup
-            await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
-            claimed = True
-            if run_log:
-                run_log.snap(ctx.device, "guild_after_claim")
-        else:
-            ctx.logger.info("  '领取' not found (already claimed today)")
+        # Step 4: Click 领取 at fixed position
+        ctx.logger.info(
+            f"[Step 4] Click 领取 at ({_SUPPLY_CLAIM_X},{_SUPPLY_CLAIM_Y})"
+        )
+        await ClickOp(x=_SUPPLY_CLAIM_X, y=_SUPPLY_CLAIM_Y, wait=1.0).run(ctx)
+        # Dismiss reward popup
+        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        if run_log:
+            run_log.snap(ctx.device, "guild_after_supply_claim")
 
-        # Step 4: Return to hub
-        ctx.logger.info("[Step 4] Return to hub")
+        # Step 5: Click 公会任务 tab
+        ctx.logger.info(
+            f"[Step 5] Click 公会任务 tab at ({_TASK_TAB_X},{_TASK_TAB_Y})"
+        )
+        await ClickOp(x=_TASK_TAB_X, y=_TASK_TAB_Y, wait=1.5).run(ctx)
+        if run_log:
+            run_log.snap(ctx.device, "guild_task_panel")
+
+        # Step 6: Click 一键领取
+        ctx.logger.info(
+            f"[Step 6] Click 一键领取 at "
+            f"({_GUILD_DAILY_CLAIM_X},{_GUILD_DAILY_CLAIM_Y})"
+        )
+        await ClickOp(
+            x=_GUILD_DAILY_CLAIM_X, y=_GUILD_DAILY_CLAIM_Y, wait=1.0,
+        ).run(ctx)
+        # Dismiss reward popup
+        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        if run_log:
+            run_log.snap(ctx.device, "guild_after_task_claim")
+
+        # Step 7: Return to hub
+        ctx.logger.info("[Step 7] Return to hub")
         await ReturnToHubAction().run(ctx)
         if run_log:
             run_log.snap(ctx.device, "guild_done")
 
-        status = "success" if claimed else "skipped"
-        msg = "Guild supply claimed" if claimed else "Already claimed today"
-        ctx.logger.info(f"=== GuildSupplyClaim: {status} ===")
-        return TaskResult(status=status, message=msg, data={"claimed": claimed})
+        ctx.logger.info("=== GuildSupplyClaim: complete ===")
+        return TaskResult(
+            status="success",
+            message="Guild supply + task rewards claimed",
+            data={"supply_claimed": True, "task_claimed": True},
+        )
