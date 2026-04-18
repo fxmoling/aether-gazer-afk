@@ -63,7 +63,7 @@ class BuyIntelShards:
     safe = False  # Spends 辉芒 currency
 
     _MAX_PURCHASES = 10  # Safety cap per run
-    _INTEL_REGION = Rect(200, 130, 1300, 350)  # Top row where intel items appear
+    _INTEL_REGION = Rect(160, 104, 1040, 280)  # Top row where intel items appear
     # Purchase popup buttons (verified 2026-04-06 via OCR, 1067,624 / 1236,625 @ 1600x900)
     _MAX_BTN_X, _MAX_BTN_Y = 0.667, 0.693    # 最大 button
     _BUY_BTN_X, _BUY_BTN_Y = 0.773, 0.694    # 购买 button
@@ -507,7 +507,7 @@ class ClaimDailyStaminaPacks:
     requires_ocr = True
     safe = True  # Free daily items
 
-    _TOP_BAR_REGION = Rect(800, 0, 800, 80)  # Top bar where stamina is shown
+    _TOP_BAR_REGION = Rect(640, 0, 640, 64)  # Top bar where stamina is shown
 
     async def can_run(self, ctx: TaskContext) -> bool:
         return True
@@ -767,7 +767,7 @@ class ClaimDailyStaminaPacks:
     async def _read_stamina_from_panel(self, ctx: TaskContext) -> int | None:
         """Read stamina NNN/NNN from panel top bar."""
         # Panel shows stamina in top-right area
-        panel_top = Rect(1100, 0, 500, 80)
+        panel_top = Rect(880, 0, 400, 64)
         r = await OcrFullCheck(region=panel_top).evaluate(ctx)
         if not r.passed:
             return None

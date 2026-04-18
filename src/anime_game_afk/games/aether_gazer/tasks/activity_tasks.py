@@ -64,9 +64,10 @@ class JointDefenseSweep:
     safe = False  # Consumes 吨吨值 (30 per sweep)
 
     # H shortcut label search region (right side of hub)
-    _H_SEARCH_REGION = Rect(1300, 100, 200, 100)
+    # At screenshot resolution (1280×720): x=1040..1200, y=80..160
+    _H_SEARCH_REGION = Rect(1040, 80, 160, 80)
     # Activity list left column
-    _LEFT_COLUMN = Rect(0, 100, 400, 700)
+    _LEFT_COLUMN = Rect(0, 80, 320, 560)
     # Multiplier buttons: 5-button layout << < [xN] > >>
     # Pixel-mapped from 008_jd_after_max_multi.jpg darkness scan:
     #   << button: half(590,355) = full(1180,710)  ← reset to min

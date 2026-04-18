@@ -147,6 +147,8 @@ def ocr_once(
         y1 = max(0, region.y)
         x2 = min(w, region.x + region.w)
         y2 = min(h, region.y + region.h)
+        if x2 <= x1 or y2 <= y1:
+            return OcrResult([])
         cropped = image[y1:y2, x1:x2]
         offset_x, offset_y = x1, y1
     else:
