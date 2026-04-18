@@ -90,6 +90,7 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     _emit({"type": "status", "msg": "正在查找游戏窗口..."})
     game_id = "aether_gazer"
     window_title = user_cfg.window_title(game_id) or "AetherGazer"
+    game_was_launched = False  # True if we launched the game ourselves
 
     try:
         device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
@@ -101,6 +102,7 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
 
     if device is None or not device.connected:
         # Game not running — try to launch
+        game_was_launched = True
         _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
         exe_path = user_cfg.game_exe_path(game_id)
         if not exe_path or not __import__("pathlib").Path(exe_path).exists():
@@ -164,7 +166,10 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
         game="aether_gazer",
         processes=[ProcessDef(
             name=pipeline_id,
-            config={"enabled_tasks": sorted(enabled_ids)},
+            config={
+                "enabled_tasks": sorted(enabled_ids),
+                "game_was_launched": game_was_launched,
+            },
         )],
     )
 

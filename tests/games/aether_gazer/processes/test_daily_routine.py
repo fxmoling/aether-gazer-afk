@@ -99,9 +99,9 @@ def test_daily_routine_task_count():
 
 
 def test_daily_routine_completes_all_tasks():
-    """Happy path: all 10 tasks succeed."""
+    """Happy path: all 11 tasks succeed (game freshly launched)."""
     device = MockDevice()
-    ctx = ProcessContext(device=device)
+    ctx = ProcessContext(device=device, config={"game_was_launched": True})
 
     patches = _patch_all()
     _start_patches(patches)
@@ -118,7 +118,7 @@ def test_daily_routine_completes_all_tasks():
 def test_daily_routine_handles_failures():
     """If all tasks fail, completed is empty but process still succeeds."""
     device = MockDevice()
-    ctx = ProcessContext(device=device)
+    ctx = ProcessContext(device=device, config={"game_was_launched": True})
 
     patches = [
         patch(f"{_MOD}.ReturnToHub.execute", _task_success()),

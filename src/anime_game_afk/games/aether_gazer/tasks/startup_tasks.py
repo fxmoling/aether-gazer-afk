@@ -64,20 +64,14 @@ class SkipStartupPopups:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        ctx.logger.info("  [startup] Starting popup dismissal loop")
-
-        # Quick check: if already at hub, skip entirely (game was already running)
-        on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
-        if on_hub.passed:
-            ctx.logger.info("  [startup] Already at hub, skipping")
-            return TaskResult(
-                status="success",
-                message="Already at hub",
-                data={"attempts": 0},
-            )
+        """Dismiss startup popups by rapid-clicking until hub is confirmed.
+        
+        Only called when game was freshly launched (has startup popups).
+        """
+        ctx.logger.info("  [startup] Dismissing startup popups")
 
         for attempt in range(self._max_attempts):
-            # ── Hub check (template) with double-confirm ──
+            # ── Hub check with double-confirm ──
             on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
             if on_hub.passed:
                 await SleepOp(seconds=0.5).run(ctx)
@@ -91,38 +85,15 @@ class SkipStartupPopups:
                         message=f"Hub reached after {attempt} attempts",
                         data={"attempts": attempt},
                     )
-                ctx.logger.debug(
-                    f"  [startup][{attempt}] Hub detected but lost on recheck"
-                )
 
-            # ── Hub check (OCR fallback) with double-confirm ──
+            # ── Exit dialog — ESC to cancel ──
             r = await OcrScanCheck().evaluate(ctx)
             ocr = r.data if r.passed else None
-            if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
-                await SleepOp(seconds=0.5).run(ctx)
-                confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
-                if confirm.passed:
-                    ctx.logger.info(
-                        f"  [startup] Hub confirmed (OCR) after {attempt} attempts"
-                    )
-                    return TaskResult(
-                        status="success",
-                        message=f"Hub reached after {attempt} attempts",
-                        data={"attempts": attempt},
-                    )
-
-            # ── Exit dialog — only case that needs ESC ──
             if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
-                ctx.logger.info(
-                    f"  [startup][{attempt}] Exit dialog — pressing ESC"
-                )
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
                 continue
 
-            # ── Not at hub — rapid click blank area to dismiss startup popups ──
-            ctx.logger.debug(
-                f"  [startup][{attempt}] Not at hub — rapid clicking (0.4, 0.05) ×5"
-            )
+            # ── Rapid click blank area to dismiss popups ──
             await RapidClickAction(
                 x=0.4, y=0.05, times=5, interval=0.15,
             ).run(ctx)

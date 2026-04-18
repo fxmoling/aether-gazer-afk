@@ -99,6 +99,8 @@ class DailyRoutine:
         if raw is not None:
             enabled_tasks = set(raw)
 
+        game_was_launched = ctx.config.get("game_was_launched", False)
+
         ctx.logger.info("=== DailyRoutine: starting ===")
 
         total = len(_DAILY_TASKS)
@@ -106,6 +108,14 @@ class DailyRoutine:
             # Skip tasks not in the enabled set
             if enabled_tasks is not None and task_id not in enabled_tasks:
                 ctx.notify_task(task_id, "skipped", "disabled by user")
+                continue
+
+            # Startup task only runs when game was freshly launched
+            if task_id == "startup" and not game_was_launched:
+                ctx.notify_task(task_id, "skipped", "game already running")
+                ctx.logger.info(f"  {task_id}: skipped (game already running)")
+                # Go to hub via normal ReturnToHub instead
+                await hub.execute(ctx)
                 continue
 
             ctx.logger.info(
