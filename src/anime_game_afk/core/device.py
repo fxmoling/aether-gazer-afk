@@ -261,6 +261,21 @@ class DeviceAdapter:
         actual_w, actual_h = self._controller.resolution
         self._actual = Resolution(width=actual_w, height=actual_h)
 
+        # Enforce 16:9 aspect ratio — game UI layout assumes this ratio,
+        # and fractional coordinates will miss targets on other ratios.
+        if actual_w > 0 and actual_h > 0:
+            ratio = actual_w / actual_h
+            if abs(ratio - 16 / 9) > 0.02:
+                self._controller = None
+                self._hwnd = None
+                self._actual = None
+                raise DeviceConnectionError(
+                    f"Unsupported aspect ratio: {actual_w}x{actual_h} "
+                    f"({ratio:.3f}). Only 16:9 is supported. "
+                    f"Please resize the game window to a 16:9 resolution "
+                    f"(e.g. 1600x900, 1280x720, 1920x1080)."
+                )
+
         logger.info(
             "DeviceAdapter connected: window={!r} resolution={}x{}",
             self._config.window_title, actual_w, actual_h,

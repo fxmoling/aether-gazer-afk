@@ -232,6 +232,28 @@ def test_connect_raises_connection_error_on_controller_failure() -> None:
             adapter.connect()
 
 
+def test_connect_rejects_non_16_9_aspect_ratio() -> None:
+    """connect() must reject windows that aren't 16:9."""
+    cfg = _make_config()
+    adapter = DeviceAdapter(cfg)
+    # 4:3 resolution
+    ctrl_mock = _make_controller_mock(resolution=(1024, 768))
+
+    with (
+        patch("anime_game_afk.core.device.Toolkit") as mock_toolkit,
+        patch(
+            "anime_game_afk.core.device.Win32Controller",
+            return_value=ctrl_mock,
+        ),
+    ):
+        mock_toolkit.find_desktop_windows.return_value = [
+            _fake_window("TestWindow")
+        ]
+        with pytest.raises(DeviceConnectionError, match="16:9"):
+            adapter.connect()
+    assert not adapter.connected
+
+
 # ---------------------------------------------------------------------------
 # Coordinate scaling
 # ---------------------------------------------------------------------------
