@@ -122,6 +122,8 @@ debug_images/
 
 # But keep MaaFw resource images (needed for template matching)
 !assets/*/resource/image/*.png
+# And keep template images (needed for page identification)
+!assets/*/templates/*.png
 
 # Watchdog files
 .watchdog-prompt.md
