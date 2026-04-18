@@ -492,14 +492,13 @@ class JointDefenseSweep:
 
         Flow:
         1. Sweep confirm popup → Enter (确定)
-        2. Wait for sweep animation (~1s)
+        2. Wait for sweep animation
         3. Check for stamina-insufficient popup (补充吨吨值) → ESC to cancel
-        4. Sweep result screen ("扫荡完成") → Enter (确认, NOT 再次扫荡)
-           Note: ESC does NOT work on result screen, only Enter.
+        4. Sweep result screen — press Enter multiple times to dismiss
         """
         # 1. Confirm sweep popup
         ctx.logger.info("  confirm: pressing Enter to confirm sweep")
-        await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        await PressKeyOp(key=VK_ENTER, wait=2.0).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "jd_sweep_result")
@@ -518,17 +517,10 @@ class JointDefenseSweep:
                     run_log.snap(ctx.device, "jd_stamina_popup_canceled")
                 return  # Don't try to dismiss result — sweep didn't happen
 
-        # 3. Dismiss result screen with Enter (= 确认 button)
-        ctx.logger.info("  confirm: pressing Enter to dismiss result (确认)")
-        await PressKeyOp(key=VK_ENTER, wait=1.5).run(ctx)
-
-        # 4. Verify we left the result screen (one OCR pass)
-        r = await OcrScanCheck().evaluate(ctx)
-        if r.passed:
-            ocr = r.data
-            if ocr.has("扫荡完成") or ocr.has("再次"):
-                ctx.logger.info("  confirm: still on result page, Enter again")
-                await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        # 3. Dismiss result screen — press Enter repeatedly until we leave
+        for i in range(5):
+            ctx.logger.info(f"  confirm: pressing Enter to dismiss result ({i+1}/5)")
+            await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "jd_after_dismiss")
