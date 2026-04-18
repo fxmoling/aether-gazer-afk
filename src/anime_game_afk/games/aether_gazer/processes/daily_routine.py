@@ -72,11 +72,8 @@ class DailyRoutine:
     Supports ``ctx.config["enabled_tasks"]`` to filter which tasks run.
     If not set, all tasks run (backward compatible).
     """
-    name = "daily_routine"
-    description = (
-        "Full daily routine: mail, shop, stamina, mimi station, "
-        "missions, tactics, guild, amusement street"
-    )
+    name = "每日任务"
+    description = "自动完成每日任务：邮件、商店、体力、公会、游园街等"
 
     @classmethod
     def task_defs(cls) -> list[dict[str, Any]]:

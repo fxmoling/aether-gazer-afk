@@ -14,5 +14,6 @@ def build_registry() -> ProcessRegistry:
     """Create a ProcessRegistry with all AetherGazer processes registered."""
     registry = ProcessRegistry()
     registry.register("daily_routine", DailyRoutine)
-    registry.register("push_main_story", PushMainStory)
+    # push_main_story is not yet ready for users — uncomment when complete
+    # registry.register("push_main_story", PushMainStory)
     return registry

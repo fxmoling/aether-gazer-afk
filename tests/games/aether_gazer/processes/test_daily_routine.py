@@ -89,7 +89,7 @@ def _stop_patches(patches):
 
 def test_daily_routine_name_and_description():
     proc = DailyRoutine()
-    assert proc.name == "daily_routine"
+    assert proc.name == "每日任务"
     assert len(proc.description) > 0
 
 
