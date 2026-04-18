@@ -51,7 +51,10 @@
           v-model="form.windowTitle"
           placeholder="AetherGazer"
           class="setting-input"
+          @blur="saveWindowTitle"
+          @keyup.enter="$event.target.blur()"
         >
+        <span v-if="savedHint === 'windowTitle'" class="save-hint">✔</span>
       </div>
       <div class="setting-row">
         <label>游戏路径</label>
@@ -70,30 +73,6 @@
       <p class="setting-hint">
         程序通过窗口标题查找游戏。游戏路径用于自动启动游戏。
       </p>
-    </div>
-
-    <div class="settings-section">
-      <h3>运行设置</h3>
-      <div class="setting-row">
-        <label>任务间延迟 (秒)</label>
-        <input
-          type="number"
-          v-model.number="form.taskDelay"
-          min="0"
-          max="10"
-          step="0.5"
-          class="setting-input narrow"
-        >
-      </div>
-    </div>
-
-    <div class="settings-actions">
-      <button class="btn btn-primary" @click="saveAll" :disabled="saving">
-        {{ saving ? '保存中...' : '💾 保存设置' }}
-      </button>
-      <span v-if="saveMsg" class="save-msg" :class="saveOk ? 'ok' : 'err'">
-        {{ saveMsg }}
-      </span>
     </div>
 
     <div class="settings-footer">
@@ -117,18 +96,15 @@ const settings = reactive({
 
 const form = reactive({
   windowTitle: 'AetherGazer',
-  taskDelay: 1.0,
   autoUpdate: true,
 })
 
-const saving = ref(false)
-const saveMsg = ref('')
-const saveOk = ref(false)
 const detecting = ref(false)
 const checking = ref(false)
 const updateMsg = ref('')
 const updateMsgClass = ref('')
 const updateInfo = ref(null)
+const savedHint = ref('')
 
 onMounted(async () => {
   const data = await api.getSettings()
@@ -136,24 +112,16 @@ onMounted(async () => {
     settings.version = data.version || ''
     settings.game_exe_path = data.game_exe_path || ''
     form.windowTitle = data.window_title || 'AetherGazer'
-    form.taskDelay = data.task_delay ?? 1.0
     form.autoUpdate = data.auto_update !== false
   }
 })
 
-async function saveAll() {
-  saving.value = true
-  saveMsg.value = ''
-  const result = await api.saveSettings(form.windowTitle, form.taskDelay)
-  saving.value = false
+async function saveWindowTitle() {
+  const result = await api.saveSettings(form.windowTitle)
   if (result && result.ok) {
-    saveMsg.value = '✔ 已保存'
-    saveOk.value = true
-  } else {
-    saveMsg.value = result?.error || '保存失败'
-    saveOk.value = false
+    savedHint.value = 'windowTitle'
+    setTimeout(() => { savedHint.value = '' }, 2000)
   }
-  setTimeout(() => { saveMsg.value = '' }, 3000)
 }
 
 async function detectGamePath() {
@@ -289,21 +257,16 @@ function openRelease() {
   margin-left: 132px;
 }
 
-.settings-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #252550;
-}
-
-.save-msg {
+.save-hint {
+  color: #4caf50;
   font-size: 13px;
+  animation: fade-out 2s forwards;
 }
 
-.save-msg.ok { color: #4caf50; }
-.save-msg.err { color: #f44336; }
+@keyframes fade-out {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* Toggle switch */
 .toggle-switch {

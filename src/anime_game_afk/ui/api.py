@@ -95,12 +95,11 @@ class Api:
             "version": __version__,
             "window_title": game.get("window_title", "AetherGazer"),
             "game_exe_path": game.get("game_exe_path", ""),
-            "task_delay": game.get("task_delay", 1.0),
             "auto_update": cfg.auto_update(),
         }
 
     def save_settings(
-        self, window_title: str, task_delay: float,
+        self, window_title: str,
     ) -> dict[str, Any]:
         """Save user settings to config file."""
         from anime_game_afk.config.user_config import UserConfig
@@ -109,7 +108,6 @@ class Api:
             cfg = UserConfig.load()
             game = cfg._game("aether_gazer")
             game["window_title"] = window_title
-            game["task_delay"] = task_delay
             cfg.save()
             return {"ok": True}
         except Exception as e:
