@@ -190,16 +190,13 @@ class AmusementStreetDaily:
         )
         await ClickOp(x=_PARK_TASK_X, y=_PARK_TASK_Y, wait=1.5).run(ctx)
 
-        # OCR find 一键领取 on the park task panel
-        claim_result = await FindTextCheck(target="一键领取").evaluate(ctx)
-        if claim_result.passed:
-            claim = claim_result.data
-            cx = claim.region.x + claim.region.w // 2
-            cy = claim.region.y + claim.region.h // 2
-            ctx.logger.info(f"  Found '一键领取' at ({cx},{cy})")
-            await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
-        else:
-            ctx.logger.info("  '一键领取' not found (no rewards to claim)")
+        # Click 一键领取 at fixed coord (verified from 21_amusement screenshot)
+        # OCR was unreliable for this button; use fixed position as primary
+        _PARK_CLAIM_X, _PARK_CLAIM_Y = 0.713, 0.843
+        ctx.logger.info(
+            f"  clicking 一键领取 at ({_PARK_CLAIM_X},{_PARK_CLAIM_Y})"
+        )
+        await ClickOp(x=_PARK_CLAIM_X, y=_PARK_CLAIM_Y, wait=1.0).run(ctx)
 
         # Dismiss popups: Enter ×3
         for _ in range(3):

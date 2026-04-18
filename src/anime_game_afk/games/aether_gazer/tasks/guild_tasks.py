@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from anime_game_afk.games.aether_gazer.checks.ocr import FindTextCheck
-from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER
+from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
 )
@@ -100,7 +100,10 @@ class GuildSupplyClaim:
         if run_log:
             run_log.snap(ctx.device, "guild_after_supply_claim")
 
-        # Step 5: Click 公会任务 tab
+        # Step 5: ESC to close supply panel overlay, then click 公会任务 tab
+        ctx.logger.info("[Step 5] ESC to close supply panel")
+        await PressKeyOp(key=VK_ESCAPE, wait=1.5).run(ctx)
+
         ctx.logger.info(
             f"[Step 5] Click 公会任务 tab at ({_TASK_TAB_X},{_TASK_TAB_Y})"
         )
