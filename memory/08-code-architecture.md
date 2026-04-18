@@ -196,13 +196,39 @@ src/anime_game_afk/
 ├── core/              # L1: types.py, device.py, errors.py
 ├── vision/            # L2: matcher.py, geometry.py, color.py, ocr.py (RapidOCR), types.py
 ├── runtime/           # L3: logger.py, config.py, state.py, clock.py, events.py, errors.py, run_log.py
-├── ui/                # L9: app.py, api.py, bridge.py, task_manager.py, web/ (pywebview GUI)
+├── ui/                # L9: app.py, api.py, bridge.py, task_manager.py, worker.py, web/
 └── games/aether_gazer/
     ├── knowledge/     # L4: constants.py, keys.py, resources.py, pages.py (22 pages), navigation.py (42 edges BFS)
     ├── ops/           # L5: base.py + perception/ + navigate/ + interact/ + combat/
+    ├── checks/        # L5A: base.py + page.py, ocr.py, state.py, vision.py
     ├── tasks/         # L6: base.py (Task protocol w/ metadata) + combat/navigation/shop/mail/stamina/story_tasks.py
     ├── processes/     # L7: base.py + push_main_story.py + daily_routine.py
-    └── orchestrator/  # L8: types.py + pipeline.py + executor.py + recovery.py + plans/
+    ├── orchestrator/  # L8: types.py + pipeline.py + executor.py + recovery.py + listener.py + plans/
+    └── registry.py    # Shared ProcessRegistry builder (used by worker, launcher, UI)
+```
+
+## Worker/Pipeline Integration (2026-04-18)
+
+### Changes
+- **PipelineListener protocol** (`orchestrator/listener.py`): Observer for task/process/pipeline events
+- **ProcessContext.listener**: Processes fire events via `ctx.notify_task(task_id, status)`
+- **DailyRoutine.task_defs()**: Class method returns task metadata for UI discovery
+- **DailyRoutine**: Reads `ctx.config["enabled_tasks"]` to filter tasks (backward compatible)
+- **worker.py**: Rewritten to use Pipeline.run() + JsonLineListener (gets Recovery for free)
+- **TaskManager**: Verify-then-release connection (no persistent DeviceAdapter in main process)
+- **registry.py**: Single source of truth for process registration (replaces 3 duplicated builders)
+
+### Data flow
+```
+UI (pywebview)
+  → TaskManager.start(pipeline_id)
+    → subprocess worker.py --pipeline X --tasks a,b,c
+      → build_registry() → Pipeline.run(plan)
+        → ProcessExecutor → DailyRoutine.execute(ctx)
+          → ctx.notify_task("mail", "running")
+            → JsonLineListener → stdout JSON line
+              → parent _read_worker_output()
+                → window.updateTaskStatus("mail", "running")
 ```
 
 ## Target 10-Layer Architecture
