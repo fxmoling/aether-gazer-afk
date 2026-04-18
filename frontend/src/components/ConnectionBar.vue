@@ -1,8 +1,8 @@
 <template>
-  <div class="connection-bar">
-    <div class="conn-status">
-      <span class="dot" :class="dotClass"></span>
-      <span class="conn-text">{{ statusText }}</span>
+  <div class="status-bar">
+    <div class="status-left">
+      <div class="status-dot" :class="dotClass"></div>
+      <span class="status-text">{{ statusText }}</span>
     </div>
   </div>
 </template>
@@ -26,48 +26,50 @@ const statusText = computed(() => {
 </script>
 
 <style scoped>
-.connection-bar {
+.status-bar {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
-  background: #16213e;
-  border-bottom: 1px solid #252550;
+  padding: 12px 20px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
-.conn-status {
+.status-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
+.status-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.dot.connected {
+.status-dot.connected {
   background: #4caf50;
-  box-shadow: 0 0 6px #4caf5088;
+  box-shadow: 0 0 8px rgba(76,175,80,0.5);
+  animation: dotPulse 2s ease-in-out infinite;
 }
 
-.dot.working {
-  background: #ff9800;
-  box-shadow: 0 0 6px #ff980088;
-  animation: pulse 1s infinite;
+.status-dot.working {
+  background: #8b9cf7;
+  box-shadow: 0 0 8px rgba(102,126,234,0.5);
+  animation: dotPulse 2s ease-in-out infinite;
 }
 
-.dot.disconnected {
-  background: #666;
+.status-dot.disconnected {
+  background: rgba(255,255,255,0.2);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(76,175,80,0.5); }
+  50% { box-shadow: 0 0 16px rgba(76,175,80,0.8); }
 }
 
-.conn-text {
+.status-text {
   font-size: 13px;
+  color: rgba(255,255,255,0.5);
 }
 </style>

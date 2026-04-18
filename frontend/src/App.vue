@@ -1,4 +1,5 @@
 <template>
+  <div class="app-bg"></div>
   <div class="app">
     <!-- Update notification banner -->
     <div v-if="updateAvailable" class="update-bar">
@@ -9,9 +10,11 @@
     <div class="app-body">
       <Sidebar :currentPage="currentPage" @navigate="currentPage = $event" />
       <main class="main-content">
-        <TasksView v-if="currentPage === 'tasks'" />
-        <LogsView v-if="currentPage === 'logs'" />
-        <SettingsView v-if="currentPage === 'settings'" />
+        <Transition name="page" mode="out-in">
+          <TasksView v-if="currentPage === 'tasks'" key="tasks" />
+          <LogsView v-else-if="currentPage === 'logs'" key="logs" />
+          <SettingsView v-else-if="currentPage === 'settings'" key="settings" />
+        </Transition>
       </main>
     </div>
   </div>
@@ -98,7 +101,7 @@ onUnmounted(() => {
 }
 
 body {
-  background: #1a1a2e;
+  background: #08061a;
   color: #e0e0e0;
   font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
   font-size: 14px;
@@ -106,7 +109,24 @@ body {
   height: 100vh;
 }
 
+.app-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #08061a 0%, #0e0a28 25%, #1a1545 50%, #0f0825 75%, #08061a 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+  z-index: 0;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .app {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -125,15 +145,30 @@ body {
   overflow: hidden;
 }
 
+/* Page transition */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 /* Update notification bar */
 .update-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 16px;
-  background: linear-gradient(90deg, #1b5e20, #2e7d32);
+  background: linear-gradient(90deg, rgba(27,94,32,0.6), rgba(46,125,50,0.6));
+  backdrop-filter: blur(10px);
   color: #e8f5e9;
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
@@ -143,7 +178,7 @@ body {
   padding: 2px 10px;
   border-radius: 4px;
   text-decoration: none;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .update-link:hover {
@@ -156,7 +191,7 @@ body {
   border: none;
   color: #a5d6a7;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   padding: 2px 6px;
 }
 
@@ -168,7 +203,7 @@ body {
 .btn {
   padding: 6px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -180,45 +215,27 @@ body {
 }
 
 .btn-primary {
-  background: #2196f3;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1976d2;
+  box-shadow: 0 4px 16px rgba(102,126,234,0.4);
 }
 
 .btn-secondary {
-  background: #333;
-  color: #ccc;
+  background: rgba(255,255,255,0.04);
+  color: #c8c8d0;
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #444;
-}
-
-.btn-start {
-  background: #4caf50;
-  color: white;
-  font-weight: bold;
-}
-
-.btn-start:hover:not(:disabled) {
-  background: #388e3c;
-}
-
-.btn-stop {
-  background: #f44336;
-  color: white;
-}
-
-.btn-stop:hover:not(:disabled) {
-  background: #d32f2f;
+  background: rgba(255,255,255,0.08);
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -226,11 +243,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: rgba(255,255,255,0.08);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: rgba(255,255,255,0.15);
 }
 </style>
