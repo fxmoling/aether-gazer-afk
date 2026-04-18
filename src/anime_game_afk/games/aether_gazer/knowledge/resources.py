@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from anime_game_afk.core.types import Rect
-
 # --- Directory paths ---
 ASSETS_ROOT = Path("assets/aether_gazer")
 TEMPLATE_DIR = ASSETS_ROOT / "templates"
@@ -23,55 +21,54 @@ class StateTemplateDef:
     """Metadata for a game-state detection template."""
     name: str
     filename: str
-    search_region: Rect | None
+    search_frac: tuple[float, float, float, float] | None  # (fx1, fy1, fx2, fy2)
     threshold: float
-    half_scale: bool = False  # True if template is 800x450
+    ref_height: int = 900  # template captured at this height
 
 
 # Priority order matters — check most critical states first.
-# Higher-priority states appear earlier in the list.
+# search_frac: fractional (x1, y1, x2, y2) in [0..1], converted from 1600x900 pixels.
 STATE_TEMPLATES: tuple[StateTemplateDef, ...] = (
     StateTemplateDef(
         name="mission_failed",
         filename="txt_mission_failed.png",
-        search_region=Rect(400, 50, 800, 200),
+        search_frac=(0.25, 0.056, 0.75, 0.278),
         threshold=0.60,
     ),
     StateTemplateDef(
         name="revive_prompt",
         filename="txt_revive_800.png",
-        search_region=None,
+        search_frac=None,
         threshold=0.70,
-        half_scale=True,
     ),
     StateTemplateDef(
         name="skip_story_confirm",
         filename="txt_skip_story.png",
-        search_region=Rect(500, 200, 600, 150),
+        search_frac=(0.3125, 0.222, 0.6875, 0.389),
         threshold=0.70,
     ),
     StateTemplateDef(
         name="continuous_battle",
         filename="txt_continuous_battle.png",
-        search_region=Rect(400, 220, 800, 140),
+        search_frac=(0.25, 0.244, 0.75, 0.4),
         threshold=0.70,
     ),
     StateTemplateDef(
         name="prep_battle",
         filename="txt_prep_battle.png",
-        search_region=Rect(1000, 780, 600, 120),
+        search_frac=(0.625, 0.867, 1.0, 1.0),
         threshold=0.70,
     ),
     StateTemplateDef(
         name="battle_hud",
         filename="txt_pause.png",
-        search_region=Rect(0, 830, 200, 70),
+        search_frac=(0.0, 0.922, 0.125, 1.0),
         threshold=0.65,
     ),
     StateTemplateDef(
         name="stage_map",
         filename="txt_progress.png",
-        search_region=Rect(0, 820, 300, 80),
+        search_frac=(0.0, 0.911, 0.1875, 1.0),
         threshold=0.60,
     ),
 )
