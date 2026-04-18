@@ -19,6 +19,9 @@
 - `06-ui-mapping-paradigm.md` — UI 坐标验证方法论 + 已验证坐标 + 战斗流程
 - `08-code-architecture.md` — 9层架构设计 + 实施进度
 - `09-code-review-lessons.md` — 代码审查教训（7条规则 + 未来审查清单）
+- `12-template-audit.md` — 模板审计与管理
+- `13-task-improvements.md` — 每日任务坐标修正与改进
+- `14-vue-frontend-refactor.md` — Vue 3 前端重构记录
 
 ## 文档体系
 
@@ -79,6 +82,20 @@ The following tools are available globally on this system:
 
 **Note**: `gh` was manually installed to `C:\gh\bin`. If `gh` is not found in a new shell session, ensure `C:\gh\bin` is in the system PATH.
 
+## 前端构建规则
+
+前端使用 Vue 3 + Vite，源码在 `frontend/`，构建产物输出到 `src/anime_game_afk/ui/web/`。
+
+**强制规则**：每次修改 `frontend/src/` 下的任何文件后，必须执行构建：
+```bash
+cd frontend && npm run build
+```
+
+- 构建产物（`index.html`, `app.js`, `index.css`）是 pywebview 加载的实际文件
+- **不要直接编辑** `src/anime_game_afk/ui/web/` 下的文件，它们会被构建覆盖
+- 开发时可用 `cd frontend && npm run dev` 启动热更新服务器（仅调试用）
+- Python 后端文件（`api.py`, `app.py`, `bridge.py`, `task_manager.py`, `worker.py`）不需要构建
+
 ## Plugins
 
 - **superpowers** (v5.0.7) - Installed via `obra/superpowers-marketplace`. Provides agentic workflow skills (brainstorming, TDD, planning, code review, etc.)
@@ -103,7 +120,7 @@ The following tools are available globally on this system:
 
 ## 分辨率与多分辨率适配 — 设计约束
 
-**开发测试环境使用 1600×900（16:9），但不能假设所有用户都是此分辨率。**
+**开发测试环境使用 1280×720（16:9），但不能假设所有用户都是此分辨率。**
 
 用户的游戏窗口可能是：
 - 不同分辨率：1920×1080、1280×720、2560×1440 等
