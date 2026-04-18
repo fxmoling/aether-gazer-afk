@@ -28,11 +28,11 @@ _GUILD_X, _GUILD_Y = 0.641, 0.944
 _SUPPLY_TAB_X, _SUPPLY_TAB_Y = 0.926, 0.958    # 矩阵补给 tab
 _TASK_TAB_X, _TASK_TAB_Y = 0.797, 0.958         # 公会任务 tab
 
-# 领取 button inside 矩阵补给 panel (estimated center of claim button)
-_SUPPLY_CLAIM_X, _SUPPLY_CLAIM_Y = 0.5, 0.65
+# 领取 button inside 矩阵补给 panel (verified from 02_guild_supply_panel.png)
+_SUPPLY_CLAIM_X, _SUPPLY_CLAIM_Y = 0.5, 0.71
 
-# 一键领取 button for 公会任务 (same position as daily tasks claim)
-_GUILD_DAILY_CLAIM_X, _GUILD_DAILY_CLAIM_Y = 0.925, 0.956
+# 一键领取 button for 公会任务 (verified from 03_guild_task_panel.png)
+_GUILD_DAILY_CLAIM_X, _GUILD_DAILY_CLAIM_Y = 0.898, 0.919
 
 
 class GuildSupplyClaim:

@@ -177,41 +177,41 @@ class AmusementStreetDaily:
         if run_log:
             run_log.snap(ctx.device, "amusement_after_dispatch")
 
-        # Step 7: Click 游园任务 and claim rewards
-        ctx.logger.info("[Step 7] Find and claim 游园任务 rewards")
-        park_result = await FindTextCheck(target="游园任务").evaluate(ctx)
-        if park_result.passed:
-            park = park_result.data
-            px = park.region.x + park.region.w // 2
-            py = park.region.y + park.region.h // 2
-            ctx.logger.info(f"  Found '游园任务' at ({px},{py})")
-            await ClickPxOp(px=px, py=py, wait=1.5).run(ctx)
+        # Step 7: ESC back to street page, then claim 游园任务 rewards
+        # 游园任务 button is on the STREET page (bottom bar), NOT the panel.
+        # Verified from 04_amusement_street.png vs 05_amusement_panel.png.
+        ctx.logger.info("[Step 7] ESC to street → click 游园任务 → claim rewards")
+        await PressKeyOp(key=VK_ESCAPE, wait=1.5).run(ctx)
 
-            # OCR find 一键领取
-            claim_result = await FindTextCheck(target="一键领取").evaluate(ctx)
-            if claim_result.passed:
-                claim = claim_result.data
-                cx = claim.region.x + claim.region.w // 2
-                cy = claim.region.y + claim.region.h // 2
-                ctx.logger.info(f"  Found '一键领取' at ({cx},{cy})")
-                await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
-            else:
-                ctx.logger.info("  '一键领取' not found (no rewards to claim)")
+        # Fixed coord: 游园任务 button on street bottom bar (0.621, 0.944)
+        _PARK_TASK_X, _PARK_TASK_Y = 0.621, 0.944
+        ctx.logger.info(
+            f"  clicking 游园任务 at ({_PARK_TASK_X},{_PARK_TASK_Y})"
+        )
+        await ClickOp(x=_PARK_TASK_X, y=_PARK_TASK_Y, wait=1.5).run(ctx)
 
-            # Dismiss popups: Enter ×3
-            for _ in range(3):
-                await PressKeyOp(key=VK_ENTER, wait=0.5).run(ctx)
-            # Click top-center ×2 to dismiss remaining overlays
-            await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
-            await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
-            if run_log:
-                run_log.snap(ctx.device, "amusement_after_park_tasks")
+        # OCR find 一键领取 on the park task panel
+        claim_result = await FindTextCheck(target="一键领取").evaluate(ctx)
+        if claim_result.passed:
+            claim = claim_result.data
+            cx = claim.region.x + claim.region.w // 2
+            cy = claim.region.y + claim.region.h // 2
+            ctx.logger.info(f"  Found '一键领取' at ({cx},{cy})")
+            await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
         else:
-            ctx.logger.info("  '游园任务' not found, skipping park task rewards")
+            ctx.logger.info("  '一键领取' not found (no rewards to claim)")
 
-        # Step 8: ESC ×2 + return to hub
-        ctx.logger.info("[Step 8] ESC ×2 + return to hub")
-        await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
+        # Dismiss popups: Enter ×3
+        for _ in range(3):
+            await PressKeyOp(key=VK_ENTER, wait=0.5).run(ctx)
+        # Click top-center ×2 to dismiss remaining overlays
+        await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
+        await ClickOp(x=0.5, y=0.005, wait=0.5).run(ctx)
+        if run_log:
+            run_log.snap(ctx.device, "amusement_after_park_tasks")
+
+        # Step 8: ESC + return to hub (only 1 ESC needed — already on street)
+        ctx.logger.info("[Step 8] ESC + return to hub")
         await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
         await ReturnToHubAction().run(ctx)
         if run_log:

@@ -663,7 +663,7 @@ class ClaimDailyStaminaPacks:
         ctx.logger.info(
             f"  panel: clicking stamina at fixed coord ({click_x:.3f},{click_y:.3f})"
         )
-        await ClickOp(x=click_x, y=click_y, wait=0.5).run(ctx)
+        await ClickOp(x=click_x, y=click_y, wait=1.0).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "daily_stamina_panel_opened")

@@ -562,9 +562,9 @@ class JointDefenseSweep:
             )
             return
 
-        # Click bottom-most 一键领取 button (fixed position on left panel)
-        # This is the reward collection button at the bottom of the rewards list
-        _REWARD_CLAIM_X, _REWARD_CLAIM_Y = 0.17, 0.88
+        # Click bottom-most reward claim button (right side of task list)
+        # Verified from 07_joint_defense_detail.png — blue arrow icon at right
+        _REWARD_CLAIM_X, _REWARD_CLAIM_Y = 0.934, 0.829
         ctx.logger.info(
             f"  rewards: clicking bottom 一键领取 at "
             f"({_REWARD_CLAIM_X},{_REWARD_CLAIM_Y})"
