@@ -51,5 +51,14 @@ game window size and aspect ratio.
 - **GameConfig.to_device_config()** — single-point conversion, eliminates boilerplate
 - Commit: `0d49348`
 
+## identify_page.py Behavior (2026-04-18 rewrite)
+
+- **Per-template thresholds**: Each template in index.json can have `"threshold"` field
+- **Mask support**: `"mask": "circle"` generates circular mask at load time
+- **Stricter matching**: ALL templates for a page must individually pass their thresholds
+  (old: average score >= global threshold; new: each template checked independently)
+- **Masked matching**: Forces `TM_CCORR_NORMED` (OpenCV requirement for masks)
+- **_prepare_mask()**: Scales with INTER_NEAREST + re-binarize for clean {0,255} values
+
 ## Design Spec
 `docs/superpowers/specs/2026-04-17-resolution-agnostic-pipeline-design.md`
