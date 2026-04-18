@@ -517,10 +517,9 @@ class JointDefenseSweep:
                     run_log.snap(ctx.device, "jd_stamina_popup_canceled")
                 return  # Don't try to dismiss result — sweep didn't happen
 
-        # 3. Dismiss result screen — press Enter repeatedly until we leave
-        for i in range(5):
-            ctx.logger.info(f"  confirm: pressing Enter to dismiss result ({i+1}/5)")
-            await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+        # 3. Dismiss result screen — rapid Enter to get past reward scroll + confirm
+        for _ in range(5):
+            await PressKeyOp(key=VK_ENTER, wait=0.2).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "jd_after_dismiss")
