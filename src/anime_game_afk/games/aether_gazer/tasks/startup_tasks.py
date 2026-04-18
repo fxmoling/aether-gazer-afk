@@ -66,11 +66,20 @@ class SkipStartupPopups:
     async def execute(self, ctx: TaskContext) -> TaskResult:
         ctx.logger.info("  [startup] Starting popup dismissal loop")
 
+        # Quick check: if already at hub, skip entirely (game was already running)
+        on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
+        if on_hub.passed:
+            ctx.logger.info("  [startup] Already at hub, skipping")
+            return TaskResult(
+                status="success",
+                message="Already at hub",
+                data={"attempts": 0},
+            )
+
         for attempt in range(self._max_attempts):
-            # ── Hub check (template) ──
+            # ── Hub check (template) with double-confirm ──
             on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
             if on_hub.passed:
-                # Confirm: wait 0.5s and check again to avoid popup-gap false positive
                 await SleepOp(seconds=0.5).run(ctx)
                 confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
                 if confirm.passed:
@@ -86,7 +95,7 @@ class SkipStartupPopups:
                     f"  [startup][{attempt}] Hub detected but lost on recheck"
                 )
 
-            # ── Hub check (OCR fallback) ──
+            # ── Hub check (OCR fallback) with double-confirm ──
             r = await OcrScanCheck().evaluate(ctx)
             ocr = r.data if r.passed else None
             if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
@@ -110,7 +119,7 @@ class SkipStartupPopups:
                 await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
                 continue
 
-            # ── Not at hub — rapid click blank area to dismiss popups ──
+            # ── Not at hub — rapid click blank area to dismiss startup popups ──
             ctx.logger.debug(
                 f"  [startup][{attempt}] Not at hub — rapid clicking (0.4, 0.05) ×5"
             )

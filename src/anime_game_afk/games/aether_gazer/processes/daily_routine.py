@@ -100,13 +100,8 @@ class DailyRoutine:
             enabled_tasks = set(raw)
 
         ctx.logger.info("=== DailyRoutine: starting ===")
-        # NOTE: Do NOT call ReturnToHub here. The first task (SkipStartupPopups)
-        # handles getting to hub from any state including startup popups.
-        # Calling ReturnToHub before startup would press ESC on popups,
-        # triggering the exit game dialog.
 
         total = len(_DAILY_TASKS)
-        first_task = True
         for i, (task_id, task_cls, _display, _safe) in enumerate(_DAILY_TASKS):
             # Skip tasks not in the enabled set
             if enabled_tasks is not None and task_id not in enabled_tasks:
@@ -152,10 +147,8 @@ class DailyRoutine:
                 ctx.notify_task(task_id, "failed", str(exc))
                 ctx.logger.error(f"  {task_id}: crashed — {exc}")
 
-            # Return to hub between tasks (skip after startup — it already ensures hub)
-            if not first_task:
-                await hub.execute(ctx)
-            first_task = False
+            # Return to hub between tasks
+            await hub.execute(ctx)
 
         ctx.logger.info(
             f"=== DailyRoutine: complete "
