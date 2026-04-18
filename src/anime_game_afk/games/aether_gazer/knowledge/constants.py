@@ -7,7 +7,7 @@ Coordinate convention: all positions are fractional [0.0, 1.0].
 """
 
 # Template matching thresholds
-MATCH_THRESHOLD = 0.65
+MATCH_THRESHOLD = 0.80
 HIGH_CONFIDENCE = 0.80
 
 # Timing defaults (seconds)
