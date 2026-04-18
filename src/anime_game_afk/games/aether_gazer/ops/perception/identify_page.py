@@ -29,6 +29,7 @@ from anime_game_afk.games.aether_gazer.knowledge.constants import (
     MATCH_THRESHOLD,
 )
 from anime_game_afk.games.aether_gazer.knowledge.resources import (
+    ASSETS_ROOT,
     TEMPLATE_DIR,
     TEMPLATE_INDEX,
 )
@@ -67,11 +68,18 @@ def _load_templates() -> dict[str, list[dict]]:
         )
         return _page_templates
 
+    # Resolve base directory for relative template paths in index.json.
+    # Paths in index.json start with "assets/..." — relative to project root (dev)
+    # or sys._MEIPASS (frozen).
+    _tpl_base = ASSETS_ROOT.parent.parent  # assets/aether_gazer -> assets -> base
+
     for page_id, templates in index.items():
         loaded = []
         for tpl in templates:
             raw_path = tpl["path"]
-            img_path = Path(raw_path) if not Path(raw_path).is_absolute() else Path(raw_path)
+            img_path = Path(raw_path)
+            if not img_path.is_absolute():
+                img_path = _tpl_base / img_path
             img = cv2.imread(str(img_path))
             if img is None:
                 continue

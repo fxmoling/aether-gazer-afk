@@ -257,14 +257,40 @@ def _run_cli(app_dir: Path) -> None:
 # ── Entry point ─────────────────────────────────────────────
 
 
+def _run_worker() -> None:
+    """Run the subprocess worker (called via --worker in frozen mode).
+    
+    The rthook sets PATH and MAAFW_BINARY_PATH, but os.add_dll_directory()
+    is process-local and doesn't inherit to subprocesses. Re-register here
+    before any import of maa triggers DLL loading.
+    """
+    if getattr(sys, "frozen", False):
+        internal = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        maa_bin = internal / "maa" / "bin"
+        if maa_bin.exists():
+            try:
+                os.add_dll_directory(str(maa_bin))
+                # WARNING: Do NOT add _internal — its VC runtime conflicts with MaaFw
+            except (OSError, AttributeError):
+                pass
+
+    # Strip --worker from argv so the worker's argparse sees only its own args
+    sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a != "--worker"]
+    from anime_game_afk.ui.worker import main as worker_main
+    worker_main()
+
+
 def main() -> None:
-    """Route to GUI (default) or CLI based on arguments."""
+    """Route to GUI (default), CLI, or worker based on arguments."""
     app_dir = _setup_paths()
 
     is_cli = "--cli" in sys.argv
+    is_worker = "--worker" in sys.argv
 
     try:
-        if is_cli:
+        if is_worker:
+            _run_worker()
+        elif is_cli:
             _run_cli(app_dir)
         else:
             _run_gui(app_dir)

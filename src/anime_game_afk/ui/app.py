@@ -22,6 +22,15 @@ _WEB_DIR = Path(__file__).parent / "web"
 
 def main() -> None:
     """Launch the GUI application."""
+    # 0. Set up file logging for frozen builds (no console)
+    from loguru import logger as _log
+    if getattr(sys, "frozen", False):
+        app_dir = Path(sys.executable).resolve().parent
+        log_file = app_dir / "logs" / "gui.log"
+        log_file.parent.mkdir(exist_ok=True)
+        _log.add(str(log_file), rotation="5 MB", level="DEBUG",
+                 format="{time:HH:mm:ss} | {level:<7} | {message}")
+
     # 1. Set up log forwarding
     log_forwarder = LogForwarder(maxlen=500)
     log_forwarder.install()

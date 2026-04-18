@@ -82,7 +82,7 @@ class SkipStartupPopups:
             # ── Fast hub check (template only, 5ms) ──
             on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
             if on_hub.passed:
-                # Verify with OCR to be sure
+                # Try OCR verification if available
                 r = await OcrScanCheck().evaluate(ctx)
                 ocr = r.data if r.passed else None
                 if ocr and ocr.has_all("前往作战", "探测", "修正者", "仓库"):
@@ -94,7 +94,18 @@ class SkipStartupPopups:
                         message=f"Hub reached after {attempt} attempts",
                         data={"attempts": attempt},
                     )
-                # Template matched but OCR didn't — might be exit dialog on top
+                # OCR unavailable or didn't match — trust template if it matched
+                if ocr is None or len(ocr) == 0:
+                    ctx.logger.info(
+                        f"  [startup] Hub reached (template only, "
+                        f"OCR unavailable) after {attempt} attempts"
+                    )
+                    return TaskResult(
+                        status="success",
+                        message=f"Hub reached (template) after {attempt} attempts",
+                        data={"attempts": attempt},
+                    )
+                # Template matched but OCR found OTHER text — might be exit dialog on top
                 if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
                     ctx.logger.info(
                         f"  [startup][{attempt}] Exit dialog on hub — cancelling"

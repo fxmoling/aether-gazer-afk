@@ -6,9 +6,11 @@ import { reactive, computed } from 'vue'
 import { api } from './useApi'
 
 const state = reactive({
-  // Connection
+  // Connection (set by worker via push events)
   connected: false,
   resolution: '',
+  statusMsg: '',
+  _hasError: false,
 
   // Pipelines & tasks
   pipelines: [],
@@ -78,23 +80,6 @@ export async function toggleAllTasks(enabled) {
   }
 }
 
-export async function connect() {
-  const result = await api.connect()
-  if (result && result.ok) {
-    state.connected = true
-    state.resolution = result.resolution || ''
-    return { ok: true }
-  }
-  state.connected = false
-  return { ok: false, error: result?.error || '连接失败' }
-}
-
-export async function disconnect() {
-  await api.disconnect()
-  state.connected = false
-  state.resolution = ''
-}
-
 export async function startRun() {
   if (!state.selectedPipelineId) return { ok: false, error: '未选择流程' }
 
@@ -106,11 +91,17 @@ export async function startRun() {
     })
   }
 
+  state.statusMsg = '准备中...'
+  state.connected = false
+  state._hasError = false
+
   const result = await api.startRun(state.selectedPipelineId)
   if (result && result.ok) {
     state.running = true
     state.completedCount = 0
     state.totalCount = pipeline ? pipeline.tasks.filter(t => t.enabled).length : 0
+  } else {
+    state.statusMsg = ''
   }
   return result || { ok: false }
 }
@@ -144,6 +135,21 @@ export function updateTaskStatus(taskId, status) {
   }
 }
 
+export function onConnected(resolution) {
+  state.connected = true
+  state.resolution = resolution || ''
+  state.statusMsg = ''
+}
+
+export function onStatusMsg(msg) {
+  state.statusMsg = msg || ''
+}
+
+export function onError(msg) {
+  state.statusMsg = msg || '出错了'
+  state._hasError = true
+}
+
 export function appendLog(entry) {
   state.logs.push(entry)
   if (state.logs.length > 1000) {
@@ -153,6 +159,11 @@ export function appendLog(entry) {
 
 export function onRunComplete() {
   state.running = false
+  state.connected = false
+  // Keep error message visible — don't clear statusMsg if there's an error
+  if (!state._hasError) {
+    state.statusMsg = ''
+  }
   loadPipelines()
 }
 

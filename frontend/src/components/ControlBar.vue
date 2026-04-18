@@ -3,7 +3,7 @@
     <div class="control-actions">
       <button
         class="btn btn-start"
-        :disabled="!state.connected || state.running"
+        :disabled="state.running"
         @click="handleStart"
       >
         ▶ 开始

@@ -233,11 +233,14 @@ class TaskManager:
         }
 
     def start(self, pipeline_id: str) -> dict[str, Any]:
-        """Start executing a pipeline in a subprocess worker."""
+        """Start executing a pipeline.
+
+        In frozen mode, runs in-process (background thread) to avoid
+        DLL loading issues with PyInstaller subprocess.
+        In dev mode, uses subprocess for easy kill support.
+        """
         if self._running:
             return {"ok": False, "error": "已有任务在运行中"}
-        if not self._game_verified:
-            return {"ok": False, "error": "请先连接游戏窗口"}
 
         pipeline = self._find_pipeline(pipeline_id)
         if not pipeline:
@@ -253,35 +256,44 @@ class TaskManager:
                 task.status = "pending" if task.enabled else "skipped"
 
         enabled = [t.id for t in pipeline.tasks if t.enabled]
-
-        self._process = subprocess.Popen(
-            [sys.executable, "-m", "anime_game_afk.ui.worker",
-             "--pipeline", pipeline_id,
-             "--tasks", ",".join(enabled)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        self._reader = threading.Thread(
-            target=self._read_worker_output, daemon=True
-        )
-        self._reader.start()
-
-        self._stderr_reader = threading.Thread(
-            target=self._read_worker_stderr, daemon=True
-        )
-        self._stderr_reader.start()
+        enabled_ids = set(enabled)
 
         self._running = True
         self._start_time = time.time()
         self._completed_count = 0
         self._total_count = len(enabled_tasks)
 
+        if getattr(sys, "frozen", False):
+            # Frozen: use subprocess with _MEIPASS passed via environment
+            env = os.environ.copy()
+            env["_MEIPASS"] = str(sys._MEIPASS)  # type: ignore[attr-defined]
+            cmd = [sys.executable, "--worker",
+                   "--pipeline", pipeline_id,
+                   "--tasks", ",".join(enabled)]
+        else:
+            env = None
+            cmd = [sys.executable, "-m", "anime_game_afk.ui.worker",
+                   "--pipeline", pipeline_id,
+                   "--tasks", ",".join(enabled)]
+
+        self._process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env=env,
+        )
+        self._reader = threading.Thread(
+            target=self._read_worker_output, daemon=True
+        )
+        self._reader.start()
+        self._stderr_reader = threading.Thread(
+            target=self._read_worker_stderr, daemon=True
+        )
+        self._stderr_reader.start()
+
         return {"ok": True}
 
     def stop(self) -> dict[str, Any]:
-        """Kill the worker subprocess for immediate stop."""
+        """Stop execution."""
+        # Subprocess mode
         proc = self._process
         if proc and proc.poll() is None:
             proc.kill()
@@ -289,6 +301,13 @@ class TaskManager:
                 proc.wait(timeout=5)
             except Exception:
                 pass
+        # Reset any "running" tasks to "stopped"
+        with self._lock:
+            for p in self._pipelines:
+                for t in p.tasks:
+                    if t.status == "running":
+                        t.status = "failed"
+                        self._push_task_status(t.id, "failed")
         self._logger.info("已请求停止")
         return {"ok": True}
 
@@ -325,6 +344,22 @@ class TaskManager:
                     if status == "success":
                         self._completed_count += 1
 
+                elif msg_type == "connected":
+                    res_str = msg.get("resolution", "")
+                    self._game_verified = True
+                    self._resolution = res_str
+                    self._push_js(
+                        f"window.onConnected && window.onConnected("
+                        f"{json.dumps(res_str)})"
+                    )
+
+                elif msg_type == "status":
+                    status_msg = msg.get("msg", "")
+                    self._push_js(
+                        f"window.onStatusMsg && window.onStatusMsg("
+                        f"{json.dumps(status_msg)})"
+                    )
+
                 elif msg_type == "log":
                     level = msg.get("level", "info")
                     text = msg.get("msg", "")
@@ -344,6 +379,31 @@ class TaskManager:
 
         finally:
             self._running = False
+            self._game_verified = False
+            self._resolution = None
+            # Check if worker crashed (non-zero exit code)
+            proc = self._process
+            if proc is not None:
+                try:
+                    proc.wait(timeout=2)
+                except Exception:
+                    pass
+                if proc.returncode and proc.returncode != 0:
+                    # Try to capture any remaining stderr
+                    err_msg = ""
+                    if proc.stderr:
+                        try:
+                            remaining = proc.stderr.read()
+                            if remaining:
+                                err_msg = remaining.strip().split('\n')[-1]
+                        except Exception:
+                            pass
+                    if not err_msg:
+                        err_msg = f"Worker 进程异常退出 (code {proc.returncode})"
+                    self._logger.error("Worker crashed: {}", err_msg)
+                    self._push_js(
+                        f"window.onError && window.onError({json.dumps(err_msg)})"
+                    )
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
     def _read_worker_stderr(self) -> None:

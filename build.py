@@ -69,6 +69,16 @@ def generate_spec() -> str:
     if config_dir.exists():
         project_datas.append((str(config_dir), "config"))
 
+    # Collect rapidocr_onnxruntime data files (config + models)
+    rapidocr_pkg = SITE_PACKAGES / "rapidocr_onnxruntime"
+    if rapidocr_pkg.exists():
+        for sub in rapidocr_pkg.rglob("*"):
+            if sub.is_file() and sub.suffix in (".yaml", ".yml", ".onnx"):
+                rel = sub.relative_to(rapidocr_pkg)
+                project_datas.append(
+                    (str(sub), f"rapidocr_onnxruntime/{rel.parent}")
+                )
+
     # Collect YAML plans -> plans/ (convenient top-level access)
     plans_dir = (
         PROJECT_ROOT
@@ -211,15 +221,9 @@ a = Analysis(
         'matplotlib', 'scipy', 'pandas',
         'IPython', 'jupyter',
         'torch', 'transformers', 'huggingface_hub',
-        # Indirect deps of rapidocr-onnxruntime — not directly used by project
-        'PIL', 'Pillow', 'pillow',
-        'shapely', 'Shapely',
-        'onnxruntime',
-        'rapidocr_onnxruntime',
-        'pyclipper',
-        'flatbuffers', 'sympy', 'mpmath',
         'pytesseract',
         # NOTE: bottle, pythonnet, clr_loader are needed by pywebview — do NOT exclude
+        # NOTE: rapidocr_onnxruntime, onnxruntime, pyclipper are needed for OCR — do NOT exclude
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -317,10 +321,17 @@ def build(skip_spec: bool = False) -> None:
             print(f"Removing unnecessary {ffmpeg.name} ({ffmpeg.stat().st_size // (1024*1024)}MB)")
             ffmpeg.unlink()
 
+        # Remove MSVCP140.dll and MSVCP140_1.dll from _internal — they conflict
+        # with MaaFw's opencv_world4_maa.dll causing WinError 1114.
+        # The system copies in C:\Windows\System32 will be used instead.
+        for msvcp in ("MSVCP140_1.dll", "msvcp140.dll"):
+            p = internal / msvcp
+            if p.exists():
+                print(f"Removing conflicting {msvcp} (MaaFw compatibility)")
+                p.unlink()
+
         # Remove any leftover excluded packages that PyInstaller may have kept
-        for pkg_name in ["onnxruntime", "PIL", "Shapely.libs", "shapely",
-                         "sympy", "mpmath", "pytesseract", "bottle",
-                         "rapidocr_onnxruntime", "pyclipper"]:
+        for pkg_name in ["sympy", "mpmath", "pytesseract", "bottle"]:
             pkg_dir = internal / pkg_name
             if pkg_dir.exists() and pkg_dir.is_dir():
                 size_mb = sum(f.stat().st_size for f in pkg_dir.rglob("*") if f.is_file()) // (1024*1024)

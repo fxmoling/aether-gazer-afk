@@ -20,6 +20,9 @@ import {
   loadRecentLogs,
   pollStatus,
   updateTaskStatus,
+  onConnected,
+  onStatusMsg,
+  onError,
   appendLog,
   onRunComplete,
 } from './composables/useStore'
@@ -43,6 +46,9 @@ onMounted(async () => {
 
   // Register push handlers for Python → JS
   window.updateTaskStatus = updateTaskStatus
+  window.onConnected = onConnected
+  window.onStatusMsg = onStatusMsg
+  window.onError = onError
   window.appendLog = appendLog
   window.onRunComplete = onRunComplete
 })

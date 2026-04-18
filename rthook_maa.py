@@ -25,16 +25,17 @@ if getattr(sys, "frozen", False):
         # Tell maa.__init__.py to load DLLs from maa/bin/
         os.environ["MAAFW_BINARY_PATH"] = maa_bin_str
 
-        # Add both dirs to PATH: maa/bin for MaaFw DLLs, _internal for VC runtime
+        # Add maa/bin to PATH for MaaFw DLLs.
+        # WARNING: Do NOT add _internal to PATH — PyInstaller's bundled
+        # vcruntime140.dll conflicts with MaaFw's opencv_world4_maa.dll
+        # (WinError 1114: DllMain initialization failure).
         os.environ["PATH"] = (
             maa_bin_str + os.pathsep +
-            internal_str + os.pathsep +
             os.environ.get("PATH", "")
         )
 
-        # Also register via os.add_dll_directory (Windows 10+ safe DLL search)
+        # Register maa/bin via os.add_dll_directory (Windows 10+ safe DLL search)
         try:
             os.add_dll_directory(maa_bin_str)
-            os.add_dll_directory(internal_str)
         except (OSError, AttributeError):
             pass

@@ -1,82 +1,34 @@
 <template>
   <div class="connection-bar">
     <div class="conn-status">
-      <span class="dot" :class="state.connected ? 'connected' : 'disconnected'"></span>
-      <span class="conn-text">
-        {{ state.connected ? `深空之眼 — 已连接 (${state.resolution || '?'})` : '未连接' }}
-      </span>
-    </div>
-    <div class="conn-actions">
-      <button
-        v-if="!state.connected"
-        class="btn btn-secondary"
-        :disabled="launching"
-        @click="handleLaunchGame"
-      >
-        {{ launching ? '启动中...' : '🎮 启动游戏' }}
-      </button>
-      <button
-        class="btn btn-primary"
-        :disabled="connecting || state.connected"
-        @click="handleConnect"
-      >
-        {{ connecting ? '连接中...' : '连接' }}
-      </button>
-      <button
-        class="btn btn-secondary"
-        :disabled="!state.connected"
-        @click="handleDisconnect"
-      >
-        断开
-      </button>
+      <span class="dot" :class="dotClass"></span>
+      <span class="conn-text">{{ statusText }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { state, connect, disconnect } from '../composables/useStore'
-import { api } from '../composables/useApi'
+import { computed } from 'vue'
+import { state } from '../composables/useStore'
 
-const connecting = ref(false)
-const launching = ref(false)
+const dotClass = computed(() => {
+  if (state.connected) return 'connected'
+  if (state.running) return 'working'
+  return 'disconnected'
+})
 
-async function handleConnect() {
-  connecting.value = true
-  const result = await connect()
-  connecting.value = false
-  if (!result.ok) {
-    alert(result.error || '连接失败')
-  }
-}
-
-async function handleDisconnect() {
-  await disconnect()
-}
-
-async function handleLaunchGame() {
-  launching.value = true
-  const result = await api.launchGame()
-  launching.value = false
-  if (result && result.ok) {
-    // Game launched, auto-connect
-    connecting.value = true
-    const connResult = await connect()
-    connecting.value = false
-    if (!connResult.ok) {
-      alert('游戏已启动，但连接失败。请稍后点击"连接"按钮。')
-    }
-  } else {
-    alert(result?.error || '启动失败')
-  }
-}
+const statusText = computed(() => {
+  if (state.statusMsg) return state.statusMsg
+  if (state.connected) return `深空之眼 — 已连接 (${state.resolution || '?'})`
+  if (state.running) return '准备中...'
+  return '就绪'
+})
 </script>
 
 <style scoped>
 .connection-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 16px;
   background: #16213e;
   border-bottom: 1px solid #252550;
@@ -100,16 +52,22 @@ async function handleLaunchGame() {
   box-shadow: 0 0 6px #4caf5088;
 }
 
+.dot.working {
+  background: #ff9800;
+  box-shadow: 0 0 6px #ff980088;
+  animation: pulse 1s infinite;
+}
+
 .dot.disconnected {
   background: #666;
 }
 
-.conn-text {
-  font-size: 13px;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.conn-actions {
-  display: flex;
-  gap: 8px;
+.conn-text {
+  font-size: 13px;
 }
 </style>

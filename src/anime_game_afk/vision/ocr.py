@@ -36,16 +36,34 @@ _ocr_available: bool | None = None
 
 
 def _get_ocr_engine():
-    """Lazy-initialize RapidOCR engine. Returns None if unavailable."""
+    """Lazy-initialize RapidOCR engine. Returns None if unavailable.
+    
+    Attempts DirectML (GPU) first, falls back to CPU.
+    """
     global _ocr_engine, _ocr_available
     if _ocr_available is not None:
         return _ocr_engine
 
     try:
         from rapidocr_onnxruntime import RapidOCR
+
+        # Try DirectML (GPU) first
+        try:
+            import onnxruntime as ort
+            if "DmlExecutionProvider" in ort.get_available_providers():
+                _ocr_engine = RapidOCR(
+                    det_use_dml=True, rec_use_dml=True, cls_use_dml=True,
+                )
+                _ocr_available = True
+                _loguru.info("RapidOCR engine initialized (DirectML GPU)")
+                return _ocr_engine
+        except Exception as exc:
+            _loguru.debug("DirectML init failed, falling back to CPU: {}", exc)
+
+        # CPU fallback
         _ocr_engine = RapidOCR()
         _ocr_available = True
-        _loguru.info("RapidOCR engine initialized")
+        _loguru.info("RapidOCR engine initialized (CPU)")
     except ImportError:
         _ocr_engine = None
         _ocr_available = False

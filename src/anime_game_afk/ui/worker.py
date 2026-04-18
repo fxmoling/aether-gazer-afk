@@ -68,8 +68,11 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
         Exit code — 0 for success, 1 for fatal error.
     """
     # Late imports so the module can be parsed even if deps aren't installed.
+    from anime_game_afk.config.user_config import UserConfig
     from anime_game_afk.core.device import DeviceAdapter
     from anime_game_afk.core.errors import WindowNotFoundError
+    from anime_game_afk.core.game_finder import find_aether_gazer
+    from anime_game_afk.core.game_launcher import GameLauncher
     from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
     from anime_game_afk.games.aether_gazer.orchestrator.pipeline import Pipeline
     from anime_game_afk.games.aether_gazer.orchestrator.types import (
@@ -81,16 +84,59 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     from anime_game_afk.runtime.logger import get_logger
 
     listener = JsonLineListener()
+    user_cfg = UserConfig.load()
 
-    # ---- Connect device ---------------------------------------------------
+    # ---- Ensure game is running -------------------------------------------
+    _emit({"type": "status", "msg": "正在查找游戏窗口..."})
+    game_id = "aether_gazer"
+    window_title = user_cfg.window_title(game_id) or "AetherGazer"
+
     try:
         device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
         device.connect()
     except WindowNotFoundError:
-        _emit({"type": "error", "msg": "Game window not found"})
-        return 1
-    except Exception as exc:
-        _emit({"type": "error", "msg": f"Connection failed: {exc}"})
+        device = None
+    except Exception:
+        device = None
+
+    if device is None or not device.connected:
+        # Game not running — try to launch
+        _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
+        exe_path = user_cfg.game_exe_path(game_id)
+        if not exe_path or not __import__("pathlib").Path(exe_path).exists():
+            result = find_aether_gazer(search_drives=user_cfg.search_drives())
+            if result["game_exe"]:
+                user_cfg.set_game_exe_path(game_id, result["game_exe"])
+                if result.get("launcher"):
+                    user_cfg.set_launcher_path(game_id, result["launcher"])
+                user_cfg.save()
+                exe_path = result["game_exe"]
+
+        if not exe_path:
+            _emit({"type": "error", "msg": "找不到游戏，请在设置中指定游戏路径"})
+            return 1
+
+        launcher = GameLauncher(
+            exe_path=exe_path,
+            window_title=window_title,
+            process_name=__import__("pathlib").Path(exe_path).name,
+        )
+        timeout = user_cfg.launch_timeout(game_id)
+        if not launcher.ensure_running(timeout=timeout):
+            _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
+            return 1
+
+        # Game launched, now connect
+        _emit({"type": "status", "msg": "游戏已启动，正在连接..."})
+        try:
+            device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
+            device.connect()
+        except Exception as exc:
+            _emit({"type": "error", "msg": f"连接失败: {exc}"})
+            return 1
+
+    if not device.connected:
+        _emit({"type": "error", "msg": "无法连接到游戏窗口"})
         return 1
 
     res = device.actual_resolution
@@ -141,8 +187,38 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
 
 def main() -> None:
     """Parse CLI arguments, configure logging, and run the async loop."""
+    # Ensure MaaFw DLLs are findable in frozen mode (supplement the rthook)
+    if getattr(sys, "frozen", False):
+        import os
+        from pathlib import Path
+        maa_bin = Path(sys._MEIPASS) / "maa" / "bin"  # type: ignore[attr-defined]
+        if maa_bin.exists():
+            maa_bin_str = str(maa_bin)
+            internal_str = str(Path(sys._MEIPASS))  # type: ignore[attr-defined]
+            os.environ["MAAFW_BINARY_PATH"] = maa_bin_str
+            os.environ["PATH"] = (
+                maa_bin_str + os.pathsep + internal_str + os.pathsep
+                + os.environ.get("PATH", "")
+            )
+            try:
+                os.add_dll_directory(maa_bin_str)
+                os.add_dll_directory(internal_str)
+            except (OSError, AttributeError):
+                pass
+            # Preload MaaFw DLLs in dependency order so ctypes finds them
+            import ctypes
+            for dll_name in ("MaaUtils.dll", "MaaFramework.dll",
+                             "MaaToolkit.dll", "MaaWin32ControlUnit.dll"):
+                dll_path = maa_bin / dll_name
+                if dll_path.exists():
+                    try:
+                        ctypes.WinDLL(str(dll_path))
+                    except OSError:
+                        pass
+
     # Line-buffered stdout for real-time JSON streaming
-    sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+    if sys.stdout is not None:
+        sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
 
     # Redirect loguru to stderr only (stdout is the JSON protocol channel)
     from loguru import logger
