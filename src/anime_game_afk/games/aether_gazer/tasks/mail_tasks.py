@@ -35,13 +35,13 @@ class CollectAllMail:
 
         # Step 1: H shortcut opens the mail panel from hub
         ctx.logger.info("[Step 1] Press H → mail")
-        await PressKeyOp(VK_H, wait=2.0).run(ctx)
+        await PressKeyOp(VK_H, wait=1.0).run(ctx)
 
         # Step 2: Click "全部领取" (collect all) button
         ctx.logger.info(
             f"[Step 2] Click 全部领取 at ({_COLLECT_ALL_X},{_COLLECT_ALL_Y})"
         )
-        await ClickOp(x=_COLLECT_ALL_X, y=_COLLECT_ALL_Y, wait=1.5).run(ctx)
+        await ClickOp(x=_COLLECT_ALL_X, y=_COLLECT_ALL_Y, wait=0.5).run(ctx)
 
         # Step 3: Dismiss reward popup (Enter or click)
         ctx.logger.info("[Step 3] Dismiss reward popup")

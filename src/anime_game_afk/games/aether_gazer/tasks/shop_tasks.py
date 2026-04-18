@@ -118,14 +118,14 @@ class BuyIntelShards:
         # Wake UI + return to hub
         ctx.logger.info("  nav: wake UI")
         await WakeHubUiAction().run(ctx)
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.15).run(ctx)
 
         ctx.logger.info("  nav: return to hub")
         result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot return to hub")
             return False
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_hub")
 
@@ -135,19 +135,19 @@ class BuyIntelShards:
         if not result.success:
             ctx.logger.error("  nav: cannot reach shop")
             return False
-        await SleepOp(seconds=1.5).run(ctx)
+        await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_shop")
 
         # Shop → trade area (click 交易区 button)
         ctx.logger.info("  nav: shop -> trade area (click 0.056,0.908)")
-        await ClickOp(x=0.056, y=0.908, wait=1.5).run(ctx)
+        await ClickOp(x=0.056, y=0.908, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_trade")
 
         # Trade → daily purchase tab (click 每日采购 tab)
         ctx.logger.info("  nav: trade -> daily purchase tab (click 0.081,0.139)")
-        await ClickOp(x=0.081, y=0.139, wait=1.5).run(ctx)
+        await ClickOp(x=0.081, y=0.139, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_daily_tab")
 
@@ -421,12 +421,12 @@ class ClaimFreeStamina:
         # Wake + hub
         ctx.logger.info("  nav: wake UI + return to hub")
         await WakeHubUiAction().run(ctx)
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.15).run(ctx)
         result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("  nav: cannot return to hub")
             return False
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_hub")
 
@@ -436,19 +436,19 @@ class ClaimFreeStamina:
         if not result.success:
             ctx.logger.error("  nav: cannot reach shop")
             return False
-        await SleepOp(seconds=1.5).run(ctx)
+        await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_shop")
 
         # Shop → supply area (click 补给区 button at 399,816)
         ctx.logger.info("  nav: shop -> supply area (click 0.249,0.907)")
-        await ClickOp(x=0.249, y=0.907, wait=2.0).run(ctx)
+        await ClickOp(x=0.249, y=0.907, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_supply")
 
         # Supply → daily supply tab (click 日常补给 at 560,130)
         ctx.logger.info("  nav: supply -> daily supply (click 0.35,0.144)")
-        await ClickOp(x=0.35, y=0.144, wait=2.0).run(ctx)
+        await ClickOp(x=0.35, y=0.144, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_daily_supply")
 
@@ -520,12 +520,12 @@ class ClaimDailyStaminaPacks:
         # ── Step 1: Return to hub ──
         ctx.logger.info("[Step 1] Return to hub")
         await WakeHubUiAction().run(ctx)
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.15).run(ctx)
         result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("[Step 1] FAILED: cannot return to hub")
             return TaskResult(status="failed", message="Cannot return to hub")
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "daily_stamina_hub")
 
@@ -640,7 +640,8 @@ class ClaimDailyStaminaPacks:
             return False
 
         # Guard 2: verify hub UI is active (not idle/screensaver)
-        # When idle, the bottom bar text is hidden. Check for "前往作战".
+        # Template match already passed — if idle, wake and continue
+        # (don't block on OCR which is slow and can miss partially-rendered text)
         hub_active = await HasTextCheck(target="前往作战").evaluate(ctx)
         if not hub_active.passed:
             ctx.logger.warning(
@@ -648,11 +649,7 @@ class ClaimDailyStaminaPacks:
                 "waking up"
             )
             await WakeHubUiAction().run(ctx)
-            await SleepOp(seconds=1.0).run(ctx)
-            hub_active = await HasTextCheck(target="前往作战").evaluate(ctx)
-            if not hub_active.passed:
-                ctx.logger.error("  panel: hub UI still idle after wake")
-                return False
+            await SleepOp(seconds=0.5).run(ctx)
 
         ctx.logger.info("  panel: hub confirmed (template + UI active)")
 
@@ -666,7 +663,7 @@ class ClaimDailyStaminaPacks:
         ctx.logger.info(
             f"  panel: clicking stamina at fixed coord ({click_x:.3f},{click_y:.3f})"
         )
-        await ClickOp(x=click_x, y=click_y, wait=2.0).run(ctx)
+        await ClickOp(x=click_x, y=click_y, wait=0.5).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "daily_stamina_panel_opened")

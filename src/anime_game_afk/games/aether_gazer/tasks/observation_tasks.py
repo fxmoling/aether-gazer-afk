@@ -66,7 +66,7 @@ class MimiStationCollect:
 
         # Step 1: G → daily tasks
         ctx.logger.info("[Step 1] Press G → daily tasks")
-        await PressKeyOp(VK_G, wait=2.0).run(ctx)
+        await PressKeyOp(VK_G, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_daily_tasks")
 
@@ -74,16 +74,16 @@ class MimiStationCollect:
         ctx.logger.info(
             f"[Step 2] Click 弥弥观测站 at ({_MIMI_STATION_X},{_MIMI_STATION_Y})"
         )
-        await ClickOp(x=_MIMI_STATION_X, y=_MIMI_STATION_Y, wait=2.0).run(ctx)
+        await ClickOp(x=_MIMI_STATION_X, y=_MIMI_STATION_Y, wait=0.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_station")
 
         # Step 3: 一键领取 ×4
         ctx.logger.info(
-            f"[Step 3] Rapid click 一键领取 at ({_MIMI_CLAIM_X},{_MIMI_CLAIM_Y}) ×4"
+            f"[Step 3] Rapid click 一键领取 at ({_MIMI_CLAIM_X},{_MIMI_CLAIM_Y}) ×20"
         )
         await RapidClickAction(
-            x=_MIMI_CLAIM_X, y=_MIMI_CLAIM_Y, times=4, interval=2.0,
+            x=_MIMI_CLAIM_X, y=_MIMI_CLAIM_Y, times=20, interval=0.15,
         ).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mimi_after_claim")
@@ -102,8 +102,8 @@ class MimiStationCollect:
             x_btn = x_btn_result.data
             cx = x_btn.region.x + x_btn.region.w // 2
             cy = x_btn.region.y + x_btn.region.h // 2
-            ctx.logger.info(f"  Found '{x_btn.text}' at ({cx},{cy}), clicking ×4")
-            await RapidClickPxAction(px=cx, py=cy, times=4, interval=2.0).run(ctx)
+            ctx.logger.info(f"  Found '{x_btn.text}' at ({cx},{cy}), clicking ×20")
+            await RapidClickPxAction(px=cx, py=cy, times=20, interval=0.15).run(ctx)
             if run_log:
                 run_log.snap(ctx.device, "mimi_after_x_btn")
         else:
@@ -149,7 +149,7 @@ class DailyWeeklyMissionClaim:
 
         # Step 1: G → daily tasks
         ctx.logger.info("[Step 1] Press G → daily tasks")
-        await PressKeyOp(VK_G, wait=2.0).run(ctx)
+        await PressKeyOp(VK_G, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mission_daily_tasks")
 
@@ -226,7 +226,7 @@ class TacticsTaskClaim:
 
         # Step 1: T → 对策协议
         ctx.logger.info("[Step 1] Press T → 对策协议")
-        await PressKeyOp(VK_T, wait=2.0).run(ctx)
+        await PressKeyOp(VK_T, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "tactics_page")
 

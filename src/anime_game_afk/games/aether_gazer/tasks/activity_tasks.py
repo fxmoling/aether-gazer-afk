@@ -89,12 +89,12 @@ class JointDefenseSweep:
         # ── Step 1: Return to hub ──
         ctx.logger.info("[Step 1] Return to hub")
         await WakeHubUiAction().run(ctx)
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.15).run(ctx)
         result = await ReturnToHubAction().run(ctx)
         if not result.success:
             ctx.logger.error("[Step 1] FAILED: cannot return to hub")
             return TaskResult(status="failed", message="Cannot return to hub")
-        await SleepOp(seconds=1.0).run(ctx)
+        await SleepOp(seconds=0.5).run(ctx)
 
         # Verify hub + UI active (one OCR pass)
         hub_check = await OnPageCheck(page="main_hub").evaluate(ctx)
@@ -106,7 +106,7 @@ class JointDefenseSweep:
         if not ocr.has("前往作战"):
             ctx.logger.warning("[Step 1] Hub UI may be idle, waking")
             await WakeHubUiAction().run(ctx)
-            await SleepOp(seconds=1.0).run(ctx)
+            await SleepOp(seconds=0.15).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_hub")
 

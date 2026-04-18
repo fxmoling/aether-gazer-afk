@@ -59,13 +59,13 @@ class AmusementStreetDaily:
 
         # Step 1: Click 游园街
         ctx.logger.info(f"[Step 1] Click 游园街 at ({_AMUSEMENT_X},{_AMUSEMENT_Y})")
-        await ClickOp(x=_AMUSEMENT_X, y=_AMUSEMENT_Y, wait=2.0).run(ctx)
+        await ClickOp(x=_AMUSEMENT_X, y=_AMUSEMENT_Y, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "amusement_page")
 
         # Step 2: Click 游园街面板
         ctx.logger.info(f"[Step 2] Click 游园街面板 at ({_PANEL_X},{_PANEL_Y})")
-        await ClickOp(x=_PANEL_X, y=_PANEL_Y, wait=2.0).run(ctx)
+        await ClickOp(x=_PANEL_X, y=_PANEL_Y, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "amusement_panel")
 

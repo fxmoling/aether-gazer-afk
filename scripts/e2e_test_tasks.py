@@ -172,7 +172,6 @@ async def run_tests(device: DeviceAdapter, task_names: list[str]) -> None:
 
         # Return to hub between tasks
         logger.info(f"  Returning to hub after {tname}...")
-        await SleepOp(1.0).run(ctx)
         ret = await ReturnToHubAction().run(ctx)
         if not ret.success:
             logger.warning(f"  ⚠ Failed to return to hub after {tname}")

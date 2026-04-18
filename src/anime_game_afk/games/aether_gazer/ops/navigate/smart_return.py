@@ -67,7 +67,7 @@ class ReturnToHubAction:
                 ctx.logger.info(
                     f"[smart_return][{attempt}] Hub idle detected, clicking back button"
                 )
-                await ClickOp(0.022, 0.039, wait=2.0).run(ctx)
+                await ClickOp(0.022, 0.039, wait=0.5).run(ctx)
                 hub_result = await hub_check.evaluate(ctx)
                 if hub_result.passed:
                     ctx.logger.info("[smart_return] Hub reached after idle wake")
@@ -81,7 +81,7 @@ class ReturnToHubAction:
             ctx.logger.debug(
                 f"[smart_return][{attempt}] Trying back (0.022, 0.039)"
             )
-            await ClickOp(0.022, 0.039, wait=1.5).run(ctx)
+            await ClickOp(0.022, 0.039, wait=0.5).run(ctx)
 
             # Quick hub re-check after back click
             hub_result = await hub_check.evaluate(ctx)
@@ -100,7 +100,7 @@ class ReturnToHubAction:
             if pre_esc.success:
                 prev_img = pre_esc.data
 
-            await PressKeyOp(VK_ESCAPE, wait=1.5).run(ctx)
+            await PressKeyOp(VK_ESCAPE, wait=0.5).run(ctx)
 
             # Check hub after ESC (template + OCR)
             hub_r2 = await hub_check.evaluate(ctx)

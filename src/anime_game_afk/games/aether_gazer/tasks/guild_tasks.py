@@ -52,7 +52,7 @@ class GuildSupplyClaim:
 
         # Step 1: Click 公会
         ctx.logger.info(f"[Step 1] Click 公会 at ({_GUILD_X},{_GUILD_Y})")
-        await ClickOp(x=_GUILD_X, y=_GUILD_Y, wait=2.0).run(ctx)
+        await ClickOp(x=_GUILD_X, y=_GUILD_Y, wait=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "guild_page")
 
