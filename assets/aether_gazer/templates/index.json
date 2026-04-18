@@ -1,25 +1,92 @@
 {
   "main_hub": [
     {
-      "name": "hub_navbar",
-      "path": "assets\\aether_gazer\\templates\\main_hub__hub_navbar.png",
+      "name": "hub_goto_battle",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\main_hub__goto_battle.png",
       "size": [
-        940,
-        50
+        124,
+        34
       ],
       "crop": [
-        0.3875,
-        0.9167,
-        0.975,
-        0.9722
+        0.8578,
+        0.9,
+        0.9547,
+        0.9472
       ],
       "search": [
-        0.3125,
-        0.8889,
+        0.8203,
+        0.8611,
         1.0,
         1.0
       ],
-      "ref_height": 900
+      "ref_height": 720
+    },
+    {
+      "name": "hub_mr_icon",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\main_hub__mr_icon.png",
+      "size": [
+        45,
+        30
+      ],
+      "crop": [
+        0.9023,
+        0.0972,
+        0.9375,
+        0.1389
+      ],
+      "search": [
+        0.8594,
+        0.0694,
+        1.0,
+        0.1944
+      ],
+      "ref_height": 720
+    },
+    {
+      "name": "hub_uid_icon",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\main_hub__uid_icon.png",
+      "size": [
+        32,
+        16
+      ],
+      "crop": [
+        0.0141,
+        0.0819,
+        0.0391,
+        0.1042
+      ],
+      "search": [
+        0.0,
+        0.0556,
+        0.0625,
+        0.125
+      ],
+      "ref_height": 720
+    }
+  ],
+  "hub_idle": [
+    {
+      "name": "idle_disc_icon",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\hub_idle__disc_icon.png",
+      "size": [
+        38,
+        38
+      ],
+      "crop": [
+        0.0227,
+        0.8625,
+        0.0523,
+        0.9153
+      ],
+      "search": [
+        0.0,
+        0.82,
+        0.09,
+        0.96
+      ],
+      "ref_height": 720,
+      "mask": "circle",
+      "threshold": 0.85
     }
   ],
   "character": [

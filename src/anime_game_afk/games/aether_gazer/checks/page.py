@@ -66,27 +66,38 @@ _HUB_MIN_KEYWORDS = 2
 
 
 class AtHubCheck:
-    """Check if we are at the main hub.
+    """Check if we are at the main hub (active, with UI visible).
 
-    Strategy: fast template match first (~5ms), OCR fallback (~2s).
+    Strategy: fast template match first (~5ms), idle check (~5ms),
+    OCR fallback (~2s).
+
+    ``passed=True`` means the hub is *interactive* (active state with
+    UI visible).  When the hub is in idle mode (UI hidden, music player
+    visible), ``passed=False`` is returned with ``hub_state="idle"`` in
+    ``data`` so callers can act on it (e.g. click back-button to wake).
 
     OCR detection uses a relaxed threshold: if at least 2 of the 4
     hub keywords are visible, we consider it hub. This handles cases
-    where the hub is partially obscured (idle mode, overlays, popups).
-
-    The strict 4-keyword check was causing false negatives when the
-    hub was in idle mode (UI hidden) or had an overlay on top.
+    where the hub is partially obscured (overlays, popups).
     """
 
     async def evaluate(self, ctx: OpContext) -> CheckResult:
         img = ctx.device.screenshot()
 
-        # Fast path: template matching
+        # Fast path: active hub template match
         if is_on_page(img, "main_hub"):
             return CheckResult(
                 passed=True,
-                data={"method": "template"},
+                data={"method": "template", "hub_state": "active"},
                 message="at hub (template match)",
+            )
+
+        # Check for idle hub (UI hidden, music player visible)
+        if is_on_page(img, "hub_idle"):
+            return CheckResult(
+                passed=False,
+                data={"hub_state": "idle"},
+                message="hub idle (UI hidden, click back to wake)",
             )
 
         # Slow path: OCR with relaxed keyword matching
@@ -98,7 +109,7 @@ class AtHubCheck:
         if len(found) >= _HUB_MIN_KEYWORDS:
             return CheckResult(
                 passed=True,
-                data={"method": "ocr", "keywords_found": found},
+                data={"method": "ocr", "keywords_found": found, "hub_state": "active"},
                 message=f"at hub (OCR {len(found)}/{len(_HUB_KEYWORDS)} keywords)",
             )
 

@@ -61,11 +61,18 @@ def match_template(
     region: Rect | None = None,
     method: int = cv2.TM_CCOEFF_NORMED,
     threshold: float = 0.7,
+    mask: np.ndarray | None = None,
 ) -> MatchResult:
     """Match a single template against an image.
 
     If *region* is provided, only the pixels within that rectangle are
     searched.  The returned coordinates are always in full-image space.
+
+    If *mask* is provided, only the masked pixels contribute to matching.
+    The mask must be the same size as the template (single-channel uint8,
+    255 = include, 0 = exclude).  Masked matching forces ``TM_CCORR_NORMED``
+    because OpenCV only supports masks with ``TM_SQDIFF`` and
+    ``TM_CCORR_NORMED``.
 
     Returns a :class:`MatchResult` with ``matched=False`` when the template
     is larger than the search area or when the best score is below *threshold*.
@@ -84,7 +91,13 @@ def match_template(
     if th > sh or tw > sw:
         return MatchResult(score=0.0, x=offset_x, y=offset_y, w=tw, h=th, matched=False)
 
-    result_map = cv2.matchTemplate(search, template, method)
+    if mask is not None:
+        # Masked matching only works with TM_CCORR_NORMED (and TM_SQDIFF)
+        method = cv2.TM_CCORR_NORMED
+        result_map = cv2.matchTemplate(search, template, method, mask=mask)
+    else:
+        result_map = cv2.matchTemplate(search, template, method)
+
     return _best_from_result(result_map, method, tw, th, offset_x, offset_y, threshold)
 
 

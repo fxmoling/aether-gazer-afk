@@ -51,8 +51,7 @@ class ReturnToHubAction:
 
         for attempt in range(self._max_attempts):
             # ── Step 0: Check if already at hub ──
-            # AtHubCheck does: screenshot → template match → OCR fallback
-            # This is the only heavy check per cycle start
+            # AtHubCheck does: screenshot → template match → idle check → OCR fallback
             hub_result = await hub_check.evaluate(ctx)
             if hub_result.passed:
                 ctx.logger.info(
@@ -62,6 +61,21 @@ class ReturnToHubAction:
                     success=True,
                     data={"attempts": attempt, "method": hub_result.message},
                 )
+
+            # ── Fast path: idle hub detected → click back button directly ──
+            if hub_result.data and hub_result.data.get("hub_state") == "idle":
+                ctx.logger.info(
+                    f"[smart_return][{attempt}] Hub idle detected, clicking back button"
+                )
+                await ClickOp(0.022, 0.039, wait=2.0).run(ctx)
+                hub_result = await hub_check.evaluate(ctx)
+                if hub_result.passed:
+                    ctx.logger.info("[smart_return] Hub reached after idle wake")
+                    return OpResult(
+                        success=True,
+                        data={"attempts": attempt, "method": "idle_wake"},
+                    )
+                # If still not at hub, fall through to normal cycle
 
             # ── Step 1: Try back button (0.022, 0.039) ──
             ctx.logger.debug(
