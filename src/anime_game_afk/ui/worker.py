@@ -90,19 +90,19 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     _emit({"type": "status", "msg": "正在查找游戏窗口..."})
     game_id = "aether_gazer"
     window_title = user_cfg.window_title(game_id) or "AetherGazer"
-    game_was_launched = False  # True if we launched the game ourselves
 
+    # Check if the game PROCESS is running (not the launcher)
+    game_process_running = False
     try:
-        device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
-        device.connect()
-    except WindowNotFoundError:
-        device = None
+        import subprocess as _sp
+        r = _sp.run(["tasklist", "/FI", "IMAGENAME eq AetherGazer.exe", "/NH"],
+                     capture_output=True, text=True, timeout=5)
+        game_process_running = "AetherGazer.exe" in r.stdout
     except Exception:
-        device = None
+        pass
 
-    if device is None or not device.connected:
+    if not game_process_running:
         # Game not running — try to launch
-        game_was_launched = True
         _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
         exe_path = user_cfg.game_exe_path(game_id)
         if not exe_path or not __import__("pathlib").Path(exe_path).exists():
@@ -128,14 +128,14 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
             _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
             return 1
 
-        # Game launched, now connect
-        _emit({"type": "status", "msg": "游戏已启动，正在连接..."})
-        try:
-            device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
-            device.connect()
-        except Exception as exc:
-            _emit({"type": "error", "msg": f"连接失败: {exc}"})
-            return 1
+    # Connect to game window
+    _emit({"type": "status", "msg": "正在连接游戏..."})
+    try:
+        device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
+        device.connect()
+    except Exception as exc:
+        _emit({"type": "error", "msg": f"连接失败: {exc}"})
+        return 1
 
     if not device.connected:
         _emit({"type": "error", "msg": "无法连接到游戏窗口"})
@@ -168,7 +168,7 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
             name=pipeline_id,
             config={
                 "enabled_tasks": sorted(enabled_ids),
-                "game_was_launched": game_was_launched,
+                "game_was_launched": not game_process_running,
             },
         )],
     )
