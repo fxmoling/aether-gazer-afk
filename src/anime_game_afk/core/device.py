@@ -299,8 +299,9 @@ class DeviceAdapter:
             self._config.window_title, actual_w, actual_h,
         )
 
-        # Enable custom click (ShowCursor hide instead of BlockInput)
-        self._click_mode = "custom"
+        # Click mode: "maafw" is fastest (C++ BlockInput + cursor move in <2ms).
+        # "custom" and "postmessage" available but inferior for Unity games.
+        self._click_mode = "maafw"
 
     def disconnect(self) -> None:
         """Release the controller and reset all connection state."""
