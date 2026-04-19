@@ -94,42 +94,15 @@ def notify(title: str, message: str) -> None:
 
 
 def _show_balloon(title: str, message: str) -> None:
-    """Create a hidden window, show a balloon tip, then clean up."""
+    """Show a balloon tip using the foreground window as anchor."""
     try:
-        # Register a minimal window class
-        wc_name = "AFK_Notifier"
-        wndclass = ctypes.wintypes.WNDCLASSW()  # type: ignore[attr-defined]
-        wndclass.lpfnWndProc = ctypes.cast(
-            _user32.DefWindowProcW, ctypes.c_void_p
-        )
-        wndclass.lpszClassName = wc_name
-        wndclass.hInstance = _user32.GetModuleHandleW(None)
-
-        # RegisterClass may fail if already registered — that's fine
-        _user32.RegisterClassW(ctypes.byref(wndclass))
-
-        hwnd = _user32.CreateWindowExW(
-            0,              # dwExStyle
-            wc_name,        # lpClassName
-            "AFK Notify",   # lpWindowName
-            WS_OVERLAPPED,  # dwStyle
-            0, 0, 0, 0,    # x, y, width, height
-            None,           # hWndParent
-            None,           # hMenu
-            wndclass.hInstance,
-            None,           # lpParam
-        )
-        if not hwnd:
-            return
-
-        # Load default app icon
+        hwnd = _user32.GetDesktopWindow()
         hicon = _user32.LoadIconW(None, ctypes.c_void_p(IDI_APPLICATION))
 
-        # Build NOTIFYICONDATAW
         nid = NOTIFYICONDATAW()
         nid.cbSize = ctypes.sizeof(NOTIFYICONDATAW)
         nid.hWnd = hwnd
-        nid.uID = 1
+        nid.uID = 7749  # unique ID to avoid conflicts
         nid.uFlags = NIF_ICON | NIF_TIP | NIF_INFO
         nid.uCallbackMessage = WM_USER + 1
         nid.hIcon = hicon
@@ -137,18 +110,14 @@ def _show_balloon(title: str, message: str) -> None:
         nid.szInfo = message[:_MAX_INFO - 1]
         nid.szInfoTitle = title[:_MAX_INFOTITLE - 1]
         nid.dwInfoFlags = NIIF_INFO
-        nid.uVersion_or_uTimeout = 5000  # 5 seconds
+        nid.uVersion_or_uTimeout = 5000
 
-        # Add the icon + balloon
         _Shell_NotifyIconW(NIM_ADD, ctypes.byref(nid))
 
-        # Keep alive briefly so the balloon is visible, then clean up
         import time
         time.sleep(6)
 
         _Shell_NotifyIconW(NIM_DELETE, ctypes.byref(nid))
-        _user32.DestroyWindow(hwnd)
 
     except Exception:
-        # Notification is non-critical — never crash
         pass

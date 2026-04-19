@@ -380,3 +380,20 @@ class VirtualDesktop:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[no-untyped-def]
         self.destroy()
+
+    # ------------------------------------------------------------------
+    # Static cleanup
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def cleanup_all() -> None:
+        """Destroy all active VirtualDesktop instances.
+
+        Call from the parent process after killing a worker subprocess
+        to ensure no orphaned game processes or desktops remain.
+        """
+        for vd in list(_active_instances):
+            try:
+                vd.destroy()
+            except Exception:
+                pass

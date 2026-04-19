@@ -319,7 +319,10 @@ class DeviceAdapter:
             self._controller = Win32Controller(
                 hWnd=self._hwnd,
                 screencap_method=MaaWin32ScreencapMethodEnum.PrintWindow,
-                mouse_method=MaaWin32InputMethodEnum.SendMessage,
+                # Use SendMessageWithCursorPos — moves the VIRTUAL desktop's
+                # cursor (invisible to user) so Unity's GetCursorPos validation
+                # passes.  Without CursorPos, Unity ignores UI button clicks.
+                mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
                 keyboard_method=MaaWin32InputMethodEnum.SendMessage,
             )
         except RuntimeError as exc:
