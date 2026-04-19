@@ -17,11 +17,13 @@
 - `02-reference-projects.md` — 四个参考项目（MAA、M9A、ok-ww、BetterGI）的详细研究
 - `03-tech-comparison.md` — 技术方案对比与选型建议
 - `06-ui-mapping-paradigm.md` — UI 坐标验证方法论 + 已验证坐标 + 战斗流程
-- `08-code-architecture.md` — 9层架构设计 + 实施进度
+- `08-code-architecture.md` — 9层架构设计 + 实施进度 + 启动流程
 - `09-code-review-lessons.md` — 代码审查教训（7条规则 + 未来审查清单）
 - `12-template-audit.md` — 模板审计与管理
 - `13-task-improvements.md` — 每日任务坐标修正与改进
-- `14-vue-frontend-refactor.md` — Vue 3 前端重构记录
+- `14-vue-frontend-refactor.md` — Vue 3 前端重构 + 一键启动 UX
+- `15-pyinstaller-distribution.md` — PyInstaller 构建流程、DLL 问题、GPU 加速
+- `16-packaging-lessons.md` — **必读** 17 条打包/启动/前端经验教训
 
 ## 文档体系
 
