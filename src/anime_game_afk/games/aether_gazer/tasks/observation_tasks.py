@@ -20,6 +20,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
     ClickPxOp,
     PressKeyOp,
+    SleepOp,
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
@@ -149,7 +150,8 @@ class DailyWeeklyMissionClaim:
         if run_log:
             run_log.snap(ctx.device, "mission_after_daily")
 
-        # Step 3: Switch to 周常任务 (OCR-based, fixed coord unreliable)
+        # Step 3: Switch to 周常任务 — wait 0.5s after daily claim, then click twice
+        await SleepOp(seconds=0.5).run(ctx)
         ctx.logger.info("[Step 3] Find and click '周常任务' tab via OCR")
         weekly_result = await FindTextCheck(target="周常任务").evaluate(ctx)
         if weekly_result.passed:
@@ -157,12 +159,14 @@ class DailyWeeklyMissionClaim:
             wx = weekly.region.x + weekly.region.w // 2
             wy = weekly.region.y + weekly.region.h // 2
             ctx.logger.info(f"  Found '周常任务' at ({wx},{wy})")
-            await ClickPxOp(px=wx, py=wy, wait=1.5).run(ctx)
+            await ClickPxOp(px=wx, py=wy, wait=0.2).run(ctx)
+            await ClickPxOp(px=wx, py=wy, wait=1.0).run(ctx)
         else:
             ctx.logger.warning(
                 "  '周常任务' not found via OCR, using fallback coord"
             )
-            await ClickOp(x=_WEEKLY_TAB_X, y=_WEEKLY_TAB_Y, wait=1.5).run(ctx)
+            await ClickOp(x=_WEEKLY_TAB_X, y=_WEEKLY_TAB_Y, wait=0.2).run(ctx)
+            await ClickOp(x=_WEEKLY_TAB_X, y=_WEEKLY_TAB_Y, wait=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "mission_weekly")
 
