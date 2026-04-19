@@ -21,11 +21,22 @@ class GameConfig:
     mouse_method: int = MaaWin32InputMethodEnum.SendMessage
     keyboard_method: int = MaaWin32InputMethodEnum.SendMessage
 
-    def to_device_config(self) -> DeviceConfig:
-        """Convert to a :class:`DeviceConfig` for :class:`DeviceAdapter`."""
+    def to_device_config(
+        self,
+        game_exe_path: str = "",
+        background: bool = False,
+    ) -> DeviceConfig:
+        """Convert to a :class:`DeviceConfig` for :class:`DeviceAdapter`.
+
+        Args:
+            game_exe_path: Path to game executable (required for background mode).
+            background: If True, DeviceAdapter runs on a hidden virtual desktop.
+        """
         return DeviceConfig(
             window_title=self.window_title,
             screencap_method=self.screencap_method,
             mouse_method=self.mouse_method,
             keyboard_method=self.keyboard_method,
+            game_exe_path=game_exe_path,
+            background=background,
         )

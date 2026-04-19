@@ -153,17 +153,11 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     _emit({"type": "status", "msg": "正在连接游戏..."})
 
     try:
-        device_config = AETHER_GAZER_CONFIG.to_device_config()
-        if background:
-            from anime_game_afk.core.types import DeviceConfig as _DC
-            device_config = _DC(
-                window_title=device_config.window_title,
-                screencap_method=device_config.screencap_method,
-                mouse_method=device_config.mouse_method,
-                keyboard_method=device_config.keyboard_method,
-                game_exe_path=exe_path,
-            )
-        device = DeviceAdapter(config=device_config, background=background)
+        device_config = AETHER_GAZER_CONFIG.to_device_config(
+            game_exe_path=exe_path or "",
+            background=background,
+        )
+        device = DeviceAdapter(config=device_config)
         device.connect()
     except Exception as exc:
         _emit({"type": "error", "msg": f"连接失败: {exc}"})

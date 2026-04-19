@@ -153,17 +153,13 @@ class DeviceAdapter:
         device.disconnect()
     """
 
-    def __init__(
-        self,
-        config: DeviceConfig,
-        background: bool = False,
-    ) -> None:
+    def __init__(self, config: DeviceConfig) -> None:
         self._config = config
-        self._background = background
+        self._background = config.background
         self._vdesktop: VirtualDesktop | None = None
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
-        self._click_mode: str = "custom"  # "maafw" | "custom" | "postmessage"
+        self._click_mode: str = "maafw"  # "maafw" | "custom" | "postmessage"
 
         # Actual window resolution — set on connect(), None when disconnected.
         self._actual: Resolution | None = None
