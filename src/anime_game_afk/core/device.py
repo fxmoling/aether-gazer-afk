@@ -4,7 +4,6 @@ Responsibilities:
 - Window discovery and connection lifecycle (connect / disconnect)
 - Screenshot capture with proportional scaling (height-capped, aspect-ratio preserved)
 - Input delegation via fractional coordinates (click, swipe, press_key, hold_key)
-- Custom click implementation that hides cursor instead of BlockInput
 
 Coordinate convention:
     All click/swipe coordinates are **fractional** values in [0.0, 1.0].
@@ -22,7 +21,6 @@ Explicitly out of scope:
 from __future__ import annotations
 
 import ctypes
-import ctypes.wintypes
 import time
 
 import cv2
@@ -37,103 +35,12 @@ from anime_game_afk.core.errors import (
     WindowNotFoundError,
 )
 from anime_game_afk.core.types import DeviceConfig, Resolution
-from anime_game_afk.core.virtual_desktop import VirtualDesktop
 
 # Maximum screenshot output height.  Captures taller than this are scaled
 # down proportionally (preserving aspect ratio).  Shorter captures are
 # returned as-is (never upscaled).  720 keeps ~32 px icons readable and
 # matches the effective OCR resolution.
 MAX_HEIGHT = 720
-
-# Win32 API constants and functions
-_user32 = ctypes.windll.user32
-
-WM_MOUSEMOVE = 0x0200
-WM_LBUTTONDOWN = 0x0201
-WM_LBUTTONUP = 0x0202
-MK_LBUTTON = 0x0001
-
-# SWP flags
-SWP_NOSIZE = 0x0001
-SWP_NOZORDER = 0x0004
-SWP_NOACTIVATE = 0x0010
-
-
-class _POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.wintypes.LONG), ("y", ctypes.wintypes.LONG)]
-
-
-class _RECT(ctypes.Structure):
-    _fields_ = [
-        ("left", ctypes.wintypes.LONG),
-        ("top", ctypes.wintypes.LONG),
-        ("right", ctypes.wintypes.LONG),
-        ("bottom", ctypes.wintypes.LONG),
-    ]
-
-
-def _client_to_screen(hwnd, x: int, y: int) -> tuple[int, int]:
-    """Convert client coordinates to screen coordinates."""
-    pt = _POINT(x, y)
-    _user32.ClientToScreen(hwnd, ctypes.byref(pt))
-    return pt.x, pt.y
-
-
-def _send_click(hwnd, client_x: int, client_y: int) -> None:
-    """Send a click via SetCursorPos + SendMessage, with cursor hidden.
-
-    This avoids MaaFramework's BlockInput(TRUE) which blocks all
-    keyboard and mouse input system-wide. Instead we:
-    1. Hide the cursor (ShowCursor(FALSE))
-    2. Save + move cursor to target screen position
-    3. SendMessage WM_MOUSEMOVE + WM_LBUTTONDOWN + WM_LBUTTONUP
-    4. Restore cursor to original position
-    5. Show cursor (ShowCursor(TRUE))
-
-    The cursor is invisible during the move so users see no flicker,
-    and keyboard input is never blocked.
-    """
-    # Save original cursor position
-    orig = _POINT()
-    _user32.GetCursorPos(ctypes.byref(orig))
-
-    # Convert client coords to screen coords
-    sx, sy = _client_to_screen(hwnd, client_x, client_y)
-
-    # Hide cursor → move → click → restore → show
-    _user32.ShowCursor(False)
-    try:
-        _user32.SetCursorPos(sx, sy)
-        time.sleep(0.001)  # 1ms settle (MaaFw uses 1ms too)
-
-        lparam = client_y << 16 | (client_x & 0xFFFF)
-        _user32.SendMessageW(hwnd, WM_MOUSEMOVE, 0, lparam)
-        _user32.SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
-        time.sleep(0.01)  # 10ms hold
-        _user32.SendMessageW(hwnd, WM_LBUTTONUP, 0, lparam)
-
-        time.sleep(0.001)
-        _user32.SetCursorPos(orig.x, orig.y)
-    finally:
-        _user32.ShowCursor(True)
-
-
-def _post_click(hwnd, client_x: int, client_y: int) -> None:
-    """Send a click via PostMessage — fully background, no cursor movement.
-
-    Uses WM_LBUTTONDOWN/UP through PostMessage (async, non-blocking).
-    The actual mouse cursor is never moved, so the user's mouse is
-    completely unaffected.
-
-    NOTE: Not all games accept PostMessage clicks.  Unity games
-    commonly validate cursor position via GetCursorPos, so this may
-    not register.  Use _send_click as fallback.
-    """
-    lparam = client_y << 16 | (client_x & 0xFFFF)
-    _user32.PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam)
-    _user32.PostMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
-    time.sleep(0.01)  # 10ms hold
-    _user32.PostMessageW(hwnd, WM_LBUTTONUP, 0, lparam)
 
 
 class DeviceAdapter:
@@ -155,11 +62,8 @@ class DeviceAdapter:
 
     def __init__(self, config: DeviceConfig) -> None:
         self._config = config
-        self._background = config.background
-        self._vdesktop: VirtualDesktop | None = None
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
-        self._click_mode: str = "maafw"  # "maafw" | "custom" | "postmessage"
 
         # Actual window resolution — set on connect(), None when disconnected.
         self._actual: Resolution | None = None
@@ -253,18 +157,11 @@ class DeviceAdapter:
     def connect(self) -> None:
         """Locate the game window and establish a MaaFw controller connection.
 
-        In background mode, a hidden virtual desktop is created, the game
-        is launched there, and ``PrintWindow`` + ``SendMessage`` are used
-        (the only methods that work cross-desktop).
-
         Raises:
             WindowNotFoundError: Game window not found on the desktop.
             DeviceConnectionError: MaaFw controller could not be initialised.
         """
-        if self._background:
-            self._connect_background()
-        else:
-            self._connect_foreground()
+        self._connect_foreground()
 
     def _connect_foreground(self) -> None:
         """Standard foreground connection (existing logic)."""
@@ -283,56 +180,6 @@ class DeviceAdapter:
             ) from exc
 
         self._finish_connection()
-        self._click_mode = "maafw"
-
-    def _connect_background(self) -> None:
-        """Background connection via virtual desktop."""
-        from maa.define import (
-            MaaWin32InputMethodEnum,
-            MaaWin32ScreencapMethodEnum,
-        )
-
-        exe_path = self._config.game_exe_path
-        if not exe_path:
-            raise DeviceConnectionError(
-                "Background mode requires game_exe_path in DeviceConfig"
-            )
-
-        vd = VirtualDesktop()
-        vd.create()
-        self._vdesktop = vd
-
-        try:
-            vd.launch(exe_path)
-            hwnd_int = vd.find_window(self._config.window_title, timeout=120)
-            self._hwnd = ctypes.c_void_p(hwnd_int)
-        except Exception:
-            vd.destroy()
-            self._vdesktop = None
-            raise
-
-        try:
-            self._controller = Win32Controller(
-                hWnd=self._hwnd,
-                screencap_method=MaaWin32ScreencapMethodEnum.PrintWindow,
-                # Use SendMessageWithCursorPos — moves the VIRTUAL desktop's
-                # cursor (invisible to user) so Unity's GetCursorPos validation
-                # passes.  Without CursorPos, Unity ignores UI button clicks.
-                mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-                keyboard_method=MaaWin32InputMethodEnum.SendMessage,
-            )
-        except RuntimeError as exc:
-            vd.destroy()
-            self._vdesktop = None
-            raise DeviceConnectionError(
-                f"Failed to create Win32Controller (background): {exc}"
-            ) from exc
-
-        self._finish_connection()
-        # On virtual desktop, no user to conflict with — MaaFw SendMessage
-        # is the most reliable.
-        self._click_mode = "maafw"
-        logger.info("Background mode active: virtual desktop={!r}", vd.name)
 
     def _finish_connection(self) -> None:
         """Shared post-connection setup (raw size, screencap, aspect check)."""
@@ -369,10 +216,6 @@ class DeviceAdapter:
         self._hwnd = None
         self._actual = None
         self._screenshot_res = None
-
-        if self._vdesktop is not None:
-            self._vdesktop.destroy()
-            self._vdesktop = None
 
         logger.info("DeviceAdapter disconnected: window={!r}", self._config.window_title)
 
@@ -434,24 +277,6 @@ class DeviceAdapter:
             raise ScreenshotError("post_screencap returned None")
         return img
 
-    @property
-    def click_mode(self) -> str:
-        """Current click delivery method: 'maafw', 'custom', or 'postmessage'."""
-        return self._click_mode
-
-    @click_mode.setter
-    def click_mode(self, mode: str) -> None:
-        """Set click delivery method.
-
-        - 'maafw': MaaFramework's built-in click (BlockInput + cursor move)
-        - 'custom': Hide cursor → move → SendMessage → restore (default)
-        - 'postmessage': Pure PostMessage — no cursor movement at all
-        """
-        if mode not in ("maafw", "custom", "postmessage"):
-            raise ValueError(f"Unknown click mode: {mode!r}")
-        self._click_mode = mode
-        logger.info("Click mode set to {!r}", mode)
-
     def click(self, fx: float, fy: float) -> None:
         """Send a mouse click at fractional coordinates.
 
@@ -469,13 +294,11 @@ class DeviceAdapter:
         ax = int(fx * self._actual.width)
         ay = int(fy * self._actual.height)
 
-        if self._click_mode == "postmessage" and self._hwnd is not None:
-            _post_click(self._hwnd, ax, ay)
-        elif self._click_mode == "custom" and self._hwnd is not None:
-            _send_click(self._hwnd, ax, ay)
-        else:
-            self._controller.post_click(ax, ay).wait()
-        logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {}) [{}]", fx, fy, ax, ay, self._click_mode)
+        self._controller.post_click(ax, ay).wait()
+        logger.debug(
+            "click ({:.3f}, {:.3f}) -> actual ({}, {})",
+            fx, fy, ax, ay,
+        )
 
     def swipe(
         self,
@@ -505,6 +328,7 @@ class DeviceAdapter:
         ay1 = int(fy1 * self._actual.height)
         ax2 = int(fx2 * self._actual.width)
         ay2 = int(fy2 * self._actual.height)
+
         self._controller.post_swipe(ax1, ay1, ax2, ay2, duration).wait()
         logger.debug(
             "swipe ({:.3f},{:.3f}) -> ({:.3f},{:.3f})",
