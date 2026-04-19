@@ -117,6 +117,24 @@ def _send_click(hwnd, client_x: int, client_y: int) -> None:
         _user32.ShowCursor(True)
 
 
+def _post_click(hwnd, client_x: int, client_y: int) -> None:
+    """Send a click via PostMessage — fully background, no cursor movement.
+
+    Uses WM_LBUTTONDOWN/UP through PostMessage (async, non-blocking).
+    The actual mouse cursor is never moved, so the user's mouse is
+    completely unaffected.
+
+    NOTE: Not all games accept PostMessage clicks.  Unity games
+    commonly validate cursor position via GetCursorPos, so this may
+    not register.  Use _send_click as fallback.
+    """
+    lparam = client_y << 16 | (client_x & 0xFFFF)
+    _user32.PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam)
+    _user32.PostMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam)
+    time.sleep(0.01)  # 10ms hold
+    _user32.PostMessageW(hwnd, WM_LBUTTONUP, 0, lparam)
+
+
 class DeviceAdapter:
     """Low-level device I/O adapter wrapping MaaFramework's Win32 controller.
 
@@ -138,7 +156,7 @@ class DeviceAdapter:
         self._config = config
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
-        self._use_custom_click: bool = False
+        self._click_mode: str = "custom"  # "maafw" | "custom" | "postmessage"
 
         # Actual window resolution — set on connect(), None when disconnected.
         self._actual: Resolution | None = None
@@ -282,7 +300,7 @@ class DeviceAdapter:
         )
 
         # Enable custom click (ShowCursor hide instead of BlockInput)
-        self._use_custom_click = True
+        self._click_mode = "custom"
 
     def disconnect(self) -> None:
         """Release the controller and reset all connection state."""
@@ -350,6 +368,24 @@ class DeviceAdapter:
             raise ScreenshotError("post_screencap returned None")
         return img
 
+    @property
+    def click_mode(self) -> str:
+        """Current click delivery method: 'maafw', 'custom', or 'postmessage'."""
+        return self._click_mode
+
+    @click_mode.setter
+    def click_mode(self, mode: str) -> None:
+        """Set click delivery method.
+
+        - 'maafw': MaaFramework's built-in click (BlockInput + cursor move)
+        - 'custom': Hide cursor → move → SendMessage → restore (default)
+        - 'postmessage': Pure PostMessage — no cursor movement at all
+        """
+        if mode not in ("maafw", "custom", "postmessage"):
+            raise ValueError(f"Unknown click mode: {mode!r}")
+        self._click_mode = mode
+        logger.info("Click mode set to {!r}", mode)
+
     def click(self, fx: float, fy: float) -> None:
         """Send a mouse click at fractional coordinates.
 
@@ -366,8 +402,14 @@ class DeviceAdapter:
 
         ax = int(fx * self._actual.width)
         ay = int(fy * self._actual.height)
-        self._controller.post_click(ax, ay).wait()
-        logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {})", fx, fy, ax, ay)
+
+        if self._click_mode == "postmessage" and self._hwnd is not None:
+            _post_click(self._hwnd, ax, ay)
+        elif self._click_mode == "custom" and self._hwnd is not None:
+            _send_click(self._hwnd, ax, ay)
+        else:
+            self._controller.post_click(ax, ay).wait()
+        logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {}) [{}]", fx, fy, ax, ay, self._click_mode)
 
     def swipe(
         self,
