@@ -37,6 +37,7 @@ from anime_game_afk.core.errors import (
     WindowNotFoundError,
 )
 from anime_game_afk.core.types import DeviceConfig, Resolution
+from anime_game_afk.core.virtual_desktop import VirtualDesktop
 
 # Maximum screenshot output height.  Captures taller than this are scaled
 # down proportionally (preserving aspect ratio).  Shorter captures are
@@ -152,8 +153,14 @@ class DeviceAdapter:
         device.disconnect()
     """
 
-    def __init__(self, config: DeviceConfig) -> None:
+    def __init__(
+        self,
+        config: DeviceConfig,
+        background: bool = False,
+    ) -> None:
         self._config = config
+        self._background = background
+        self._vdesktop: VirtualDesktop | None = None
         self._controller: Win32Controller | None = None
         self._hwnd: ctypes.c_void_p | None = None
         self._click_mode: str = "custom"  # "maafw" | "custom" | "postmessage"
@@ -250,10 +257,21 @@ class DeviceAdapter:
     def connect(self) -> None:
         """Locate the game window and establish a MaaFw controller connection.
 
+        In background mode, a hidden virtual desktop is created, the game
+        is launched there, and ``PrintWindow`` + ``SendMessage`` are used
+        (the only methods that work cross-desktop).
+
         Raises:
             WindowNotFoundError: Game window not found on the desktop.
             DeviceConnectionError: MaaFw controller could not be initialised.
         """
+        if self._background:
+            self._connect_background()
+        else:
+            self._connect_foreground()
+
+    def _connect_foreground(self) -> None:
+        """Standard foreground connection (existing logic)."""
         self._hwnd = self.find_window()
 
         try:
@@ -268,19 +286,66 @@ class DeviceAdapter:
                 f"Failed to create Win32Controller: {exc}"
             ) from exc
 
+        self._finish_connection()
+        self._click_mode = "maafw"
+
+    def _connect_background(self) -> None:
+        """Background connection via virtual desktop."""
+        from maa.define import (
+            MaaWin32InputMethodEnum,
+            MaaWin32ScreencapMethodEnum,
+        )
+
+        exe_path = self._config.game_exe_path
+        if not exe_path:
+            raise DeviceConnectionError(
+                "Background mode requires game_exe_path in DeviceConfig"
+            )
+
+        vd = VirtualDesktop()
+        vd.create()
+        self._vdesktop = vd
+
+        try:
+            vd.launch(exe_path)
+            hwnd_int = vd.find_window(self._config.window_title, timeout=120)
+            self._hwnd = ctypes.c_void_p(hwnd_int)
+        except Exception:
+            vd.destroy()
+            self._vdesktop = None
+            raise
+
+        try:
+            self._controller = Win32Controller(
+                hWnd=self._hwnd,
+                screencap_method=MaaWin32ScreencapMethodEnum.PrintWindow,
+                mouse_method=MaaWin32InputMethodEnum.SendMessage,
+                keyboard_method=MaaWin32InputMethodEnum.SendMessage,
+            )
+        except RuntimeError as exc:
+            vd.destroy()
+            self._vdesktop = None
+            raise DeviceConnectionError(
+                f"Failed to create Win32Controller (background): {exc}"
+            ) from exc
+
+        self._finish_connection()
+        # On virtual desktop, no user to conflict with — MaaFw SendMessage
+        # is the most reliable.
+        self._click_mode = "maafw"
+        logger.info("Background mode active: virtual desktop={!r}", vd.name)
+
+    def _finish_connection(self) -> None:
+        """Shared post-connection setup (raw size, screencap, aspect check)."""
+        assert self._controller is not None
+
         self._controller.post_connection().wait()
-
-        # Raw-size mode ensures screenshot pixel coords == click coords.
         self._controller.set_screenshot_use_raw_size(True)
-
-        # MaaFw reports (0, 0) before the first screencap; take one now.
         self._controller.post_screencap().wait()
 
         actual_w, actual_h = self._controller.resolution
         self._actual = Resolution(width=actual_w, height=actual_h)
 
-        # Enforce 16:9 aspect ratio — game UI layout assumes this ratio,
-        # and fractional coordinates will miss targets on other ratios.
         if actual_w > 0 and actual_h > 0:
             ratio = actual_w / actual_h
             if abs(ratio - 16 / 9) > 0.02:
@@ -299,16 +364,17 @@ class DeviceAdapter:
             self._config.window_title, actual_w, actual_h,
         )
 
-        # Click mode: "maafw" is fastest (C++ BlockInput + cursor move in <2ms).
-        # "custom" and "postmessage" available but inferior for Unity games.
-        self._click_mode = "maafw"
-
     def disconnect(self) -> None:
         """Release the controller and reset all connection state."""
         self._controller = None
         self._hwnd = None
         self._actual = None
         self._screenshot_res = None
+
+        if self._vdesktop is not None:
+            self._vdesktop.destroy()
+            self._vdesktop = None
+
         logger.info("DeviceAdapter disconnected: window={!r}", self._config.window_title)
 
     # ------------------------------------------------------------------

@@ -58,6 +58,19 @@ class JsonLineListener:
 
 
 # ---------------------------------------------------------------------------
+# Notification helper
+# ---------------------------------------------------------------------------
+
+def _try_notify(title: str, message: str) -> None:
+    """Send a toast notification, swallowing any errors."""
+    try:
+        from anime_game_afk.core.notifier import notify
+        notify(title, message)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Async main loop
 # ---------------------------------------------------------------------------
 
@@ -85,53 +98,72 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
 
     listener = JsonLineListener()
     user_cfg = UserConfig.load()
+    background = user_cfg.background_mode()
+    notify_on_complete = user_cfg.notify_on_complete()
 
-    # ---- Ensure game is running -------------------------------------------
-    _emit({"type": "status", "msg": "正在查找游戏窗口..."})
+    # ---- Resolve game exe path (needed for both modes) --------------------
     game_id = "aether_gazer"
     window_title = user_cfg.window_title(game_id) or "AetherGazer"
+    exe_path = user_cfg.game_exe_path(game_id)
 
-    # Check if the game PROCESS is running (not the launcher)
+    if not exe_path or not __import__("pathlib").Path(exe_path).exists():
+        result = find_aether_gazer(search_drives=user_cfg.search_drives())
+        if result["game_exe"]:
+            user_cfg.set_game_exe_path(game_id, result["game_exe"])
+            if result.get("launcher"):
+                user_cfg.set_launcher_path(game_id, result["launcher"])
+            user_cfg.save()
+            exe_path = result["game_exe"]
+
+    # ---- Ensure game is running (foreground mode only) --------------------
+    # In background mode, VirtualDesktop handles game launch.
     game_process_running = False
-    try:
-        import subprocess as _sp
-        r = _sp.run(["tasklist", "/FI", "IMAGENAME eq AetherGazer.exe", "/NH"],
-                     capture_output=True, text=True, timeout=5)
-        game_process_running = "AetherGazer.exe" in r.stdout
-    except Exception:
-        pass
+    if not background:
+        _emit({"type": "status", "msg": "正在查找游戏窗口..."})
+        try:
+            import subprocess as _sp
+            r = _sp.run(["tasklist", "/FI", "IMAGENAME eq AetherGazer.exe", "/NH"],
+                         capture_output=True, text=True, timeout=5)
+            game_process_running = "AetherGazer.exe" in r.stdout
+        except Exception:
+            pass
 
-    if not game_process_running:
-        # Game not running — try to launch
-        _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
-        exe_path = user_cfg.game_exe_path(game_id)
-        if not exe_path or not __import__("pathlib").Path(exe_path).exists():
-            result = find_aether_gazer(search_drives=user_cfg.search_drives())
-            if result["game_exe"]:
-                user_cfg.set_game_exe_path(game_id, result["game_exe"])
-                if result.get("launcher"):
-                    user_cfg.set_launcher_path(game_id, result["launcher"])
-                user_cfg.save()
-                exe_path = result["game_exe"]
+        if not game_process_running:
+            _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
+            if not exe_path:
+                _emit({"type": "error", "msg": "找不到游戏，请在设置中指定游戏路径"})
+                return 1
 
+            launcher = GameLauncher(
+                exe_path=exe_path,
+                window_title=window_title,
+                process_name=__import__("pathlib").Path(exe_path).name,
+            )
+            timeout = user_cfg.launch_timeout(game_id)
+            if not launcher.ensure_running(timeout=timeout):
+                _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
+                return 1
+    else:
+        # Background mode needs exe_path for VirtualDesktop
         if not exe_path:
-            _emit({"type": "error", "msg": "找不到游戏，请在设置中指定游戏路径"})
-            return 1
-
-        launcher = GameLauncher(
-            exe_path=exe_path,
-            window_title=window_title,
-            process_name=__import__("pathlib").Path(exe_path).name,
-        )
-        timeout = user_cfg.launch_timeout(game_id)
-        if not launcher.ensure_running(timeout=timeout):
-            _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
+            _emit({"type": "error", "msg": "后台模式需要游戏路径，请在设置中指定"})
             return 1
 
     # Connect to game window
     _emit({"type": "status", "msg": "正在连接游戏..."})
+
     try:
-        device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
+        device_config = AETHER_GAZER_CONFIG.to_device_config()
+        if background:
+            from anime_game_afk.core.types import DeviceConfig as _DC
+            device_config = _DC(
+                window_title=device_config.window_title,
+                screencap_method=device_config.screencap_method,
+                mouse_method=device_config.mouse_method,
+                keyboard_method=device_config.keyboard_method,
+                game_exe_path=exe_path,
+            )
+        device = DeviceAdapter(config=device_config, background=background)
         device.connect()
     except Exception as exc:
         _emit({"type": "error", "msg": f"连接失败: {exc}"})
@@ -178,11 +210,26 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
         result = await pipeline.run(plan)
     except Exception as exc:
         _emit({"type": "error", "msg": f"Pipeline error: {exc}"})
+        if notify_on_complete:
+            _try_notify("❌ 任务失败", f"Pipeline error: {exc}")
         device.disconnect()
         return 1
 
     listener.on_done(result.succeeded, result.failed, result.elapsed_s)
     device.disconnect()
+
+    if notify_on_complete:
+        if result.failed == 0 and not result.aborted:
+            _try_notify(
+                "✅ 任务完成",
+                f"已完成 {result.succeeded} 个任务 ({result.elapsed_s:.0f}s)",
+            )
+        else:
+            _try_notify(
+                "⚠️ 任务结束",
+                f"完成 {result.succeeded}，失败 {result.failed}",
+            )
+
     return 0 if not result.aborted and result.failed == 0 else 1
 
 

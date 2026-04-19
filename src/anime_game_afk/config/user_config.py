@@ -109,6 +109,8 @@ class UserConfig:
                 "auto_update": True,
                 "search_drives": ["C:", "D:", "E:"],
                 "log_level": "INFO",
+                "background_mode": False,
+                "notify_on_complete": True,
             },
         }
 
@@ -218,3 +220,19 @@ class UserConfig:
     def set_auto_update(self, enabled: bool) -> None:
         """Enable or disable automatic update checks."""
         self._settings()["auto_update"] = enabled
+
+    def background_mode(self) -> bool:
+        """Whether to run the game on a hidden virtual desktop."""
+        return bool(self._settings().get("background_mode", False))
+
+    def set_background_mode(self, enabled: bool) -> None:
+        """Enable or disable background (virtual desktop) mode."""
+        self._settings()["background_mode"] = enabled
+
+    def notify_on_complete(self) -> bool:
+        """Whether to show a toast notification when tasks finish."""
+        return bool(self._settings().get("notify_on_complete", True))
+
+    def set_notify_on_complete(self, enabled: bool) -> None:
+        """Enable or disable completion notifications."""
+        self._settings()["notify_on_complete"] = enabled

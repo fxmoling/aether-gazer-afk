@@ -56,3 +56,4 @@ class DeviceConfig:
     screencap_method: int
     mouse_method: int
     keyboard_method: int
+    game_exe_path: str = ""
