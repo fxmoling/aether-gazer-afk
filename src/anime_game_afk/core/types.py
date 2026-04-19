@@ -48,19 +48,9 @@ class Resolution:
 class DeviceConfig:
     """Configuration for DeviceAdapter — lives in core to avoid layer violations.
 
-    All fields are required except ``game_exe_path`` and ``background``.
+    All fields are required except ``game_exe_path``.
     Higher-level ``GameConfig`` provides a ``.to_device_config()``
     convenience method for the conversion.
-
-    When ``background`` is True, DeviceAdapter automatically:
-    - Creates a hidden virtual desktop
-    - Launches the game there (requires ``game_exe_path``)
-    - Uses PrintWindow for screencap (only method that works cross-desktop)
-    - Uses SendMessageWithCursorPos for input (moves virtual desktop cursor only)
-    - Cleans up desktop + game process on disconnect()
-
-    Game-layer code (ops, tasks, checks) is completely unaware of this —
-    ``device.click()`` and ``device.screenshot()`` behave identically.
     """
 
     window_title: str
@@ -68,4 +58,3 @@ class DeviceConfig:
     mouse_method: int
     keyboard_method: int
     game_exe_path: str = ""
-    background: bool = False

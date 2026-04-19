@@ -98,7 +98,6 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
 
     listener = JsonLineListener()
     user_cfg = UserConfig.load()
-    background = user_cfg.background_mode()
     notify_on_complete = user_cfg.notify_on_complete()
 
     # ---- Resolve game exe path (needed for both modes) --------------------
@@ -115,38 +114,31 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
             user_cfg.save()
             exe_path = result["game_exe"]
 
-    # ---- Ensure game is running (foreground mode only) --------------------
-    # In background mode, VirtualDesktop handles game launch.
+    # ---- Ensure game is running ---------------------------------------------
     game_process_running = False
-    if not background:
-        _emit({"type": "status", "msg": "正在查找游戏窗口..."})
-        try:
-            import subprocess as _sp
-            r = _sp.run(["tasklist", "/FI", "IMAGENAME eq AetherGazer.exe", "/NH"],
-                         capture_output=True, text=True, timeout=5)
-            game_process_running = "AetherGazer.exe" in r.stdout
-        except Exception:
-            pass
+    _emit({"type": "status", "msg": "正在查找游戏窗口..."})
+    try:
+        import subprocess as _sp
+        r = _sp.run(["tasklist", "/FI", "IMAGENAME eq AetherGazer.exe", "/NH"],
+                     capture_output=True, text=True, timeout=5)
+        game_process_running = "AetherGazer.exe" in r.stdout
+    except Exception:
+        pass
 
-        if not game_process_running:
-            _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
-            if not exe_path:
-                _emit({"type": "error", "msg": "找不到游戏，请在设置中指定游戏路径"})
-                return 1
-
-            launcher = GameLauncher(
-                exe_path=exe_path,
-                window_title=window_title,
-                process_name=__import__("pathlib").Path(exe_path).name,
-            )
-            timeout = user_cfg.launch_timeout(game_id)
-            if not launcher.ensure_running(timeout=timeout):
-                _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
-                return 1
-    else:
-        # Background mode needs exe_path for VirtualDesktop
+    if not game_process_running:
+        _emit({"type": "status", "msg": "游戏未运行，正在启动..."})
         if not exe_path:
-            _emit({"type": "error", "msg": "后台模式需要游戏路径，请在设置中指定"})
+            _emit({"type": "error", "msg": "找不到游戏，请在设置中指定游戏路径"})
+            return 1
+
+        launcher = GameLauncher(
+            exe_path=exe_path,
+            window_title=window_title,
+            process_name=__import__("pathlib").Path(exe_path).name,
+        )
+        timeout = user_cfg.launch_timeout(game_id)
+        if not launcher.ensure_running(timeout=timeout):
+            _emit({"type": "error", "msg": f"启动游戏超时 ({timeout}s)"})
             return 1
 
     # Connect to game window
@@ -155,7 +147,6 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     try:
         device_config = AETHER_GAZER_CONFIG.to_device_config(
             game_exe_path=exe_path or "",
-            background=background,
         )
         device = DeviceAdapter(config=device_config)
         device.connect()

@@ -43,6 +43,5 @@ export const api = {
   launchGame: () => apiCall('launch_game'),
   checkUpdate: () => apiCall('check_update'),
   setAutoUpdate: (enabled) => apiCall('set_auto_update', enabled),
-  setBackgroundMode: (enabled) => apiCall('set_background_mode', enabled),
   setNotifyOnComplete: (enabled) => apiCall('set_notify_on_complete', enabled),
 }

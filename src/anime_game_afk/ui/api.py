@@ -96,7 +96,6 @@ class Api:
             "window_title": game.get("window_title", "AetherGazer"),
             "game_exe_path": game.get("game_exe_path", ""),
             "auto_update": cfg.auto_update(),
-            "background_mode": cfg.background_mode(),
             "notify_on_complete": cfg.notify_on_complete(),
         }
 
@@ -135,18 +134,6 @@ class Api:
         try:
             cfg = UserConfig.load()
             cfg.set_auto_update(enabled)
-            cfg.save()
-            return {"ok": True}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def set_background_mode(self, enabled: bool) -> dict[str, Any]:
-        """Toggle background (virtual desktop) mode."""
-        from anime_game_afk.config.user_config import UserConfig
-
-        try:
-            cfg = UserConfig.load()
-            cfg.set_background_mode(enabled)
             cfg.save()
             return {"ok": True}
         except Exception as e:

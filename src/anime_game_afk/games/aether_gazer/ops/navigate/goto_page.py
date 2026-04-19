@@ -79,11 +79,6 @@ class GotoPageAction:
 
             # Execute each edge
             for edge in route:
-                # Wake UI before navigation
-                await ClickOp(
-                    x=0.5, y=0.5, wait=0.3,
-                ).run(ctx)
-
                 await _execute_nav_action(ctx, edge.action)
                 await SleepOp(seconds=edge.action.wait_after).run(ctx)
 

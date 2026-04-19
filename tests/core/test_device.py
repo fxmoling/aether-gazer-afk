@@ -276,7 +276,6 @@ def test_click_fractional_coords() -> None:
             _fake_window("TestWindow")
         ]
         adapter.connect()
-        adapter.click_mode = "maafw"
         adapter.click(0.25, 0.5)
 
     # 0.25 * 1600 = 400, 0.5 * 900 = 450
@@ -300,7 +299,6 @@ def test_click_center() -> None:
             _fake_window("TestWindow")
         ]
         adapter.connect()
-        adapter.click_mode = "maafw"
         adapter.click(0.5, 0.5)
 
     # 0.5 * 1920 = 960, 0.5 * 1080 = 540

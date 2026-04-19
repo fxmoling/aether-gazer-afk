@@ -43,15 +43,7 @@
     </div>
 
     <div class="settings-section">
-      <h3>运行模式</h3>
-      <div class="setting-row">
-        <label>🖥️ 后台模式 (虚拟桌面)</label>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="form.backgroundMode" @change="onBackgroundModeToggle">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <p class="setting-hint">在独立桌面运行游戏，不影响鼠标操作</p>
+      <h3>通知</h3>
       <div class="setting-row">
         <label>🔔 完成通知</label>
         <label class="toggle-switch">
@@ -117,7 +109,6 @@ const settings = reactive({
 const form = reactive({
   windowTitle: 'AetherGazer',
   autoUpdate: true,
-  backgroundMode: false,
   notifyOnComplete: true,
 })
 
@@ -135,7 +126,6 @@ onMounted(async () => {
     settings.game_exe_path = data.game_exe_path || ''
     form.windowTitle = data.window_title || 'AetherGazer'
     form.autoUpdate = data.auto_update !== false
-    form.backgroundMode = data.background_mode === true
     form.notifyOnComplete = data.notify_on_complete !== false
   }
 })
@@ -161,10 +151,6 @@ async function detectGamePath() {
 
 async function onAutoUpdateToggle() {
   await api.setAutoUpdate(form.autoUpdate)
-}
-
-async function onBackgroundModeToggle() {
-  await api.setBackgroundMode(form.backgroundMode)
 }
 
 async function onNotifyToggle() {

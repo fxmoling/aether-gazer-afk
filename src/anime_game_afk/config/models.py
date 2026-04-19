@@ -24,13 +24,11 @@ class GameConfig:
     def to_device_config(
         self,
         game_exe_path: str = "",
-        background: bool = False,
     ) -> DeviceConfig:
         """Convert to a :class:`DeviceConfig` for :class:`DeviceAdapter`.
 
         Args:
-            game_exe_path: Path to game executable (required for background mode).
-            background: If True, DeviceAdapter runs on a hidden virtual desktop.
+            game_exe_path: Path to game executable (used for auto-launch).
         """
         return DeviceConfig(
             window_title=self.window_title,
@@ -38,5 +36,4 @@ class GameConfig:
             mouse_method=self.mouse_method,
             keyboard_method=self.keyboard_method,
             game_exe_path=game_exe_path,
-            background=background,
         )

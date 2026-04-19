@@ -197,6 +197,14 @@ class VirtualDesktop:
         """True when a virtual desktop handle is open."""
         return self._hdesk is not None
 
+    @property
+    def hdesk(self):
+        """The raw Win32 desktop handle (HDESK), or None if not created.
+
+        Used by DeviceAdapter to switch thread desktop for background clicks.
+        """
+        return self._hdesk
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------

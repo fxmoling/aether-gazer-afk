@@ -225,10 +225,6 @@ class UserConfig:
         """Whether to run the game on a hidden virtual desktop."""
         return bool(self._settings().get("background_mode", False))
 
-    def set_background_mode(self, enabled: bool) -> None:
-        """Enable or disable background (virtual desktop) mode."""
-        self._settings()["background_mode"] = enabled
-
     def notify_on_complete(self) -> bool:
         """Whether to show a toast notification when tasks finish."""
         return bool(self._settings().get("notify_on_complete", True))

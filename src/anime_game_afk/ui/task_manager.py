@@ -301,12 +301,6 @@ class TaskManager:
                 proc.wait(timeout=5)
             except Exception:
                 pass
-        # Clean up any orphaned virtual desktops / game processes
-        try:
-            from anime_game_afk.core.virtual_desktop import VirtualDesktop
-            VirtualDesktop.cleanup_all()
-        except Exception:
-            pass
         # Reset any "running" tasks to "stopped"
         with self._lock:
             for p in self._pipelines:
