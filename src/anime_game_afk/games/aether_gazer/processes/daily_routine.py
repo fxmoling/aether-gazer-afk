@@ -12,8 +12,9 @@ Task order:
 6. 公会矩阵补给 — Guild supply claim
 7. 游园街日常管理 — Amusement street daily
 8. 联防协议扫荡 — Joint Defense sweep (震动)
-9. 每日/周常任务领取 — Daily + weekly mission rewards
-10. 对策协议任务领取 — Tactics Protocol task rewards
+9. 介质攫取 — Medium Seizure combat + reward claim
+10. 每日/周常任务领取 — Daily + weekly mission rewards
+11. 对策协议任务领取 — Tactics Protocol task rewards
 """
 from __future__ import annotations
 
@@ -38,6 +39,9 @@ from anime_game_afk.games.aether_gazer.tasks.amusement_tasks import (
 from anime_game_afk.games.aether_gazer.tasks.activity_tasks import (
     JointDefenseSweep,
 )
+from anime_game_afk.games.aether_gazer.tasks.keyin_tasks import (
+    MediumSeizureCombat,
+)
 from anime_game_afk.games.aether_gazer.tasks.startup_tasks import (
     SkipStartupPopups,
 )
@@ -58,6 +62,7 @@ _DAILY_TASKS: list[tuple[str, type, str, bool]] = [
     ("guild_supply", GuildSupplyClaim, "公会补给", True),
     ("amusement", AmusementStreetDaily, "游园街日常", True),
     ("joint_defense", JointDefenseSweep, "联防协议", False),
+    ("medium_seizure", MediumSeizureCombat, "介质攫取", False),
     ("missions", DailyWeeklyMissionClaim, "每日周常任务", True),
     ("tactics", TacticsTaskClaim, "对策协议", True),
 ]
