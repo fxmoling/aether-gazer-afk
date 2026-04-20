@@ -476,7 +476,7 @@ class JointDefenseSweep:
         sx = sweep.region.x + sweep.region.w // 2
         sy = sweep.region.y + sweep.region.h // 2
         ctx.logger.info(f"  sweep: clicking '扫荡' at ({sx},{sy})")
-        await ClickPxOp(px=sx, py=sy, wait=0.3).run(ctx)
+        await ClickPxOp(px=sx, py=sy, wait=1.5).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "jd_sweep_confirm")
         return True
