@@ -19,7 +19,7 @@ logger = get_logger("updater")
 GITHUB_OWNER = "fxmoling"
 GITHUB_REPO = "anime-game-afk"
 GITHUB_API_URL = (
-    f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+    f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
 )
 RELEASE_PAGE_URL = (
     f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
@@ -27,8 +27,14 @@ RELEASE_PAGE_URL = (
 
 
 def _parse_version(v: str) -> tuple[int, ...]:
-    """Parse ``'0.1.0'`` or ``'v0.1.0'`` into a comparable tuple."""
+    """Parse ``'0.1.0'``, ``'v0.0.2-beta'`` into a comparable tuple.
+
+    Strips leading 'v' and any pre-release suffix (e.g. '-beta', '-rc1').
+    """
     v = v.lstrip("v").strip()
+    # Remove pre-release suffix: "0.0.2-beta" → "0.0.2"
+    if "-" in v:
+        v = v.split("-")[0]
     parts: list[int] = []
     for segment in v.split("."):
         try:
@@ -56,8 +62,18 @@ def check_for_update(timeout: float = 5.0) -> dict[str, Any] | None:
             },
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data: dict[str, Any] = json.loads(resp.read().decode())
+            releases: list[dict[str, Any]] = json.loads(resp.read().decode())
 
+        if not releases:
+            logger.info("No releases found on GitHub")
+            return {
+                "has_update": False,
+                "current_version": __version__,
+                "latest_version": __version__,
+            }
+
+        # First release in list is the most recent (including prereleases)
+        data = releases[0]
         latest_tag: str = data.get("tag_name", "")
         latest_version = latest_tag.lstrip("v")
 
