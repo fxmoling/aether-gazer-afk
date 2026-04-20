@@ -74,6 +74,16 @@ class MediumSeizureCombat:
         if not nav_ok:
             return TaskResult(status="failed", message="Navigation to 介质攫取 failed")
 
+        # Step 2.5: Check if all weekly rewards already claimed
+        needs_battle = await self._check_rewards_incomplete(ctx)
+        if not needs_battle:
+            ctx.logger.info("[medium_seizure] All rewards claimed, skipping battle")
+            await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+            await ReturnToHubAction().run(ctx)
+            return TaskResult(
+                status="skipped", message="本周奖励已领取完"
+            )
+
         # Step 3: Start challenge
         ctx.logger.info("[medium_seizure] Clicking 开始挑战")
         await ClickOp(*self._START_CHALLENGE, wait=1.5).run(ctx)
@@ -172,6 +182,27 @@ class MediumSeizureCombat:
             return True
         ctx.logger.warning("[medium_seizure] Interior page NOT verified")
         return False
+
+    async def _check_rewards_incomplete(self, ctx: TaskContext) -> bool:
+        """Open reward page, check if any reward shows "未完成".
+
+        Returns True if battle is still needed (未完成 found),
+        False if all rewards already claimed (no 未完成).
+        """
+        ctx.logger.info("[medium_seizure] Checking reward status")
+        await ClickOp(*self._REWARD_CLAIM, wait=1.0).run(ctx)
+
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+
+        has_incomplete = ocr.has("未完成")
+        ctx.logger.info(
+            f"[medium_seizure] Reward check: 未完成={'found' if has_incomplete else 'not found'}"
+        )
+
+        # Go back to interior
+        await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+        return has_incomplete
 
     async def _wait_for_battle_end(self, ctx: TaskContext) -> str:
         """Passively wait in battle until "任务完成" detected or timeout.
