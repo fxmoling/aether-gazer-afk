@@ -86,20 +86,14 @@ class Logger:
     def _log(self, level: str, msg: str, *args: Any, **kwargs: Any) -> None:
         """Format and emit a log message with context tags.
 
-        Supports loguru-style ``{}`` positional placeholders in *msg*.
-        Extra *kwargs* are silently ignored (for future extensibility).
+        Supports both positional ``{}`` and keyword ``{name}`` placeholders.
         """
-        # Build bracketed context annotation, e.g. " [task=login, step=1]"
         ctx_parts = [f"{k}={v}" for k, v in self._context.items()]
         ctx_str = f" [{', '.join(ctx_parts)}]" if ctx_parts else ""
 
-        # Expand positional placeholders when args are provided
-        if args:
-            try:
-                formatted = msg.format(*args)
-            except (IndexError, KeyError):
-                formatted = msg
-        else:
+        try:
+            formatted = msg.format(*args, **kwargs)
+        except (IndexError, KeyError, ValueError):
             formatted = msg
 
         full_msg = f"[{self._name}]{ctx_str} {formatted}"

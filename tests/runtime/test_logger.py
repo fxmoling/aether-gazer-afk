@@ -248,3 +248,45 @@ def test_context_property_returns_copy() -> None:
     ctx = log.context
     ctx["a"] = 999
     assert log.context["a"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Keyword formatting
+# ---------------------------------------------------------------------------
+
+
+def test_keyword_formatting() -> None:
+    """Logger._log should resolve {keyword} placeholders from kwargs."""
+    records: list[str] = []
+    sid = _install_sink(records)
+    try:
+        get_logger("kw").info("count: {n}/{total}", n=3, total=10)
+    finally:
+        _remove_sink(sid)
+
+    assert any("count: 3/10" in r for r in records)
+    assert not any("{n}" in r for r in records)
+
+
+def test_mixed_positional_and_keyword_formatting() -> None:
+    """Logger._log should handle both positional and keyword args together."""
+    records: list[str] = []
+    sid = _install_sink(records)
+    try:
+        get_logger("mix").info("{} items in {place}", 5, place="shop")
+    finally:
+        _remove_sink(sid)
+
+    assert any("5 items in shop" in r for r in records)
+
+
+def test_keyword_formatting_bad_key_does_not_crash() -> None:
+    """Mismatched keyword names should not raise."""
+    records: list[str] = []
+    sid = _install_sink(records)
+    try:
+        get_logger("kw").info("no placeholder here", extra="unused")
+    finally:
+        _remove_sink(sid)
+
+    assert any("no placeholder here" in r for r in records)
