@@ -21,7 +21,7 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
 )
 from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
-from anime_game_afk.games.aether_gazer.ops.navigate.goto_page import GotoPageAction
+from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -114,7 +114,11 @@ class BuyIntelShards:
     async def _navigate_to_daily_purchase(
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
-        """Navigate from anywhere to daily purchase page. Returns success."""
+        """Navigate from hub to daily purchase page.
+
+        Uses direct clicks (same approach as AmusementStreetDaily),
+        with is_on_page verification and retry.
+        """
         # Wake UI + return to hub
         ctx.logger.info("  nav: wake UI")
         await WakeHubUiAction().run(ctx)
@@ -129,12 +133,26 @@ class BuyIntelShards:
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_hub")
 
-        # Hub → shop
-        ctx.logger.info("  nav: hub -> shop")
-        result = await GotoPageAction(target_page_id="shop").run(ctx)
-        if not result.success:
-            ctx.logger.error("  nav: cannot reach shop")
+        # Hub → shop (direct click with retry)
+        ctx.logger.info("  nav: hub -> shop (direct click 0.569, 0.944)")
+        for attempt in range(3):
+            await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
+            img = ctx.device.screenshot()
+            if is_on_page(img, "shop"):
+                ctx.logger.info(
+                    "  nav: shop reached (attempt {attempt})", attempt=attempt,
+                )
+                break
+            ctx.logger.warning(
+                "  nav: shop not reached (attempt {attempt}), retrying",
+                attempt=attempt,
+            )
+            # Click center to dismiss any overlay, then try again
+            await ClickOp(x=0.5, y=0.5, wait=0.5).run(ctx)
+        else:
+            ctx.logger.error("  nav: cannot reach shop after 3 attempts")
             return False
+
         await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "buy_intel_at_shop")
@@ -417,7 +435,10 @@ class ClaimFreeStamina:
     async def _navigate_to_daily_supply(
         self, ctx: TaskContext, run_log: "RunLog | None",
     ) -> bool:
-        """Navigate from anywhere to daily supply page."""
+        """Navigate from hub to daily supply page.
+
+        Uses direct clicks with is_on_page verification.
+        """
         # Wake + hub
         ctx.logger.info("  nav: wake UI + return to hub")
         await WakeHubUiAction().run(ctx)
@@ -430,12 +451,25 @@ class ClaimFreeStamina:
         if run_log:
             run_log.snap(ctx.device, "stamina_at_hub")
 
-        # Hub → shop
-        ctx.logger.info("  nav: hub -> shop")
-        result = await GotoPageAction(target_page_id="shop").run(ctx)
-        if not result.success:
-            ctx.logger.error("  nav: cannot reach shop")
+        # Hub → shop (direct click with retry)
+        ctx.logger.info("  nav: hub -> shop (direct click 0.569, 0.944)")
+        for attempt in range(3):
+            await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
+            img = ctx.device.screenshot()
+            if is_on_page(img, "shop"):
+                ctx.logger.info(
+                    "  nav: shop reached (attempt {attempt})", attempt=attempt,
+                )
+                break
+            ctx.logger.warning(
+                "  nav: shop not reached (attempt {attempt}), retrying",
+                attempt=attempt,
+            )
+            await ClickOp(x=0.5, y=0.5, wait=0.5).run(ctx)
+        else:
+            ctx.logger.error("  nav: cannot reach shop after 3 attempts")
             return False
+
         await SleepOp(seconds=1.0).run(ctx)
         if run_log:
             run_log.snap(ctx.device, "stamina_at_shop")
