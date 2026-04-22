@@ -55,7 +55,7 @@ def _run(coro: Any) -> Any:
 _SHOP = "anime_game_afk.games.aether_gazer.tasks.shop_tasks"
 _RETURN_TO_HUB_RUN = f"{_SHOP}.ReturnToHubAction.run"
 _WAKE_HUB_RUN = f"{_SHOP}.WakeHubUiAction.run"
-_GOTO_PAGE_RUN = f"{_SHOP}.GotoPageAction.run"
+_IS_ON_PAGE = f"{_SHOP}.is_on_page"
 _SMART_RETURN_RUN = f"{_SHOP}.ReturnToHubAction.run"
 
 # Patch targets for underlying vision functions used by Check classes
@@ -195,8 +195,8 @@ def test_claim_free_stamina_skips_when_cooldown():
         _WAKE_HUB_RUN,
         AsyncMock(return_value=OpResult(success=True)),
     ), patch(
-        _GOTO_PAGE_RUN,
-        AsyncMock(return_value=OpResult(success=True, data={"page_id": "shop"})),
+        _IS_ON_PAGE,
+        return_value=True,
     ), patch(
         _SMART_RETURN_RUN,
         AsyncMock(return_value=OpResult(success=True)),

@@ -68,7 +68,6 @@ def test_checks_page_importable():
         "anime_game_afk.games.aether_gazer.checks.page"
     )
     assert hasattr(mod, "OnPageCheck")
-    assert hasattr(mod, "IdentifyPageCheck")
     assert hasattr(mod, "AtHubCheck")
 
 

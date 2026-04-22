@@ -20,7 +20,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickPxOp,
     ScreenshotOp,
 )
-from anime_game_afk.games.aether_gazer.ops.perception.identify_page import identify
+from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
 from anime_game_afk.vision.ocr import ocr_once
 
 
@@ -81,10 +81,11 @@ def main() -> None:
 
     asyncio.run(_run_ops())
 
-    # 6. Page identification
+    # 6. Page identification (is_on_page check)
     logger.info("Step 5: 页面识别")
-    page_id, confidence = identify(img)
-    logger.info("  Page: {} (conf={:.3f})", page_id, confidence)
+    on_hub = is_on_page(img, "main_hub")
+    on_idle = is_on_page(img, "hub_idle")
+    logger.info("  is_on_page(main_hub)={}, is_on_page(hub_idle)={}", on_hub, on_idle)
 
     # 7. OCR
     logger.info("Step 6: OCR扫描")

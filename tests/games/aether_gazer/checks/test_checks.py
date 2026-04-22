@@ -19,7 +19,6 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
 )
 from anime_game_afk.games.aether_gazer.checks.page import (
     AtHubCheck,
-    IdentifyPageCheck,
     OnPageCheck,
 )
 from anime_game_afk.games.aether_gazer.checks.state import (
@@ -180,33 +179,6 @@ def test_on_page_check_passed(mock_is_on_page):
 def test_on_page_check_failed(mock_is_on_page):
     mock_is_on_page.return_value = False
     check = OnPageCheck("main_hub")
-    result = _run(check.evaluate(_make_ctx()))
-    assert not result.passed
-
-
-@patch("anime_game_afk.games.aether_gazer.checks.page.identify")
-def test_identify_page_check_passed(mock_identify):
-    mock_identify.return_value = ("battle_prep", 0.85)
-    check = IdentifyPageCheck(threshold=0.65)
-    result = _run(check.evaluate(_make_ctx()))
-    assert result.passed
-    assert result.data["page"] == "battle_prep"
-    assert result.data["confidence"] == 0.85
-
-
-@patch("anime_game_afk.games.aether_gazer.checks.page.identify")
-def test_identify_page_check_failed_unknown(mock_identify):
-    mock_identify.return_value = ("unknown", 0.3)
-    check = IdentifyPageCheck(threshold=0.65)
-    result = _run(check.evaluate(_make_ctx()))
-    assert not result.passed
-    assert result.data["page"] == "unknown"
-
-
-@patch("anime_game_afk.games.aether_gazer.checks.page.identify")
-def test_identify_page_check_failed_low_conf(mock_identify):
-    mock_identify.return_value = ("battle_prep", 0.4)
-    check = IdentifyPageCheck(threshold=0.65)
     result = _run(check.evaluate(_make_ctx()))
     assert not result.passed
 
