@@ -33,9 +33,13 @@ Task    — 业务流程编排 Op+Action+Check (禁止直接碰 ctx.device.* 和
 
 ### Action 清单 (原"复合 Op"，已重命名)
 - `ReturnToHubAction` — 智能返回 hub (ESC/back/Enter循环，用 AtHubCheck 检测)
-- `GotoPageAction`, `GoBackAction`, `WakeHubUiAction` (导航)
+- `GoBackAction`, `WakeHubUiAction` (导航)
 - `AttackCycleAction`, `WalkForwardAction`, `HandleReviveAction` (战斗)
 - `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction`, `RapidClickPxAction` (交互)
+
+> **已删除 (2026-04-22)**: `GotoPageAction`, `NavGraph`, `identify()` —
+> identify() 的 CCORR/CCOEFF 评分不可比问题导致 hub_idle 误检，商店导航失败率 ~56%。
+> 所有 task 改为从 hub 直接点击+is_on_page 验证，与其他成功 task 一致。
 
 ### Hub 检测优化 (2026-04-08)
 - AtHubCheck 放宽关键词阈值: 4/4 → 2/4 即判定为 hub
