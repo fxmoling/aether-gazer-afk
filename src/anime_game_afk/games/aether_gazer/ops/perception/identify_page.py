@@ -1,7 +1,8 @@
-"""Identify current page from screenshot.
+"""Page template matching — ``is_on_page`` check.
 
 Loads page templates from index.json, matches against screenshot
-using vision.matcher. Returns (page_id, confidence).
+using vision.matcher.  Provides ``is_on_page(screenshot, page_id)``
+for targeted page checks (pass/fail).
 
 Templates are stored at a reference resolution (``ref_height``).  When the
 screenshot height differs, templates are proportionally scaled before
@@ -187,40 +188,6 @@ def _match_one(
     result = match_template(screenshot, scaled, region=region, mask=mask)
     threshold = tpl.get("threshold") if tpl.get("threshold") is not None else MATCH_THRESHOLD
     return result.score, threshold
-
-
-def identify(screenshot: np.ndarray) -> tuple[str, float]:
-    """Identify which page the screenshot shows.
-
-    Each template is checked against its own threshold (per-template
-    ``"threshold"`` in index.json, falling back to ``MATCH_THRESHOLD``).
-    A page is a candidate only when *all* its templates pass.
-
-    Returns (page_id, confidence). Returns ("unknown", 0.0) if
-    no page matches.
-    """
-    templates = _load_templates()
-    best_page = "unknown"
-    best_score = 0.0
-    img_h, img_w = screenshot.shape[:2]
-
-    for page_id, tpl_list in templates.items():
-        scores: list[float] = []
-        all_pass = True
-        for tpl in tpl_list:
-            score, threshold = _match_one(tpl, screenshot, img_w, img_h)
-            scores.append(score)
-            if score < threshold:
-                all_pass = False
-        if scores and all_pass:
-            avg = sum(scores) / len(scores)
-            if avg > best_score:
-                best_score = avg
-                best_page = page_id
-
-    if best_page == "unknown":
-        return ("unknown", 0.0)
-    return (best_page, best_score)
 
 
 def is_on_page(screenshot: np.ndarray, page_id: str) -> bool:

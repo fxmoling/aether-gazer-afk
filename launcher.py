@@ -48,9 +48,73 @@ def _pause_before_exit() -> None:
         try:
             print()
             input("按回车键退出 / Press Enter to exit...")
-        except (EOFError, OSError):
+        except (EOFError, OSError, RuntimeError):
             # No stdin available (windowed mode) — just return
             pass
+
+
+# ── .NET Framework pre-flight check ─────────────────────────
+
+
+_DOTNET_DOWNLOAD_URL = (
+    "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+)
+
+_DOTNET_REPAIR_CMD = (
+    "DISM /Online /Cleanup-Image /RestoreHealth && "
+    "sfc /scannow"
+)
+
+
+def _check_dotnet() -> bool:
+    """Verify pythonnet can fully initialize (required by pywebview on Windows).
+
+    Tests the entire chain: clr_loader → .NET Framework → Python.Runtime.dll.
+    Returns True if OK, False if broken/missing.
+    """
+    try:
+        import pythonnet
+        pythonnet.load()
+        return True
+    except Exception:
+        return False
+
+
+def _show_dotnet_error() -> None:
+    """Show a user-friendly dialog when pythonnet/.NET fails."""
+    import webbrowser
+
+    title = "AetherGazer AFK - 运行环境异常"
+    message = (
+        "程序的图形界面组件 (pywebview) 初始化失败。\n\n"
+        "可能的原因和解决方法：\n"
+        "1. 安装 Visual C++ 运行库 (vc_redist.x64.exe)\n"
+        "2. 安装/修复 .NET Framework 4.8\n"
+        "3. 运行系统修复命令（管理员 CMD）：\n"
+        "     DISM /Online /Cleanup-Image /RestoreHealth\n"
+        "     sfc /scannow\n\n"
+        "点击「是」打开 VC++ 运行库下载页面。"
+    )
+
+    try:
+        # Use tkinter for the dialog (always available, no .NET needed)
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        result = messagebox.askyesno(title, message)
+        root.destroy()
+        if result:
+            webbrowser.open(_DOTNET_DOWNLOAD_URL)
+    except Exception:
+        # tkinter unavailable (rare) — fall back to console
+        print(f"\n{'='*60}")
+        print(f"  ERROR: {title}")
+        print(f"{'='*60}")
+        print(message)
+        print(f"\n下载地址: {_DOTNET_DOWNLOAD_URL}")
+        print(f"{'='*60}")
 
 
 # ── GUI mode ────────────────────────────────────────────────
@@ -58,6 +122,10 @@ def _pause_before_exit() -> None:
 
 def _run_gui(app_dir: Path) -> None:
     """Launch the pywebview GUI."""
+    if not _check_dotnet():
+        _show_dotnet_error()
+        sys.exit(1)
+
     from anime_game_afk.ui.app import main as gui_main
     gui_main()
 

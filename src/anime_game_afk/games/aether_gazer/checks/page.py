@@ -8,7 +8,6 @@ from __future__ import annotations
 from anime_game_afk.games.aether_gazer.checks.base import CheckResult
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
 from anime_game_afk.games.aether_gazer.ops.perception.identify_page import (
-    identify,
     is_on_page,
 )
 from anime_game_afk.vision.ocr import ocr_once
@@ -34,26 +33,6 @@ class OnPageCheck:
         return CheckResult(
             passed=False,
             message=f"not on page '{self._page}'",
-        )
-
-
-class IdentifyPageCheck:
-    """Identify which page the current screen shows.
-
-    Always passes (returns the best guess). data contains page_id
-    and confidence. Check passed=True if confidence >= threshold.
-    """
-
-    def __init__(self, threshold: float = 0.65) -> None:
-        self._threshold = threshold
-
-    async def evaluate(self, ctx: OpContext) -> CheckResult:
-        img = ctx.device.screenshot()
-        page_id, confidence = identify(img)
-        return CheckResult(
-            passed=(page_id != "unknown" and confidence >= self._threshold),
-            data={"page": page_id, "confidence": confidence},
-            message=f"page='{page_id}' conf={confidence:.2f}",
         )
 
 
