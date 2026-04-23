@@ -247,7 +247,8 @@ class TaskManager:
             return {"ok": False, "error": f"未知 pipeline: {pipeline_id}"}
 
         enabled_tasks = [t for t in pipeline.tasks if t.enabled]
-        if not enabled_tasks:
+        if not enabled_tasks and pipeline.tasks:
+            # Has sub-tasks but none enabled
             return {"ok": False, "error": "没有选择任何任务"}
 
         # Reset task statuses
@@ -256,6 +257,7 @@ class TaskManager:
                 task.status = "pending" if task.enabled else "skipped"
 
         enabled = [t.id for t in pipeline.tasks if t.enabled]
+        tasks_arg = ",".join(enabled) if enabled else "_all_"
         enabled_ids = set(enabled)
 
         self._running = True
@@ -269,12 +271,12 @@ class TaskManager:
             env["_MEIPASS"] = str(sys._MEIPASS)  # type: ignore[attr-defined]
             cmd = [sys.executable, "--worker",
                    "--pipeline", pipeline_id,
-                   "--tasks", ",".join(enabled)]
+                   "--tasks", tasks_arg]
         else:
             env = None
             cmd = [sys.executable, "-m", "anime_game_afk.ui.worker",
                    "--pipeline", pipeline_id,
-                   "--tasks", ",".join(enabled)]
+                   "--tasks", tasks_arg]
 
         self._process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
