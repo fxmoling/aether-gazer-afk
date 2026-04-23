@@ -369,8 +369,8 @@ def find_aether_gazer(
     game_exe = finder.find_game_exe(
         exe_name="AetherGazer.exe",
         keywords=["shenkongzhiyan", "AetherGazer", "深空之眼",
-                  "AetherGazerLauncher"],
-        shortcut_names=["深空之眼", "AetherGazer", "StarSavior"],
+                  "AetherGazerLauncher", "AetherGazerLauncher_Bili"],
+        shortcut_names=["深空之眼", "AetherGazer"],
         search_drives=drives,
     )
 
