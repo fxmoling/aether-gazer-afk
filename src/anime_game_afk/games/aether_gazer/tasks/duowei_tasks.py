@@ -25,6 +25,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
     SleepOp,
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
+from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import ReturnToHub
 from anime_game_afk.vision.ocr import ocr_once
 
 # ── Attack key sequence ──
@@ -153,23 +154,17 @@ class DuoweiCombat:
         if "多维" in full and ("开始挑战" in full or "继续挑战" in full):
             return await self._click_start_or_continue(ctx, ocr, full)
 
-        # On challenge hub (挑战 page with list of modes)
-        if "挑战" in full or "常驻" in full or "情报" in full:
-            # Try to find and click 多维变量 directly
-            match = ocr.find("多维变量")
-            if match:
-                r = match.region
-                ctx.device.click(
-                    (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
-                )
-                await SleepOp(2.0).run(ctx)
-                img = ctx.screenshot()
-                ocr = ocr_once(img)
-                full = " ".join(r.text for r in ocr._items)
-                return await self._click_start_or_continue(ctx, ocr, full)
+        # Return to hub first (handles any unknown starting page)
+        ctx.logger.info("[duowei] Returning to hub first")
+        hub = ReturnToHub()
+        await hub.execute(ctx)
 
-        # From main hub: click 挑战 tab
-        await ClickOp(*_CHALLENGE_TAB).run(ctx)
+        # Press J to enter battle page from hub
+        ctx.device.press_key(VK_J)
+        await SleepOp(1.5).run(ctx)
+
+        # Click 挑战 tab on battle page (bottom-right)
+        ctx.device.click(0.83, 0.9)
         await SleepOp(2.0).run(ctx)
 
         # Find 多维变量 — may need to scroll left on challenge page
@@ -178,9 +173,14 @@ class DuoweiCombat:
             ocr = ocr_once(img)
             full = " ".join(r.text for r in ocr._items)
 
-            match = ocr.find("多维变量")
-            if match:
-                r = match.region
+            # Find all "多维变量" matches, click the one lowest on screen
+            # (the card icon, not the heading text)
+            matches = [
+                r for r in ocr._items if "多维变量" in r.text
+            ]
+            if matches:
+                best = max(matches, key=lambda r: r.region.y)
+                r = best.region
                 ctx.device.click(
                     (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
                 )
