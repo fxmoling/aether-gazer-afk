@@ -7,19 +7,32 @@
       <label>流程</label>
       <select v-model="state.selectedPipelineId" @change="selectPipeline(state.selectedPipelineId)">
         <option v-for="p in state.pipelines" :key="p.id" :value="p.id">
-          {{ p.name }} — {{ p.description }}
+          {{ p.name }}
         </option>
       </select>
     </div>
 
+    <!-- Pipeline description -->
+    <div v-if="selectedPipeline" class="pipeline-desc">
+      {{ selectedPipeline.description }}
+    </div>
+
     <!-- Progress section -->
-    <div class="progress-section">
+    <div class="progress-section" v-if="totalCount > 0">
       <div class="progress-header">
-        <span class="progress-title">今日进度</span>
+        <span class="progress-title">任务设置</span>
         <span class="progress-count">{{ completedCount }} / {{ totalCount }}</span>
       </div>
       <div class="progress-track">
         <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
+      </div>
+    </div>
+
+    <!-- Section header for processes without sub-tasks -->
+    <div class="progress-section" v-else-if="selectedPipeline">
+      <div class="progress-header">
+        <span class="progress-title">任务设置</span>
+        <span class="progress-count" style="color: rgba(102,126,234,0.7)">无限循环</span>
       </div>
     </div>
 
@@ -72,19 +85,26 @@ const progressPct = computed(() =>
 
 .pipeline-bar select {
   flex: 1;
-  max-width: 300px;
+  max-width: 400px;
   padding: 6px 12px;
   background: rgba(255,255,255,0.05);
   color: #c8c8d0;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
 .pipeline-bar select:focus {
   outline: none;
   border-color: rgba(102,126,234,0.5);
+}
+
+.pipeline-desc {
+  padding: 4px 20px 8px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
 .progress-section {

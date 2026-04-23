@@ -278,9 +278,14 @@ class TaskManager:
                    "--pipeline", pipeline_id,
                    "--tasks", tasks_arg]
 
+        # Hide console window on Windows
+        creationflags = 0
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NO_WINDOW
+
         self._process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, env=env,
+            text=True, env=env, creationflags=creationflags,
         )
         self._reader = threading.Thread(
             target=self._read_worker_output, daemon=True

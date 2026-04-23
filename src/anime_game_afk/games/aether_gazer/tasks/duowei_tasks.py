@@ -160,12 +160,40 @@ class DuoweiCombat:
             ocr = ocr_once(img)
             full = " ".join(r.text for r in ocr._items)
 
-            # Find all "多维变量" matches, click the one lowest on screen
-            # (the card icon, not the heading text)
+            # Find all "多维变量" matches
             matches = [
                 r for r in ocr._items if "多维变量" in r.text
             ]
-            if matches:
+            if len(matches) == 1:
+                # Only one match — click it, then re-check if we landed
+                # on the detail page or just highlighted the heading
+                r = matches[0].region
+                ctx.device.click(
+                    (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
+                )
+                await SleepOp(2.0).run(ctx)
+                img = ctx.screenshot()
+                ocr = ocr_once(img)
+                full = " ".join(r.text for r in ocr._items)
+                if "开始挑战" in full or "继续挑战" in full:
+                    return await self._click_start_or_continue(ctx, ocr, full)
+                # Didn't land on detail page — may need another click
+                matches2 = [
+                    r for r in ocr._items if "多维变量" in r.text
+                ]
+                if len(matches2) >= 2:
+                    best = max(matches2, key=lambda r: r.region.y)
+                    r = best.region
+                    ctx.device.click(
+                        (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
+                    )
+                    await SleepOp(2.0).run(ctx)
+                    img = ctx.screenshot()
+                    ocr = ocr_once(img)
+                    full = " ".join(r.text for r in ocr._items)
+                    return await self._click_start_or_continue(ctx, ocr, full)
+            elif len(matches) >= 2:
+                # Multiple matches — click the lowest one (card icon)
                 best = max(matches, key=lambda r: r.region.y)
                 r = best.region
                 ctx.device.click(
