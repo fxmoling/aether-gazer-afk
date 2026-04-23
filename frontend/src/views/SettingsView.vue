@@ -55,6 +55,28 @@
     </div>
 
     <div class="settings-section">
+      <h3>战斗按键</h3>
+      <p class="setting-hint" style="margin-left: 0; margin-bottom: 10px">
+        如果你修改了游戏内的战斗快捷键，请在此处同步配置。<br>
+        <b>注意：</b>请勿修改其他便利性快捷键（如邮箱、开始作战等），否则自动化流程可能异常。
+      </p>
+      <div class="keybind-grid">
+        <div class="keybind-row" v-for="(label, key) in keybindLabels" :key="key">
+          <label>{{ label }}</label>
+          <input
+            type="text"
+            :value="form.keybinds[key]"
+            maxlength="1"
+            class="setting-input keybind-input"
+            @input="onKeybindInput(key, $event)"
+            @blur="saveKeybinds"
+          >
+        </div>
+      </div>
+      <div v-if="keybindSaved" class="save-hint" style="margin-top: 6px">✔ 已保存</div>
+    </div>
+
+    <div class="settings-section">
       <h3>游戏设置</h3>
       <div class="setting-row">
         <label>游戏窗口标题</label>
@@ -110,6 +132,13 @@ const form = reactive({
   windowTitle: 'AetherGazer',
   autoUpdate: true,
   notifyOnComplete: true,
+  keybinds: {
+    attack: 'J',
+    skill1: 'U',
+    skill2: 'I',
+    skill3: 'O',
+    ultimate: 'R',
+  },
 })
 
 const detecting = ref(false)
@@ -118,6 +147,15 @@ const updateMsg = ref('')
 const updateMsgClass = ref('')
 const updateInfo = ref(null)
 const savedHint = ref('')
+const keybindSaved = ref(false)
+
+const keybindLabels = {
+  attack: '攻击',
+  skill1: '技能1',
+  skill2: '技能2',
+  skill3: '技能3',
+  ultimate: '大招',
+}
 
 onMounted(async () => {
   const data = await api.getSettings()
@@ -127,6 +165,9 @@ onMounted(async () => {
     form.windowTitle = data.window_title || 'AetherGazer'
     form.autoUpdate = data.auto_update !== false
     form.notifyOnComplete = data.notify_on_complete !== false
+    if (data.combat_keybinds) {
+      Object.assign(form.keybinds, data.combat_keybinds)
+    }
   }
 })
 
@@ -151,6 +192,22 @@ async function detectGamePath() {
 
 async function onAutoUpdateToggle() {
   await api.setAutoUpdate(form.autoUpdate)
+}
+
+function onKeybindInput(key, event) {
+  const val = event.target.value.toUpperCase()
+  if (val && /^[A-Z0-9]$/.test(val)) {
+    form.keybinds[key] = val
+  }
+  event.target.value = form.keybinds[key]
+}
+
+async function saveKeybinds() {
+  const result = await api.saveCombatKeybinds({ ...form.keybinds })
+  if (result && result.ok) {
+    keybindSaved.value = true
+    setTimeout(() => { keybindSaved.value = false }, 2000)
+  }
 }
 
 async function onNotifyToggle() {
@@ -255,6 +312,34 @@ function openRelease() {
 .setting-input:focus {
   outline: none;
   border-color: #4fc3f7;
+}
+
+.keybind-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.keybind-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.keybind-row label {
+  width: 50px;
+  color: #aaa;
+  font-size: 13px;
+  text-align: right;
+}
+
+.keybind-input {
+  width: 40px !important;
+  max-width: 40px !important;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 14px !important;
 }
 
 .path-row {

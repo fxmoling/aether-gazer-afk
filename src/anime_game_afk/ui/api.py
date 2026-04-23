@@ -97,6 +97,7 @@ class Api:
             "game_exe_path": game.get("game_exe_path", ""),
             "auto_update": cfg.auto_update(),
             "notify_on_complete": cfg.notify_on_complete(),
+            "combat_keybinds": cfg.combat_keybinds(),
         }
 
     def save_settings(
@@ -109,6 +110,18 @@ class Api:
             cfg = UserConfig.load()
             game = cfg._game("aether_gazer")
             game["window_title"] = window_title
+            cfg.save()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def save_combat_keybinds(self, binds: dict[str, str]) -> dict[str, Any]:
+        """Save combat keybind mapping."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            cfg.set_combat_keybinds(binds)
             cfg.save()
             return {"ok": True}
         except Exception as e:

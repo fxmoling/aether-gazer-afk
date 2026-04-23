@@ -13,7 +13,7 @@
         <li>游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）</li>
         <li>操控模式选择「<b>键盘</b>」，不要使用键鼠模式</li>
         <li>关闭<b>异形屏适配</b>（设置 → 画面）</li>
-        <li>战斗快捷键保持<b>默认设置</b>，勿自定义键位</li>
+        <li>如修改了战斗快捷键，请在<b>设置 → 战斗按键</b>中同步配置</li>
       </ul>
     </div>
     <div class="tips-collapsed" v-else @click="showTips = true; saveTips()">

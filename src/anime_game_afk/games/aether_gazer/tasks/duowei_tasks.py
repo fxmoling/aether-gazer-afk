@@ -18,7 +18,8 @@ import time
 
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ENTER, VK_ESCAPE, VK_J, VK_W, VK_H, VK_S,
-    VK_U, VK_I, VK_O, VK_R,
+    VK_U, VK_I, VK_O, VK_R, VK_1, VK_2,
+    letter_to_vk,
 )
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
@@ -28,8 +29,23 @@ from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import ReturnToHub
 from anime_game_afk.vision.ocr import ocr_once
 
-# ── Attack key sequence ──
-_ATTACK_KEYS = [VK_J, VK_J, VK_U, VK_J, VK_I, VK_J, VK_O, VK_R, 0x31, 0x32]
+
+def _build_attack_keys(keybinds: dict[str, str] | None = None) -> list[int]:
+    """Build attack key sequence from keybind config.
+
+    Cycle: attack attack skill1 attack skill2 attack skill3 ultimate QTE1 QTE2
+    """
+    if keybinds is None:
+        keybinds = {
+            "attack": "J", "skill1": "U", "skill2": "I",
+            "skill3": "O", "ultimate": "R",
+        }
+    atk = letter_to_vk(keybinds.get("attack", "J"))
+    s1 = letter_to_vk(keybinds.get("skill1", "U"))
+    s2 = letter_to_vk(keybinds.get("skill2", "I"))
+    s3 = letter_to_vk(keybinds.get("skill3", "O"))
+    ult = letter_to_vk(keybinds.get("ultimate", "R"))
+    return [atk, atk, s1, atk, s2, atk, s3, ult, VK_1, VK_2]
 
 # ── Camera rotation (fractional, resolution-scaled) ──
 # Base swipe dx calibrated at 1280x720. Same fractional dx produces more
@@ -66,6 +82,15 @@ class DuoweiCombat:
     _LOADING_WAIT = 8.0
     _BATTLE_CHECK_INTERVAL = 5   # attack cycles between state checks
     _BATTLE_MAX_CHECKS = 30      # max ~5 minutes of fighting
+
+    def __init__(self, keybinds: dict[str, str] | None = None) -> None:
+        if keybinds is None:
+            try:
+                from anime_game_afk.config.user_config import UserConfig
+                keybinds = UserConfig.load().combat_keybinds()
+            except Exception:
+                keybinds = None
+        self._attack_keys = _build_attack_keys(keybinds)
 
     async def can_run(self, ctx: TaskContext) -> bool:
         return True
@@ -424,7 +449,7 @@ class DuoweiCombat:
         for check in range(self._BATTLE_MAX_CHECKS):
             # Attack for ~10s (5 cycles of the key sequence)
             for _ in range(self._BATTLE_CHECK_INTERVAL):
-                for vk in _ATTACK_KEYS:
+                for vk in self._attack_keys:
                     ctx.device.press_key(vk)
                     time.sleep(0.12)
                 time.sleep(0.2)

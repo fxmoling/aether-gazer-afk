@@ -102,6 +102,13 @@ class UserConfig:
                     "search_keywords": [
                         "shenkongzhiyan", "AetherGazer", "深空之眼",
                     ],
+                    "combat_keybinds": {
+                        "attack": "J",
+                        "skill1": "U",
+                        "skill2": "I",
+                        "skill3": "O",
+                        "ultimate": "R",
+                    },
                 },
             },
             "settings": {
@@ -232,3 +239,25 @@ class UserConfig:
     def set_notify_on_complete(self, enabled: bool) -> None:
         """Enable or disable completion notifications."""
         self._settings()["notify_on_complete"] = enabled
+
+    # ------------------------------------------------------------------
+    # Combat keybinds
+    # ------------------------------------------------------------------
+
+    _DEFAULT_KEYBINDS = {
+        "attack": "J", "skill1": "U", "skill2": "I",
+        "skill3": "O", "ultimate": "R",
+    }
+
+    def combat_keybinds(self, game_id: str = "aether_gazer") -> dict[str, str]:
+        """Return combat keybind mapping {role: key_letter}."""
+        game = self._game(game_id)
+        saved = game.get("combat_keybinds", {})
+        # Merge with defaults for any missing keys
+        return {**self._DEFAULT_KEYBINDS, **saved}
+
+    def set_combat_keybinds(
+        self, binds: dict[str, str], game_id: str = "aether_gazer",
+    ) -> None:
+        """Save combat keybind mapping."""
+        self._game(game_id)["combat_keybinds"] = binds

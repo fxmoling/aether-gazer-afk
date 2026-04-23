@@ -39,6 +39,8 @@ export const api = {
   getSettings: () => apiCall('get_settings'),
   saveSettings: (windowTitle) =>
     apiCall('save_settings', windowTitle),
+  saveCombatKeybinds: (binds) =>
+    apiCall('save_combat_keybinds', binds),
   detectGame: () => apiCall('detect_game'),
   launchGame: () => apiCall('launch_game'),
   checkUpdate: () => apiCall('check_update'),

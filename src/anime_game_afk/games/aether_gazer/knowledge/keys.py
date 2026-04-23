@@ -57,3 +57,13 @@ KEY_NAMES: dict[int, str] = {
 def key_name(vk: int) -> str:
     """Return human-readable name for a VK code."""
     return KEY_NAMES.get(vk, f"0x{vk:02X}")
+
+
+def letter_to_vk(letter: str) -> int:
+    """Convert a single letter (e.g. 'J') to its VK code."""
+    ch = letter.upper()
+    if len(ch) == 1 and "A" <= ch <= "Z":
+        return ord(ch)
+    if len(ch) == 1 and "0" <= ch <= "9":
+        return ord(ch)
+    raise ValueError(f"Unsupported key letter: {letter!r}")
