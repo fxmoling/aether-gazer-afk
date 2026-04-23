@@ -13,7 +13,6 @@ from anime_game_afk.games.aether_gazer.processes.base import (
     ProcessResult,
 )
 from anime_game_afk.games.aether_gazer.tasks.duowei_tasks import DuoweiCombat
-from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import ReturnToHub
 
 
 class DuoweiProcess:
@@ -40,15 +39,7 @@ class DuoweiProcess:
 
         ctx.logger.info("=== DuoweiProcess: starting ===")
 
-        # Part A: Navigate to 多维变量 page (first run only)
-        ctx.logger.info("[duowei-process] Part A: Navigate")
-        if not await task._navigate_to_duowei(ctx):
-            return ProcessResult(
-                status="failed",
-                message="Failed to navigate to 多维变量",
-            )
-
-        # Part B: Infinite loop
+        # Infinite loop — each cycle handles its own navigation
         cycle = 0
         while True:
             cycle += 1

@@ -144,6 +144,11 @@ class DuoweiCombat:
             ocr = ocr_once(img)
             full = " ".join(r.text for r in ocr._items)
 
+        # Already in setup wizard (difficulty/character/beacon page)
+        if "难度选择" in full or "修正者选择" in full or "信标选择" in full:
+            ctx.logger.info("[duowei] Already in setup wizard, skipping nav")
+            return True
+
         # Already on 多维变量 page
         if "多维" in full and ("开始挑战" in full or "继续挑战" in full):
             return await self._click_start_or_continue(ctx, ocr, full)
@@ -167,23 +172,33 @@ class DuoweiCombat:
         await ClickOp(*_CHALLENGE_TAB).run(ctx)
         await SleepOp(2.0).run(ctx)
 
-        img = ctx.screenshot()
-        ocr = ocr_once(img)
-        full = " ".join(r.text for r in ocr._items)
+        # Find 多维变量 — may need to scroll left on challenge page
+        for scroll_attempt in range(3):
+            img = ctx.screenshot()
+            ocr = ocr_once(img)
+            full = " ".join(r.text for r in ocr._items)
 
-        match = ocr.find("多维变量")
-        if not match:
-            ctx.logger.warning("[duowei] 多维变量 not found on challenge page")
-            return False
+            match = ocr.find("多维变量")
+            if match:
+                r = match.region
+                ctx.device.click(
+                    (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
+                )
+                await SleepOp(2.0).run(ctx)
+                img = ctx.screenshot()
+                ocr = ocr_once(img)
+                full = " ".join(r.text for r in ocr._items)
+                return await self._click_start_or_continue(ctx, ocr, full)
 
-        r = match.region
-        ctx.device.click((r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720)
-        await SleepOp(2.0).run(ctx)
+            # Scroll challenge list by clicking left edge
+            ctx.logger.debug(
+                f"[duowei] 多维变量 not visible, scrolling left ({scroll_attempt + 1}/3)"
+            )
+            ctx.device.click(0.05, 0.5)
+            await SleepOp(1.5).run(ctx)
 
-        img = ctx.screenshot()
-        ocr = ocr_once(img)
-        full = " ".join(r.text for r in ocr._items)
-        return await self._click_start_or_continue(ctx, ocr, full)
+        ctx.logger.warning("[duowei] 多维变量 not found after scrolling")
+        return False
 
     async def _click_start_or_continue(self, ctx, ocr, full: str) -> bool:
         """Click 开始挑战 or 继续挑战, handling the 'ongoing battle' dialog."""

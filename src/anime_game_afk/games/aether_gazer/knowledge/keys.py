@@ -26,11 +26,13 @@ VK_R = 0x52       # Ultimate
 VK_1 = 0x31       # Combo 1 / QTE
 VK_2 = 0x32       # Combo 2 / QTE
 
-# --- Movement (WASD) ---
+# --- Movement (WASD) + Camera (QE) ---
 VK_W = 0x57       # Forward
 VK_A = 0x41       # Left
 VK_S = 0x53       # Backward
 VK_D = 0x44       # Right
+VK_Q = 0x51       # Camera rotate left
+VK_E = 0x45       # Camera rotate right
 
 # --- Attack rotation sequence ---
 # One full cycle: J J U J I J O R 1 2
