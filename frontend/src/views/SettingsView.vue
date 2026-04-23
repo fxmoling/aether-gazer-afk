@@ -68,8 +68,8 @@
             :value="form.keybinds[key]"
             maxlength="1"
             class="setting-input keybind-input"
-            @input="onKeybindInput(key, $event)"
-            @blur="saveKeybinds"
+            @keydown.prevent="onKeybindKey(key, $event)"
+            readonly
           >
         </div>
       </div>
@@ -138,6 +138,7 @@ const form = reactive({
     skill2: 'I',
     skill3: 'O',
     ultimate: 'R',
+    dodge: 'K',
   },
 })
 
@@ -155,6 +156,7 @@ const keybindLabels = {
   skill2: '技能2',
   skill3: '技能3',
   ultimate: '大招',
+  dodge: '闪避',
 }
 
 onMounted(async () => {
@@ -194,16 +196,17 @@ async function onAutoUpdateToggle() {
   await api.setAutoUpdate(form.autoUpdate)
 }
 
-function onKeybindInput(key, event) {
-  const val = event.target.value.toUpperCase()
-  if (val && /^[A-Z0-9]$/.test(val)) {
-    form.keybinds[key] = val
+function onKeybindKey(key, event) {
+  const ch = event.key.toUpperCase()
+  if (/^[A-Z0-9]$/.test(ch)) {
+    form.keybinds[key] = ch
+    saveKeybinds()
   }
-  event.target.value = form.keybinds[key]
 }
 
 async function saveKeybinds() {
-  const result = await api.saveCombatKeybinds({ ...form.keybinds })
+  const binds = JSON.parse(JSON.stringify(form.keybinds))
+  const result = await api.saveCombatKeybinds(binds)
   if (result && result.ok) {
     keybindSaved.value = true
     setTimeout(() => { keybindSaved.value = false }, 2000)

@@ -108,6 +108,7 @@ class UserConfig:
                         "skill2": "I",
                         "skill3": "O",
                         "ultimate": "R",
+                        "dodge": "K",
                     },
                 },
             },
@@ -246,7 +247,7 @@ class UserConfig:
 
     _DEFAULT_KEYBINDS = {
         "attack": "J", "skill1": "U", "skill2": "I",
-        "skill3": "O", "ultimate": "R",
+        "skill3": "O", "ultimate": "R", "dodge": "K",
     }
 
     def combat_keybinds(self, game_id: str = "aether_gazer") -> dict[str, str]:
