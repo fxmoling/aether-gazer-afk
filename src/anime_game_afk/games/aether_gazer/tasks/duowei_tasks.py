@@ -31,11 +31,12 @@ from anime_game_afk.vision.ocr import ocr_once
 # ── Attack key sequence ──
 _ATTACK_KEYS = [VK_J, VK_J, VK_U, VK_J, VK_I, VK_J, VK_O, VK_R, 0x31, 0x32]
 
-# ── Camera rotation (fractional, resolution-independent) ──
-# Swipe from (0.55, 0.5) leftward by dx to rotate camera toward portal.
-# Calibrated on 1280x720: dx=0.02 ≈ correct angle for 1-1 portal.
-# Using fractional coords ensures the same angle on any resolution.
-_PORTAL_SWIPE_DX = 0.02
+# ── Camera rotation (fractional, resolution-scaled) ──
+# Base swipe dx calibrated at 1280x720. Same fractional dx produces more
+# pixel distance on higher resolutions, causing more rotation. Scale
+# inversely by (base_width / actual_width) to keep the angle consistent.
+_PORTAL_SWIPE_DX_BASE = 0.02   # dx at 1280 width
+_PORTAL_SWIPE_REF_WIDTH = 1280  # calibration resolution
 _PORTAL_SWIPE_FROM = (0.55, 0.5)
 _PORTAL_SWIPE_DURATION = 300  # ms
 
@@ -346,9 +347,16 @@ class DuoweiCombat:
         """
         ctx.logger.info("[duowei] Swipe + W walk + J spam")
 
-        # Swipe camera left by fractional dx (resolution-independent)
+        # Scale swipe dx by resolution (calibrated at 1280 width)
+        actual_w = ctx.device.actual_resolution.width
+        dx = _PORTAL_SWIPE_DX_BASE * _PORTAL_SWIPE_REF_WIDTH / actual_w
+        ctx.logger.debug(
+            f"[duowei] Portal swipe dx={dx:.4f} (base={_PORTAL_SWIPE_DX_BASE}, "
+            f"ref={_PORTAL_SWIPE_REF_WIDTH}, actual={actual_w})"
+        )
+
         fx, fy = _PORTAL_SWIPE_FROM
-        ctx.device.swipe(fx, fy, fx - _PORTAL_SWIPE_DX, fy, _PORTAL_SWIPE_DURATION)
+        ctx.device.swipe(fx, fy, fx - dx, fy, _PORTAL_SWIPE_DURATION)
         await SleepOp(0.5).run(ctx)
 
         # Walk W while spamming J to trigger portal interaction
