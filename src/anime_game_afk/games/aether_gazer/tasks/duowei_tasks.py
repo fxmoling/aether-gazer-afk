@@ -38,7 +38,7 @@ def _build_attack_keys(keybinds: dict[str, str] | None = None) -> list[int]:
     if keybinds is None:
         keybinds = {
             "attack": "J", "skill1": "U", "skill2": "I",
-            "skill3": "O", "ultimate": "R", "dodge": "K",
+            "skill3": "O", "ultimate": "R", "dodge": "Space",
         }
     atk = letter_to_vk(keybinds.get("attack", "J"))
     s1 = letter_to_vk(keybinds.get("skill1", "U"))

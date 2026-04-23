@@ -138,7 +138,7 @@ const form = reactive({
     skill2: 'I',
     skill3: 'O',
     ultimate: 'R',
-    dodge: 'K',
+    dodge: 'Space',
   },
 })
 
@@ -197,11 +197,15 @@ async function onAutoUpdateToggle() {
 }
 
 function onKeybindKey(key, event) {
-  const ch = event.key.toUpperCase()
-  if (/^[A-Z0-9]$/.test(ch)) {
-    form.keybinds[key] = ch
-    saveKeybinds()
+  let ch
+  if (event.code === 'Space') {
+    ch = 'Space'
+  } else {
+    ch = event.key.toUpperCase()
+    if (!/^[A-Z0-9]$/.test(ch)) return
   }
+  form.keybinds[key] = ch
+  saveKeybinds()
 }
 
 async function saveKeybinds() {

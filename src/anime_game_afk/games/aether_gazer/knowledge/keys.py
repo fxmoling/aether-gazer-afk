@@ -60,10 +60,13 @@ def key_name(vk: int) -> str:
 
 
 def letter_to_vk(letter: str) -> int:
-    """Convert a single letter (e.g. 'J') to its VK code."""
-    ch = letter.upper()
+    """Convert a key name (e.g. 'J', 'Space') to its VK code."""
+    ch = letter.strip()
+    if ch.lower() == "space":
+        return 0x20
+    ch = ch.upper()
     if len(ch) == 1 and "A" <= ch <= "Z":
         return ord(ch)
     if len(ch) == 1 and "0" <= ch <= "9":
         return ord(ch)
-    raise ValueError(f"Unsupported key letter: {letter!r}")
+    raise ValueError(f"Unsupported key: {letter!r}")
