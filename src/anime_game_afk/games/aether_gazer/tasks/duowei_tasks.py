@@ -285,8 +285,9 @@ class DuoweiCombat:
     # ── Action 2: Setup wizard ──
 
     async def _complete_setup(self, ctx: TaskContext) -> None:
-        """Difficulty(下一步) → Character(下一步) → Beacon(赏金猎人 + 开始挑战)."""
-        # Step 1: Difficulty → 下一步
+        """Difficulty(Lv16) → Character(下一步) → Beacon(赏金猎人 + 开始挑战)."""
+        # Step 1: Select LV16 difficulty, then click 下一步
+        await self._select_difficulty(ctx, target_lv=16)
         await self._ocr_click(ctx, "下一步", "difficulty")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
@@ -298,6 +299,41 @@ class DuoweiCombat:
         await self._select_beacon(ctx)
         await self._ocr_click(ctx, "开始挑战", "beacon start")
         await SleepOp(self._SETUP_WAIT).run(ctx)
+
+    async def _select_difficulty(self, ctx: TaskContext, target_lv: int = 16) -> None:
+        """Scroll difficulty list and click the target LV item."""
+        target_str = f"lv{target_lv}"
+
+        for scroll in range(8):
+            img = ctx.screenshot()
+            ocr = ocr_once(img)
+
+            # Check right panel — if already at target, skip
+            full = " ".join(r.text for r in ocr._items)
+            if f"难度等级：{target_lv}" in full or f"难度等级:{target_lv}" in full:
+                ctx.logger.info(f"[duowei] Already at LV{target_lv}")
+                return
+
+            # Find exact LV match (screenshot is always 1280x720)
+            for item in ocr._items:
+                txt = item.text.strip().lower().replace(" ", "")
+                if txt == target_str:
+                    r = item.region
+                    ctx.device.click(
+                        (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
+                    )
+                    ctx.logger.info(
+                        f"[duowei] Selected LV{target_lv} at ({r.x},{r.y})"
+                    )
+                    await SleepOp(1.0).run(ctx)
+                    return
+
+            # Scroll down to reveal more levels
+            ctx.logger.debug(f"[duowei] LV{target_lv} not visible, scrolling ({scroll + 1}/8)")
+            ctx.device.swipe(0.3, 0.7, 0.3, 0.3, 500)
+            await SleepOp(1.0).run(ctx)
+
+        ctx.logger.warning(f"[duowei] LV{target_lv} not found after scrolling")
 
     async def _ocr_click(self, ctx: TaskContext, text: str, label: str) -> bool:
         """OCR-find text and click its center. Returns True if found."""
