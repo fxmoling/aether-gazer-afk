@@ -20,8 +20,10 @@ from anime_game_afk.runtime.logger import get_logger
 
 logger = get_logger("core.game_finder")
 
-# Desktop path for current user
-_DESKTOP = Path(os.path.expanduser("~/Desktop"))
+# Desktop paths — user desktop + public desktop (game installers often put shortcuts in Public)
+_USER_DESKTOP = Path(os.path.expanduser("~/Desktop"))
+_PUBLIC_DESKTOP = Path("C:/Users/Public/Desktop")
+_DESKTOPS = [_USER_DESKTOP, _PUBLIC_DESKTOP]
 
 
 class GameFinder:
@@ -141,29 +143,29 @@ class GameFinder:
         exe_name: str,
         shortcut_names: list[str],
     ) -> str | None:
-        """Parse .lnk files on the desktop to find the game.
+        """Parse .lnk files on user and public desktops to find the game.
 
         Uses PowerShell WScript.Shell COM to extract shortcut targets.
 
         If a shortcut target points to a directory or a different exe,
         we look for *exe_name* within that directory tree.
         """
-        if not _DESKTOP.exists():
-            return None
-
-        # Collect all .lnk files that might be relevant
+        # Collect all .lnk files from both desktops
         candidate_lnks: list[Path] = []
-        try:
-            for f in _DESKTOP.iterdir():
-                if not f.suffix.lower() == ".lnk":
-                    continue
-                stem_lower = f.stem.lower()
-                for name in shortcut_names:
-                    if name.lower() in stem_lower:
-                        candidate_lnks.append(f)
-                        break
-        except OSError:
-            return None
+        for desktop in _DESKTOPS:
+            if not desktop.exists():
+                continue
+            try:
+                for f in desktop.iterdir():
+                    if not f.suffix.lower() == ".lnk":
+                        continue
+                    stem_lower = f.stem.lower()
+                    for name in shortcut_names:
+                        if name.lower() in stem_lower:
+                            candidate_lnks.append(f)
+                            break
+            except OSError:
+                continue
 
         if not candidate_lnks:
             logger.debug("No matching desktop shortcuts found")
