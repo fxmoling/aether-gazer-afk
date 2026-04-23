@@ -40,7 +40,6 @@ _PORTAL_SWIPE_FROM = (0.55, 0.5)
 _PORTAL_SWIPE_DURATION = 300  # ms
 
 # ── Fixed coordinates (all fractional 0.0–1.0) ──
-_CHALLENGE_TAB = (0.95, 0.92)       # "挑战" tab on hub
 _REWARD_CONFIRM = (0.608, 0.847)    # "确认" overlap zone (92% of single-card btn)
 _SCREEN_CENTER = (0.50, 0.40)       # Center click to select card / dismiss
 
@@ -137,24 +136,12 @@ class DuoweiCombat:
         ocr = ocr_once(img)
         full = " ".join(r.text for r in ocr._items)
 
-        # If inside arena, exit first
-        if "当前关卡" in full or "击退" in full:
-            ctx.logger.info("[duowei] Inside arena, exiting first")
-            await self._exit_and_settle(ctx)
-            img = ctx.screenshot()
-            ocr = ocr_once(img)
-            full = " ".join(r.text for r in ocr._items)
-
-        # Already in setup wizard (difficulty/character/beacon page)
-        if "难度选择" in full or "修正者选择" in full or "信标选择" in full:
-            ctx.logger.info("[duowei] Already in setup wizard, skipping nav")
-            return True
-
-        # Already on 多维变量 page
-        if "多维" in full and ("开始挑战" in full or "继续挑战" in full):
+        # Already on 多维变量 detail page (has unique "记忆珍宝图鉴" text)
+        if "记忆珍宝图鉴" in full:
+            ctx.logger.info("[duowei] Already on 多维变量 page")
             return await self._click_start_or_continue(ctx, ocr, full)
 
-        # Return to hub first (handles any unknown starting page)
+        # Any other page: return to hub → battle page → challenge tab
         ctx.logger.info("[duowei] Returning to hub first")
         hub = ReturnToHub()
         await hub.execute(ctx)

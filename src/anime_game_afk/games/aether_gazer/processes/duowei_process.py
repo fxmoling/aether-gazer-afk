@@ -18,12 +18,8 @@ from anime_game_afk.games.aether_gazer.tasks.duowei_tasks import DuoweiCombat
 class DuoweiProcess:
     """Repeatedly run 多维变量 challenges for score accumulation.
 
-    Part A (once):  navigate to 多维变量 page
-    Part B (loop):  run DuoweiCombat task, repeat until stopped
-
-    Error recovery:
-    - Single failure → attempt exit, continue next cycle
-    - 3 consecutive failures → stop and report
+    Each cycle runs DuoweiCombat (navigate → setup → fight → exit).
+    Loops indefinitely until user stops or 3 consecutive failures.
     """
 
     name = "多维变量挑战"
