@@ -2,23 +2,6 @@
   <div class="tasks-view">
     <ConnectionBar />
 
-    <!-- Usage tips banner -->
-    <div class="tips-banner" v-if="showTips">
-      <div class="tips-header">
-        <span class="tips-icon">⚠</span>
-        <span class="tips-title">使用须知</span>
-        <button class="tips-close" @click="dismissTips">收起</button>
-      </div>
-      <ul class="tips-list">
-        <li>游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）</li>
-        <li>操控模式选择「<b>键盘</b>」，不要使用键鼠模式</li>
-        <li>如修改了战斗快捷键，请在<b>设置 → 战斗按键</b>中同步配置</li>
-      </ul>
-    </div>
-    <div class="tips-collapsed" v-else @click="showTips = true; saveTips()">
-      <span class="tips-icon">⚠</span> 使用须知（点击展开）
-    </div>
-
     <!-- Pipeline selector -->
     <div class="pipeline-bar">
       <label>流程</label>
@@ -32,6 +15,26 @@
     <!-- Pipeline description -->
     <div v-if="selectedPipeline" class="pipeline-desc">
       {{ selectedPipeline.description }}
+    </div>
+
+    <!-- Usage tips banner (content varies by pipeline) -->
+    <div class="tips-banner" v-if="showTips && currentTips.length">
+      <div class="tips-header">
+        <div class="tips-header-left">
+          <span class="tips-icon">⚠️</span>
+          <span class="tips-title">使用须知</span>
+        </div>
+        <button class="tips-close" @click="dismissTips">收起 ▲</button>
+      </div>
+      <div class="tips-items">
+        <div class="tips-item" v-for="(tip, i) in currentTips" :key="i">
+          <span class="tips-emoji">{{ tip.icon }}</span>
+          <span class="tips-text" v-html="tip.text"></span>
+        </div>
+      </div>
+    </div>
+    <div class="tips-collapsed" v-else-if="currentTips.length" @click="showTips = true; saveTips()">
+      <span class="tips-icon">⚠️</span> 使用须知（点击展开）
     </div>
 
     <!-- Progress section -->
@@ -81,6 +84,23 @@ function saveTips() {
   localStorage.setItem('tips_dismissed', showTips.value ? 'false' : 'true')
 }
 
+const tipsByPipeline = {
+  daily_routine: [
+    { icon: '🖥', text: '游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）' },
+  ],
+  duowei_challenge: [
+    { icon: '🖥', text: '游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）' },
+    { icon: '⌨️', text: '操控模式选择「<b>键盘</b>」，不要使用键鼠模式' },
+    { icon: '⚙️', text: '如修改了战斗快捷键，请在<b>设置 → 战斗按键</b>中同步配置' },
+    { icon: '🔓', text: '确保至少已经解锁难度 <b>Lv16</b>' },
+  ],
+}
+
+const currentTips = computed(() => {
+  const id = state.selectedPipelineId
+  return tipsByPipeline[id] || tipsByPipeline.daily_routine || []
+})
+
 const currentTasks = computed(() =>
   selectedPipeline.value ? selectedPipeline.value.tasks : []
 )
@@ -105,65 +125,80 @@ const progressPct = computed(() =>
 /* Tips banner */
 .tips-banner {
   margin: 8px 12px 0;
-  padding: 10px 14px;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
 }
 
 .tips-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tips-header-left {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
 }
 
 .tips-icon {
-  font-size: 14px;
-  color: #f59e0b;
+  font-size: 15px;
 }
 
 .tips-title {
   font-size: 12px;
   font-weight: 600;
-  color: #f59e0b;
-  flex: 1;
+  color: #f5a623;
 }
 
 .tips-close {
   background: none;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: rgba(245, 158, 11, 0.7);
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  border: none;
+  color: rgba(245, 158, 11, 0.5);
+  font-size: 10px;
   cursor: pointer;
+  padding: 2px 4px;
 }
 
 .tips-close:hover {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  color: #f5a623;
 }
 
-.tips-list {
-  margin: 0;
-  padding: 0 0 0 18px;
-  list-style: disc;
+.tips-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 2px;
 }
 
-.tips-list li {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.7;
+.tips-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.tips-list b {
-  color: rgba(255, 255, 255, 0.8);
+.tips-emoji {
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.tips-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.tips-text :deep(b) {
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
 }
 
 .tips-collapsed {
-  padding: 6px 20px;
+  padding: 6px 16px;
   font-size: 11px;
   color: rgba(245, 158, 11, 0.5);
   cursor: pointer;
@@ -171,7 +206,7 @@ const progressPct = computed(() =>
 }
 
 .tips-collapsed:hover {
-  color: #f59e0b;
+  color: #f5a623;
   background: rgba(245, 158, 11, 0.05);
 }
 
