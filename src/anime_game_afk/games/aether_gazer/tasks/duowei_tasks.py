@@ -375,10 +375,12 @@ class DuoweiCombat:
         ctx.device.hold_key(VK_S, 4.0)
         await SleepOp(0.3).run(ctx)
 
+        # Fallback rotation per step: ~45° (scaled by resolution)
+        fallback_dx = 0.025 * _PORTAL_SWIPE_REF_WIDTH / actual_w
+
         for angle in range(8):
             ctx.logger.debug(f"[duowei] Scan angle {angle}/8")
-            # Small swipe rotation per step
-            ctx.device.swipe(fx, fy, fx - 0.025, fy, _PORTAL_SWIPE_DURATION)
+            ctx.device.swipe(fx, fy, fx - fallback_dx, fy, _PORTAL_SWIPE_DURATION)
             await SleepOp(0.3).run(ctx)
 
             for step in range(8):
