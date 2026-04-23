@@ -300,19 +300,22 @@ class DuoweiCombat:
         await self._ocr_click(ctx, "开始挑战", "beacon start")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
-    async def _select_difficulty(self, ctx: TaskContext, target_lv: int = 16) -> None:
-        """Scroll difficulty list and click the target LV item."""
+    async def _select_difficulty(self, ctx: TaskContext, target_lv: int = 16) -> bool:
+        """Scroll difficulty list and click the target LV item.
+
+        Returns True if target difficulty is confirmed selected.
+        """
         target_str = f"lv{target_lv}"
 
         for scroll in range(8):
             img = ctx.screenshot()
             ocr = ocr_once(img)
 
-            # Check right panel — if already at target, skip
+            # Check right panel — if already at target, done
             full = " ".join(r.text for r in ocr._items)
             if f"难度等级：{target_lv}" in full or f"难度等级:{target_lv}" in full:
                 ctx.logger.info(f"[duowei] Already at LV{target_lv}")
-                return
+                return True
 
             # Find exact LV match (screenshot is always 1280x720)
             for item in ocr._items:
@@ -323,10 +326,24 @@ class DuoweiCombat:
                         (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
                     )
                     ctx.logger.info(
-                        f"[duowei] Selected LV{target_lv} at ({r.x},{r.y})"
+                        f"[duowei] Clicked LV{target_lv} at ({r.x},{r.y})"
                     )
                     await SleepOp(1.0).run(ctx)
-                    return
+
+                    # Verify selection via right panel
+                    img2 = ctx.screenshot()
+                    ocr2 = ocr_once(img2)
+                    full2 = " ".join(r.text for r in ocr2._items)
+                    if f"难度等级：{target_lv}" in full2 or f"难度等级:{target_lv}" in full2:
+                        ctx.logger.info(f"[duowei] LV{target_lv} confirmed")
+                        return True
+
+                    # May be locked or wrong level selected
+                    ctx.logger.warning(
+                        f"[duowei] Clicked LV{target_lv} but panel shows different level "
+                        "(may be locked)"
+                    )
+                    return False
 
             # Scroll down to reveal more levels
             ctx.logger.debug(f"[duowei] LV{target_lv} not visible, scrolling ({scroll + 1}/8)")
@@ -334,6 +351,7 @@ class DuoweiCombat:
             await SleepOp(1.0).run(ctx)
 
         ctx.logger.warning(f"[duowei] LV{target_lv} not found after scrolling")
+        return False
 
     async def _ocr_click(self, ctx: TaskContext, text: str, label: str) -> bool:
         """OCR-find text and click its center. Returns True if found."""
