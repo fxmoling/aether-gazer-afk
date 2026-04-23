@@ -2,6 +2,24 @@
   <div class="tasks-view">
     <ConnectionBar />
 
+    <!-- Usage tips banner -->
+    <div class="tips-banner" v-if="showTips">
+      <div class="tips-header">
+        <span class="tips-icon">⚠</span>
+        <span class="tips-title">使用须知</span>
+        <button class="tips-close" @click="dismissTips">收起</button>
+      </div>
+      <ul class="tips-list">
+        <li>游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）</li>
+        <li>操控模式选择「<b>键盘</b>」，不要使用键鼠模式</li>
+        <li>关闭<b>异形屏适配</b>（设置 → 画面）</li>
+        <li>战斗快捷键保持<b>默认设置</b>，勿自定义键位</li>
+      </ul>
+    </div>
+    <div class="tips-collapsed" v-else @click="showTips = true; saveTips()">
+      <span class="tips-icon">⚠</span> 使用须知（点击展开）
+    </div>
+
     <!-- Pipeline selector -->
     <div class="pipeline-bar">
       <label>流程</label>
@@ -42,11 +60,27 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ConnectionBar from '../components/ConnectionBar.vue'
 import TaskList from '../components/TaskList.vue'
 import ControlBar from '../components/ControlBar.vue'
 import { state, selectedPipeline, selectPipeline } from '../composables/useStore'
+
+const showTips = ref(true)
+
+onMounted(() => {
+  const saved = localStorage.getItem('tips_dismissed')
+  if (saved === 'true') showTips.value = false
+})
+
+function dismissTips() {
+  showTips.value = false
+  saveTips()
+}
+
+function saveTips() {
+  localStorage.setItem('tips_dismissed', showTips.value ? 'false' : 'true')
+}
 
 const currentTasks = computed(() =>
   selectedPipeline.value ? selectedPipeline.value.tasks : []
@@ -67,6 +101,79 @@ const progressPct = computed(() =>
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+}
+
+/* Tips banner */
+.tips-banner {
+  margin: 8px 12px 0;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+}
+
+.tips-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tips-icon {
+  font-size: 14px;
+  color: #f59e0b;
+}
+
+.tips-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f59e0b;
+  flex: 1;
+}
+
+.tips-close {
+  background: none;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: rgba(245, 158, 11, 0.7);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tips-close:hover {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.tips-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  list-style: disc;
+}
+
+.tips-list li {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.7;
+}
+
+.tips-list b {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.tips-collapsed {
+  padding: 6px 20px;
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.5);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.tips-collapsed:hover {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
 }
 
 .pipeline-bar {
