@@ -371,7 +371,8 @@ def find_aether_gazer(
     game_exe = finder.find_game_exe(
         exe_name="AetherGazer.exe",
         keywords=["shenkongzhiyan", "AetherGazer", "深空之眼",
-                  "AetherGazerLauncher", "AetherGazerLauncher_Bili"],
+                  "AetherGazerLauncher", "AetherGazerLauncher_Bili",
+                  "AetherGazer_Bili"],
         shortcut_names=["深空之眼", "AetherGazer"],
         search_drives=drives,
     )
@@ -381,14 +382,22 @@ def find_aether_gazer(
     if game_exe:
         game_dir = Path(game_exe).parent
         # Launcher is typically one level up from the game exe
-        launcher_candidate = game_dir.parent / "AetherGazerLauncher.exe"
-        if launcher_candidate.exists():
-            launcher = str(launcher_candidate)
-        else:
-            # Search nearby
+        # Try both official and Bili launcher names
+        for launcher_name in ("AetherGazerLauncher.exe",
+                              "AetherGazerLauncher_Bili.exe"):
+            launcher_candidate = game_dir.parent / launcher_name
+            if launcher_candidate.exists():
+                launcher = str(launcher_candidate)
+                break
+        if not launcher:
+            # Search nearby for any launcher
             launcher = GameFinder._search_directory_for_exe(
                 game_dir.parent, "AetherGazerLauncher.exe", max_depth=2
             )
+            if not launcher:
+                launcher = GameFinder._search_directory_for_exe(
+                    game_dir.parent, "AetherGazerLauncher_Bili.exe", max_depth=2
+                )
 
     return {
         "game_exe": game_exe,
