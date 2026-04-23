@@ -93,11 +93,25 @@ class BasicAttackCycle:
 | Screen center | (0.50, 0.40) | Card select / dismiss |
 | Reward confirm | (0.608, 0.847) | Overlap zone single/multi |
 | Settlement 退出 | (0.901, 0.931) | Fixed on result screen |
-| Portal swipe | dx=0.02 from (0.55, 0.5) | Calibrated for 1-1→1-2 |
-| Challenge tab | (0.95, 0.92) | Hub navigation |
+| Portal swipe | dx=0.02×1280/actual_w | Resolution-scaled for 1-1→1-2 |
+| Challenge tab | (0.83, 0.9) | Battle page → 挑战 tab |
+
+## Combat Keybinds
+
+Configurable via Settings → 战斗按键. Stored in `user_config.json`.
+
+| Role | Default | Config key |
+|------|---------|------------|
+| Attack | J | attack |
+| Skill 1 | U | skill1 |
+| Skill 2 | I | skill2 |
+| Skill 3 | O | skill3 |
+| Ultimate | R | ultimate |
+| Dodge | Space | dodge |
 
 ## Files
 
-- `src/.../tasks/duowei_tasks.py` — DuoweiCombat task + CombatStrategy
-- `src/.../processes/duowei_process.py` — DuoweiProcess (new)
+- `src/.../tasks/duowei_tasks.py` — DuoweiCombat task with configurable keybinds
+- `src/.../processes/duowei_process.py` — DuoweiProcess (infinite loop)
+- `src/.../config/user_config.py` — combat_keybinds config
 - `scripts/duowei_runner.py` — E2E test wrapper

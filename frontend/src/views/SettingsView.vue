@@ -139,6 +139,8 @@ const form = reactive({
     skill3: 'O',
     ultimate: 'R',
     dodge: 'Space',
+    qte1: '1',
+    qte2: '2',
   },
 })
 
@@ -157,6 +159,8 @@ const keybindLabels = {
   skill3: '技能3',
   ultimate: '大招',
   dodge: '闪避',
+  qte1: 'QTE1',
+  qte2: 'QTE2',
 }
 
 onMounted(async () => {

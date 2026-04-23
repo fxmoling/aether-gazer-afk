@@ -39,13 +39,16 @@ def _build_attack_keys(keybinds: dict[str, str] | None = None) -> list[int]:
         keybinds = {
             "attack": "J", "skill1": "U", "skill2": "I",
             "skill3": "O", "ultimate": "R", "dodge": "Space",
+            "qte1": "1", "qte2": "2",
         }
     atk = letter_to_vk(keybinds.get("attack", "J"))
     s1 = letter_to_vk(keybinds.get("skill1", "U"))
     s2 = letter_to_vk(keybinds.get("skill2", "I"))
     s3 = letter_to_vk(keybinds.get("skill3", "O"))
     ult = letter_to_vk(keybinds.get("ultimate", "R"))
-    return [atk, atk, s1, atk, s2, atk, s3, ult, VK_1, VK_2]
+    q1 = letter_to_vk(keybinds.get("qte1", "1"))
+    q2 = letter_to_vk(keybinds.get("qte2", "2"))
+    return [atk, atk, s1, atk, s2, atk, s3, ult, q1, q2]
 
 # ── Camera rotation (fractional, resolution-scaled) ──
 # Base swipe dx calibrated at 1280x720. Same fractional dx produces more
