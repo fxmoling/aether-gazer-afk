@@ -64,65 +64,85 @@ class MediumSeizureCombat:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        # Step 1: Ensure at hub
-        await WakeHubUiAction().run(ctx)
-        await ReturnToHubAction().run(ctx)
-        await SleepOp(0.5).run(ctx)
-
-        # Step 2: Navigate to 介质攫取 interior
-        nav_ok = await self._navigate_to_interior(ctx)
-        if not nav_ok:
-            return TaskResult(status="failed", message="Navigation to 介质攫取 failed")
-
-        # Step 2.5: Check if all weekly rewards already claimed
-        needs_battle = await self._check_rewards_incomplete(ctx)
-        if not needs_battle:
-            ctx.logger.info("[medium_seizure] All rewards claimed, skipping battle")
-            await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+        ctx.logger.info("=== MediumSeizureCombat: starting ===")
+        try:
+            # Step 1: Ensure at hub
+            ctx.logger.info("[Step 1] Ensure at hub (wake + return)")
+            await WakeHubUiAction().run(ctx)
             await ReturnToHubAction().run(ctx)
-            return TaskResult(
-                status="skipped", message="本周奖励已领取完"
-            )
+            await SleepOp(0.5).run(ctx)
 
-        # Step 3: Start challenge
-        ctx.logger.info("[medium_seizure] Clicking 开始挑战")
-        await ClickOp(*self._START_CHALLENGE, wait=1.5).run(ctx)
-
-        # Step 4: Enter battle (press Enter on team/stage detail)
-        await PressKeyOp(VK_ENTER, wait=3.0).run(ctx)
-
-        # Step 5: Passive battle wait
-        battle_result = await self._wait_for_battle_end(ctx)
-        if battle_result != "success":
-            return TaskResult(status="failed", message=f"Battle {battle_result}")
-
-        # Step 6: After battle ends, navigate back to interior for rewards
-        await SleepOp(2.0).run(ctx)
-        # Battle completion may return us to interior or a results screen.
-        # Press Enter/ESC to dismiss any results, then re-navigate if needed.
-        await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
-        await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
-
-        # Check if we're back at interior
-        interior_ok = await self._verify_interior(ctx)
-        if not interior_ok:
-            # Try navigating back from hub
-            ctx.logger.info("[medium_seizure] Not at interior, re-navigating")
-            await ReturnToHubAction().run(ctx)
+            # Step 2: Navigate to 介质攫取 interior
+            ctx.logger.info("[Step 2] Navigate to 介质攫取 interior")
             nav_ok = await self._navigate_to_interior(ctx)
             if not nav_ok:
+                ctx.logger.error("[Step 2] FAILED: navigation to 介质攫取")
+                return TaskResult(status="failed", message="Navigation to 介质攫取 failed")
+
+            # Step 2.5: Check if all weekly rewards already claimed
+            ctx.logger.info("[Step 2.5] Check if weekly rewards already claimed")
+            needs_battle = await self._check_rewards_incomplete(ctx)
+            if not needs_battle:
+                ctx.logger.info("[medium_seizure] All rewards claimed, skipping battle")
+                await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+                await ReturnToHubAction().run(ctx)
+                ctx.logger.info("=== MediumSeizureCombat: completed (skipped) ===")
                 return TaskResult(
-                    status="failed", message="Cannot re-navigate to interior for rewards"
+                    status="skipped", message="本周奖励已领取完"
                 )
 
-        # Step 7: Claim rewards
-        await self._claim_rewards(ctx)
+            # Step 3: Start challenge
+            ctx.logger.info("[Step 3] Clicking 开始挑战")
+            ctx.logger.info("[medium_seizure] Clicking 开始挑战")
+            await ClickOp(*self._START_CHALLENGE, wait=1.5).run(ctx)
 
-        # Step 8: Return to hub
-        await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
-        await ReturnToHubAction().run(ctx)
+            # Step 4: Enter battle (press Enter on team/stage detail)
+            ctx.logger.info("[Step 4] Enter battle — pressing Enter")
+            await PressKeyOp(VK_ENTER, wait=3.0).run(ctx)
 
-        return TaskResult(status="success", message="介质攫取 complete")
+            # Step 5: Passive battle wait
+            ctx.logger.info("[Step 5] Waiting for battle to end")
+            battle_result = await self._wait_for_battle_end(ctx)
+            ctx.logger.info(f"[Step 5] Battle result: {battle_result}")
+            if battle_result != "success":
+                ctx.logger.error(f"[Step 5] FAILED: battle {battle_result}")
+                return TaskResult(status="failed", message=f"Battle {battle_result}")
+
+            # Step 6: After battle ends, navigate back to interior for rewards
+            ctx.logger.info("[Step 6] Dismissing post-battle screens")
+            await SleepOp(2.0).run(ctx)
+            # Battle completion may return us to interior or a results screen.
+            # Press Enter/ESC to dismiss any results, then re-navigate if needed.
+            await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
+            await PressKeyOp(VK_ENTER, wait=1.0).run(ctx)
+
+            # Check if we're back at interior
+            interior_ok = await self._verify_interior(ctx)
+            if not interior_ok:
+                # Try navigating back from hub
+                ctx.logger.info("[medium_seizure] Not at interior, re-navigating")
+                await ReturnToHubAction().run(ctx)
+                nav_ok = await self._navigate_to_interior(ctx)
+                if not nav_ok:
+                    ctx.logger.error("[Step 6] FAILED: cannot re-navigate to interior")
+                    return TaskResult(
+                        status="failed", message="Cannot re-navigate to interior for rewards"
+                    )
+
+            # Step 7: Claim rewards
+            ctx.logger.info("[Step 7] Claiming rewards")
+            await self._claim_rewards(ctx)
+
+            # Step 8: Return to hub
+            ctx.logger.info("[Step 8] Return to hub")
+            await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+            await ReturnToHubAction().run(ctx)
+
+            ctx.logger.info("=== MediumSeizureCombat: completed successfully ===")
+            return TaskResult(status="success", message="介质攫取 complete")
+        except Exception as exc:
+            ctx.logger.error(f"=== MediumSeizureCombat: failed — {exc} ===")
+            raise
 
     async def _navigate_to_interior(self, ctx: TaskContext) -> bool:
         """Hub → 前往作战 → 刻印 tab → 介质攫取 node → interior page."""

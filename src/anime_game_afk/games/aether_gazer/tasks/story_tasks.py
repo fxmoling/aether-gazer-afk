@@ -28,19 +28,26 @@ class NavigateToChapter:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        if self._chapter <= 0:
-            # Default: stay at current chapter
-            return TaskResult(status="success", data={"chapter": 0})
+        ctx.logger.info(f"=== NavigateToChapter: starting (chapter={self._chapter}) ===")
+        try:
+            if self._chapter <= 0:
+                ctx.logger.info("[step] chapter_index <= 0, staying at current chapter")
+                return TaskResult(status="success", data={"chapter": 0})
 
-        # Chapter entries stacked vertically; fractional Y position
-        # based on original 1600×900 reference: y_px = 200 + chapter * 80
-        target_y = (200 + self._chapter * _CHAPTER_ROW_HEIGHT) / 900
-        await ClickOp(x=0.5, y=target_y, wait=1.5).run(ctx)
+            # Chapter entries stacked vertically; fractional Y position
+            # based on original 1600×900 reference: y_px = 200 + chapter * 80
+            target_y = (200 + self._chapter * _CHAPTER_ROW_HEIGHT) / 900
+            ctx.logger.debug(f"[step] computed target_y={target_y:.3f} for chapter {self._chapter}")
+            await ClickOp(x=0.5, y=target_y, wait=1.5).run(ctx)
 
-        ctx.logger.info(f"Navigated to chapter index {self._chapter}")
-        return TaskResult(
-            status="success", data={"chapter": self._chapter}
-        )
+            ctx.logger.info(f"Navigated to chapter index {self._chapter}")
+            ctx.logger.info("=== NavigateToChapter: completed successfully ===")
+            return TaskResult(
+                status="success", data={"chapter": self._chapter}
+            )
+        except Exception as exc:
+            ctx.logger.error(f"=== NavigateToChapter: failed — {exc} ===")
+            raise
 
 
 class SelectLatestStage:
@@ -56,12 +63,19 @@ class SelectLatestStage:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        # The latest stage entry is typically highlighted/marked differently.
-        # Click the currently active stage, which tends to be near the center
-        # of the stage list column.
-        await ClickOp(x=0.333, y=0.5, wait=2.0).run(ctx)   # Active stage area (533,450 @ 1600x900, center-left)
+        ctx.logger.info("=== SelectLatestStage: starting ===")
+        try:
+            # The latest stage entry is typically highlighted/marked differently.
+            # Click the currently active stage, which tends to be near the center
+            # of the stage list column.
+            ctx.logger.debug("[step] clicking active stage area at (0.333, 0.5)")
+            await ClickOp(x=0.333, y=0.5, wait=2.0).run(ctx)   # Active stage area (533,450 @ 1600x900, center-left)
 
-        ctx.logger.info("Selected latest/active stage")
-        return TaskResult(
-            status="success", data={"action": "stage_selected"}
-        )
+            ctx.logger.info("Selected latest/active stage")
+            ctx.logger.info("=== SelectLatestStage: completed successfully ===")
+            return TaskResult(
+                status="success", data={"action": "stage_selected"}
+            )
+        except Exception as exc:
+            ctx.logger.error(f"=== SelectLatestStage: failed — {exc} ===")
+            raise

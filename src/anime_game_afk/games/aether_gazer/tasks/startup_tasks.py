@@ -68,48 +68,59 @@ class SkipStartupPopups:
         
         Only called when game was freshly launched (has startup popups).
         """
+        ctx.logger.info("=== SkipStartupPopups: starting ===")
         ctx.logger.info("  [startup] Dismissing startup popups")
 
-        for attempt in range(self._max_attempts):
-            # ── Hub check with double-confirm ──
-            on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
-            if on_hub.passed:
-                await SleepOp(seconds=0.5).run(ctx)
-                confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
-                if confirm.passed:
-                    ctx.logger.info(
-                        f"  [startup] Hub confirmed after {attempt} attempts"
-                    )
-                    return TaskResult(
-                        status="success",
-                        message=f"Hub reached after {attempt} attempts",
-                        data={"attempts": attempt},
-                    )
+        try:
+            for attempt in range(self._max_attempts):
+                # ── Hub check with double-confirm ──
+                on_hub = await OnPageCheck(page="main_hub").evaluate(ctx)
+                if on_hub.passed:
+                    ctx.logger.debug(f"  [startup] attempt {attempt}: hub detected, confirming")
+                    await SleepOp(seconds=0.5).run(ctx)
+                    confirm = await OnPageCheck(page="main_hub").evaluate(ctx)
+                    if confirm.passed:
+                        ctx.logger.info(
+                            f"  [startup] Hub confirmed after {attempt} attempts"
+                        )
+                        ctx.logger.info("=== SkipStartupPopups: completed successfully ===")
+                        return TaskResult(
+                            status="success",
+                            message=f"Hub reached after {attempt} attempts",
+                            data={"attempts": attempt},
+                        )
 
-            # ── Exit dialog — ESC to cancel ──
-            r = await OcrScanCheck().evaluate(ctx)
-            ocr = r.data if r.passed else None
-            if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
-                await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
-                continue
+                # ── Exit dialog — ESC to cancel ──
+                r = await OcrScanCheck().evaluate(ctx)
+                ocr = r.data if r.passed else None
+                if ocr and (ocr.has("退出游戏") or ocr.has("是否退出")):
+                    ctx.logger.info(f"  [startup] attempt {attempt}: exit dialog detected, pressing ESC")
+                    await PressKeyOp(key=VK_ESCAPE, wait=1.0).run(ctx)
+                    continue
 
-            # ── Rapid click blank area to dismiss popups ──
-            await RapidClickAction(
-                x=0.4, y=0.05, times=5, interval=0.15,
-            ).run(ctx)
+                # ── Rapid click blank area to dismiss popups ──
+                ctx.logger.debug(f"  [startup] attempt {attempt}: rapid-clicking to dismiss popups")
+                await RapidClickAction(
+                    x=0.4, y=0.05, times=5, interval=0.15,
+                ).run(ctx)
 
-        # Max attempts exceeded — final check
-        ctx.logger.warning(
-            f"  [startup] Max attempts ({self._max_attempts}) reached"
-        )
-        hub_result = await AtHubCheck().evaluate(ctx)
-        if hub_result.passed:
-            return TaskResult(status="success", message="Hub found at final check")
+            # Max attempts exceeded — final check
+            ctx.logger.warning(
+                f"  [startup] Max attempts ({self._max_attempts}) reached"
+            )
+            hub_result = await AtHubCheck().evaluate(ctx)
+            if hub_result.passed:
+                ctx.logger.info("=== SkipStartupPopups: completed (final check) ===")
+                return TaskResult(status="success", message="Hub found at final check")
 
-        return TaskResult(
-            status="failed",
-            message=f"Could not reach hub after {self._max_attempts} attempts",
-        )
+            ctx.logger.error("=== SkipStartupPopups: failed — hub not reached ===")
+            return TaskResult(
+                status="failed",
+                message=f"Could not reach hub after {self._max_attempts} attempts",
+            )
+        except Exception as exc:
+            ctx.logger.error(f"=== SkipStartupPopups: failed — {exc} ===")
+            raise
 
 
 class LaunchAndReachHub:
@@ -140,8 +151,15 @@ class LaunchAndReachHub:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
+        ctx.logger.info("=== LaunchAndReachHub: starting ===")
         ctx.logger.info("=== LaunchAndReachHub: Phase 2 — skip popups ===")
-        return await self._skip_popups.execute(ctx)
+        try:
+            result = await self._skip_popups.execute(ctx)
+            ctx.logger.info(f"=== LaunchAndReachHub: finished (status={result.status}) ===")
+            return result
+        except Exception as exc:
+            ctx.logger.error(f"=== LaunchAndReachHub: failed — {exc} ===")
+            raise
 
 
 def ensure_game_running(

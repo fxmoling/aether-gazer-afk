@@ -28,27 +28,37 @@ class CheckAndRefillStamina:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        # Read current stamina from shared state (populated by a perception op
-        # earlier in the process, or default to cap if unavailable).
-        current = ctx.state.get("stamina", STAMINA_CAP)
+        ctx.logger.info("=== CheckAndRefillStamina: starting ===")
+        try:
+            # Read current stamina from shared state (populated by a perception op
+            # earlier in the process, or default to cap if unavailable).
+            current = ctx.state.get("stamina", STAMINA_CAP)
+            ctx.logger.debug(
+                f"[step] threshold={self._threshold}, current={current}, cap={STAMINA_CAP}"
+            )
 
-        if current >= self._threshold:
+            if current >= self._threshold:
+                ctx.logger.info(
+                    f"Stamina sufficient ({current}/{STAMINA_CAP}), skipping refill"
+                )
+                ctx.logger.info("=== CheckAndRefillStamina: completed (skipped) ===")
+                return TaskResult(
+                    status="skipped",
+                    message=f"Stamina {current} >= threshold {self._threshold}",
+                    data={"stamina": current},
+                )
+
             ctx.logger.info(
-                f"Stamina sufficient ({current}/{STAMINA_CAP}), skipping refill"
+                f"Stamina low ({current}/{STAMINA_CAP}), initiating refill"
             )
+            # Placeholder: actual stamina-pack usage would be implemented here
+            # once a dedicated UseStaminaPack op exists.
+            ctx.logger.info("=== CheckAndRefillStamina: completed successfully ===")
             return TaskResult(
-                status="skipped",
-                message=f"Stamina {current} >= threshold {self._threshold}",
-                data={"stamina": current},
+                status="success",
+                message="Stamina refill queued",
+                data={"stamina_before": current},
             )
-
-        ctx.logger.info(
-            f"Stamina low ({current}/{STAMINA_CAP}), initiating refill"
-        )
-        # Placeholder: actual stamina-pack usage would be implemented here
-        # once a dedicated UseStaminaPack op exists.
-        return TaskResult(
-            status="success",
-            message="Stamina refill queued",
-            data={"stamina_before": current},
-        )
+        except Exception as exc:
+            ctx.logger.error(f"=== CheckAndRefillStamina: failed — {exc} ===")
+            raise

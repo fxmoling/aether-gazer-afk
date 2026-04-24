@@ -23,8 +23,15 @@ class ReturnToHub:
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
-        op = ReturnToHubAction()
-        result = await op.run(ctx)
-        if result.success:
-            return TaskResult(status="success")
-        return TaskResult(status="failed", message="Could not return to hub")
+        ctx.logger.info("=== ReturnToHub: starting ===")
+        try:
+            op = ReturnToHubAction()
+            result = await op.run(ctx)
+            if result.success:
+                ctx.logger.info("=== ReturnToHub: completed successfully ===")
+                return TaskResult(status="success")
+            ctx.logger.warning("=== ReturnToHub: failed — could not return to hub ===")
+            return TaskResult(status="failed", message="Could not return to hub")
+        except Exception as exc:
+            ctx.logger.error(f"=== ReturnToHub: failed — {exc} ===")
+            raise
