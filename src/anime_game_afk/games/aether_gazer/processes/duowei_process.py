@@ -8,6 +8,8 @@ portal to 1-2 → fight → reward → ESC+H exit → repeat.
 """
 from __future__ import annotations
 
+import time
+
 from anime_game_afk.games.aether_gazer.processes.base import (
     ProcessContext,
     ProcessResult,
@@ -35,13 +37,16 @@ class DuoweiProcess:
 
         ctx.logger.info("=== DuoweiProcess: starting ===")
 
+        process_t0 = time.monotonic()
         # Infinite loop — each cycle handles its own navigation
         cycle = 0
+        stop_reason = "user_stop"
         while True:
             cycle += 1
             ctx.logger.info(
                 f"=== DuoweiProcess: cycle {cycle} "
-                f"(done={completed}, fail={failed}) ==="
+                f"(done={completed}, fail={failed}, "
+                f"consec_fail={consecutive_failures}) ==="
             )
             ctx.notify_task(
                 "duowei_combat",
@@ -49,7 +54,9 @@ class DuoweiProcess:
                 f"Cycle {cycle}",
             )
 
+            cycle_t0 = time.monotonic()
             result = await task.execute(ctx)
+            cycle_elapsed = time.monotonic() - cycle_t0
 
             if result.status == "success":
                 completed += 1
@@ -60,7 +67,8 @@ class DuoweiProcess:
                     f"Cycle {cycle}: {result.message}",
                 )
                 ctx.logger.info(
-                    f"[duowei-process] Cycle {cycle} success: {result.message}"
+                    f"[duowei-process] Cycle {cycle} success: "
+                    f"{result.message} ({cycle_elapsed:.1f}s)"
                 )
             else:
                 failed += 1
@@ -71,19 +79,26 @@ class DuoweiProcess:
                     f"Cycle {cycle}: {result.message}",
                 )
                 ctx.logger.warning(
-                    f"[duowei-process] Cycle {cycle} failed: {result.message}"
+                    f"[duowei-process] Cycle {cycle} failed: "
+                    f"{result.message} ({cycle_elapsed:.1f}s) "
+                    f"[consecutive_failures={consecutive_failures}/"
+                    f"{self._MAX_CONSECUTIVE_FAILURES}]"
                 )
 
                 if consecutive_failures >= self._MAX_CONSECUTIVE_FAILURES:
+                    stop_reason = (
+                        f"{self._MAX_CONSECUTIVE_FAILURES} consecutive failures"
+                    )
                     ctx.logger.error(
-                        f"[duowei-process] {self._MAX_CONSECUTIVE_FAILURES} "
-                        "consecutive failures, stopping"
+                        f"[duowei-process] Stopping: {stop_reason}"
                     )
                     break
 
+        total_elapsed = time.monotonic() - process_t0
         ctx.logger.info(
-            f"=== DuoweiProcess: stopped "
-            f"(completed={completed}, failed={failed}) ==="
+            f"=== DuoweiProcess: stopped — reason={stop_reason} "
+            f"(completed={completed}, failed={failed}) "
+            f"total_time={total_elapsed:.1f}s ==="
         )
         return ProcessResult(
             status="success" if completed > 0 else "failed",

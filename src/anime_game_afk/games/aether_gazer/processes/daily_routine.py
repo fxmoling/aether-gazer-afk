@@ -18,6 +18,7 @@ Task order:
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from anime_game_afk.games.aether_gazer.tasks.navigation_tasks import ReturnToHub
@@ -108,6 +109,14 @@ class DailyRoutine:
 
         ctx.logger.info("=== DailyRoutine: starting ===")
 
+        # Log full task list: enabled vs disabled
+        for task_id, _cls, display, _safe in _DAILY_TASKS:
+            if enabled_tasks is not None and task_id not in enabled_tasks:
+                ctx.logger.info(f"  task plan: {task_id} ({display}) — DISABLED")
+            else:
+                ctx.logger.info(f"  task plan: {task_id} ({display}) — enabled")
+
+        routine_t0 = time.monotonic()
         total = len(_DAILY_TASKS)
         for i, (task_id, task_cls, _display, _safe) in enumerate(_DAILY_TASKS):
             # Skip tasks not in the enabled set
@@ -128,10 +137,12 @@ class DailyRoutine:
             )
             ctx.notify_task(task_id, "running")
 
+            task_t0 = time.monotonic()
             try:
                 task = task_cls()
                 if await task.can_run(ctx):
                     result = await task.execute(ctx)
+                    elapsed = time.monotonic() - task_t0
                     if result.status == "success":
                         summary = task_id
                         if result.data:
@@ -141,33 +152,45 @@ class DailyRoutine:
                                     break
                         completed.append(summary)
                         ctx.notify_task(task_id, "success", result.message)
-                        ctx.logger.info(f"  {task_id}: success")
+                        ctx.logger.info(
+                            f"  {task_id}: success ({elapsed:.1f}s)"
+                        )
                     elif result.status == "skipped":
                         completed.append(f"{task_id}(skipped)")
                         ctx.notify_task(task_id, "skipped", result.message)
                         ctx.logger.info(
-                            f"  {task_id}: skipped — {result.message}"
+                            f"  {task_id}: skipped — {result.message} "
+                            f"({elapsed:.1f}s)"
                         )
                     else:
                         failed.append(task_id)
                         ctx.notify_task(task_id, "failed", result.message)
                         ctx.logger.warning(
-                            f"  {task_id}: {result.status} — {result.message}"
+                            f"  {task_id}: {result.status} — {result.message} "
+                            f"({elapsed:.1f}s)"
                         )
                 else:
+                    elapsed = time.monotonic() - task_t0
                     ctx.notify_task(task_id, "skipped", "can_run=False")
-                    ctx.logger.info(f"  {task_id}: can_run=False, skipping")
+                    ctx.logger.info(
+                        f"  {task_id}: can_run=False, skipping ({elapsed:.1f}s)"
+                    )
             except Exception as exc:
+                elapsed = time.monotonic() - task_t0
                 failed.append(task_id)
                 ctx.notify_task(task_id, "failed", str(exc))
-                ctx.logger.error(f"  {task_id}: crashed — {exc}")
+                ctx.logger.error(
+                    f"  {task_id}: crashed — {exc} ({elapsed:.1f}s)"
+                )
 
             # Return to hub between tasks
             await hub.execute(ctx)
 
+        total_elapsed = time.monotonic() - routine_t0
         ctx.logger.info(
             f"=== DailyRoutine: complete "
-            f"({len(completed)} done, {len(failed)} failed) ===\n"
+            f"({len(completed)} done, {len(failed)} failed) "
+            f"in {total_elapsed:.1f}s ===\n"
             f"  completed={completed}\n"
             f"  failed={failed}"
         )
