@@ -98,6 +98,31 @@ cd frontend && npm run build
 - 开发时可用 `cd frontend && npm run dev` 启动热更新服务器（仅调试用）
 - Python 后端文件（`api.py`, `app.py`, `bridge.py`, `task_manager.py`, `worker.py`）不需要构建
 
+## PyInstaller 打包安全规则
+
+**每次修改 `build.py` 必须遵守以下规则：**
+
+### 硬性依赖
+- **VC++ 2015-2022 Redistributable (x64)** — 必装。`build.py` 会删除 `_internal/msvcp140.dll`（与 MaaFw 冲突），依赖系统的 VC++ 运行库。
+- **bottle** — pywebview 依赖，禁止从 dist 中删除
+- **tkinter** — 错误弹窗依赖，禁止从 excludes 中排除
+
+### 禁止操作
+1. **禁止把 `_internal` 加到 DLL 搜索路径** — 其 VC runtime 会与 MaaFw 冲突
+2. **禁止删除 `bottle` 包** — pywebview 在某些场景下需要它
+3. **禁止排除 `tkinter`** — 启动失败时需要弹出错误对话框
+4. **禁止让启动失败完全静默** — 必须有至少一种错误反馈方式（对话框/控制台/日志文件）
+
+### 新增模块检查
+每次新增 Python 模块文件，必须检查是否需要加入 `build.py` 的 `hiddenimports` 列表。
+特别是**延迟 import**（在函数内部 import）的模块，PyInstaller 的静态分析无法检测。
+
+### 打包前测试清单
+1. 在开发机构建并运行 ✓
+2. 确认 `start.bat` 能检测 VC++ 缺失 ✓
+3. 确认新模块在 hiddenimports 中 ✓
+4. 确认 post-build 清理列表没有误删依赖包 ✓
+
 ## Plugins
 
 - **superpowers** (v5.0.7) - Installed via `obra/superpowers-marketplace`. Provides agentic workflow skills (brainstorming, TDD, planning, code review, etc.)
