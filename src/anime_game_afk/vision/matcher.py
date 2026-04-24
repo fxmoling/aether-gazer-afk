@@ -10,8 +10,11 @@ callers always compare against a consistent threshold in [0, 1].
 """
 from __future__ import annotations
 
+import time
+
 import cv2
 import numpy as np
+from loguru import logger
 
 from anime_game_afk.core.types import Rect
 from anime_game_afk.vision.types import MatchResult
@@ -91,6 +94,7 @@ def match_template(
     if th > sh or tw > sw:
         return MatchResult(score=0.0, x=offset_x, y=offset_y, w=tw, h=th, matched=False)
 
+    _start = time.perf_counter()
     if mask is not None:
         # Masked matching only works with TM_CCORR_NORMED (and TM_SQDIFF)
         method = cv2.TM_CCORR_NORMED
@@ -98,7 +102,19 @@ def match_template(
     else:
         result_map = cv2.matchTemplate(search, template, method)
 
-    return _best_from_result(result_map, method, tw, th, offset_x, offset_y, threshold)
+    mr = _best_from_result(result_map, method, tw, th, offset_x, offset_y, threshold)
+    _elapsed_ms = (time.perf_counter() - _start) * 1000
+    if mr.matched:
+        logger.debug(
+            "match_template: {:.0f}ms, score={:.3f} at ({},{}) {}x{} (threshold={})",
+            _elapsed_ms, mr.score, mr.x, mr.y, mr.w, mr.h, threshold,
+        )
+    else:
+        logger.debug(
+            "match_template: {:.0f}ms, no match (best={:.3f}, threshold={})",
+            _elapsed_ms, mr.score, threshold,
+        )
+    return mr
 
 
 def match_best(
@@ -119,6 +135,10 @@ def match_best(
         candidate = match_template(image, tmpl, region=region, threshold=threshold)
         if candidate.score > best.score:
             best = candidate
+    logger.debug(
+        "match_best: {} templates, best score={:.3f}, matched={}",
+        len(templates), best.score, best.matched,
+    )
     return best
 
 
@@ -183,6 +203,10 @@ def match_all(
         if not any(_overlaps(cand, k) for k in kept):
             kept.append(cand)
 
+    logger.debug(
+        "match_all: {} candidates above threshold={}, {} kept after NMS",
+        len(candidates), threshold, len(kept),
+    )
     return kept
 
 

@@ -22,6 +22,8 @@ Legacy pattern (slow, avoid):
 """
 from __future__ import annotations
 
+import time
+
 import cv2
 import numpy as np
 from loguru import logger as _loguru
@@ -187,8 +189,15 @@ def ocr_once(
         scaled = cropped
         inv_scale = 1.0
 
+    _start = time.perf_counter()
     result, _ = engine(scaled)
+    _elapsed_ms = (time.perf_counter() - _start) * 1000
+    _loguru.debug(
+        "ocr_once: {:.0f}ms, {} items found (scale={}, region={})",
+        _elapsed_ms, len(result) if result else 0, scale, region,
+    )
     if not result:
+        _loguru.debug("ocr_once returned empty results for region {}", region)
         return OcrResult([])
 
     items: list[TextResult] = []
@@ -308,8 +317,15 @@ def _ocr_recognize(
         cropped = image
         offset_x, offset_y = 0, 0
 
+    _start = time.perf_counter()
     result, _ = engine(cropped)
+    _elapsed_ms = (time.perf_counter() - _start) * 1000
+    _loguru.debug(
+        "_ocr_recognize: {:.0f}ms, {} items found (region={})",
+        _elapsed_ms, len(result) if result else 0, region,
+    )
     if not result:
+        _loguru.debug("_ocr_recognize returned empty results for region {}", region)
         return []
 
     texts: list[TextResult] = []

@@ -256,18 +256,20 @@ class DeviceAdapter:
                 )
 
         logger.info(
-            "DeviceAdapter connected: window={!r} resolution={}x{}",
-            self._config.window_title, actual_w, actual_h,
+            "Device connected: hwnd={}, resolution={}x{}, screencap={}, mouse={}, keyboard={}",
+            self._hwnd, actual_w, actual_h,
+            self._config.screencap_method.name if hasattr(self._config.screencap_method, 'name') else self._config.screencap_method,
+            self._config.mouse_method.name if hasattr(self._config.mouse_method, 'name') else self._config.mouse_method,
+            self._config.keyboard_method.name if hasattr(self._config.keyboard_method, 'name') else self._config.keyboard_method,
         )
 
     def disconnect(self) -> None:
         """Release the controller and reset all connection state."""
+        logger.info("Device disconnecting: hwnd={}", self._hwnd)
         self._controller = None
         self._hwnd = None
         self._actual = None
         self._screenshot_res = None
-
-        logger.info("DeviceAdapter disconnected: window={!r}", self._config.window_title)
 
     # ------------------------------------------------------------------
     # Device I/O
@@ -289,18 +291,27 @@ class DeviceAdapter:
         self._ensure_connected()
         assert self._controller is not None
 
+        _start = time.perf_counter()
         img: np.ndarray | None = (
             self._controller.post_screencap().wait().get()
         )
         if img is None:
             raise ScreenshotError("post_screencap returned None")
 
-        h, w = img.shape[:2]
-        if h > MAX_HEIGHT:
-            scale = MAX_HEIGHT / h
-            new_w = int(w * scale)
+        raw_h, raw_w = img.shape[:2]
+        if raw_h > MAX_HEIGHT:
+            scale = MAX_HEIGHT / raw_h
+            new_w = int(raw_w * scale)
             img = cv2.resize(img, (new_w, MAX_HEIGHT), interpolation=cv2.INTER_AREA)
             h, w = MAX_HEIGHT, new_w
+        else:
+            h, w = raw_h, raw_w
+
+        _elapsed_ms = (time.perf_counter() - _start) * 1000
+        logger.debug(
+            "Screenshot: {:.0f}ms, raw={}x{}, scaled={}x{}",
+            _elapsed_ms, raw_w, raw_h, w, h,
+        )
 
         self._screenshot_res = Resolution(width=w, height=h)
         return img
@@ -381,8 +392,8 @@ class DeviceAdapter:
 
         self._controller.post_swipe(ax1, ay1, ax2, ay2, duration).wait()
         logger.debug(
-            "swipe ({:.3f},{:.3f}) -> ({:.3f},{:.3f})",
-            fx1, fy1, fx2, fy2,
+            "swipe ({:.3f},{:.3f})->({:.3f},{:.3f}) duration={}ms -> pixel ({},{})->({},{})",
+            fx1, fy1, fx2, fy2, duration, ax1, ay1, ax2, ay2,
         )
 
     def press_key(self, vk_code: int) -> None:
