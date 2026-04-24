@@ -246,7 +246,8 @@ class DeviceAdapter:
             ratio = actual_w / actual_h
             if abs(ratio - 16 / 9) > 0.02:
                 self._controller = None
-                self._hwnd = None
+                # NOTE: do NOT reset self._hwnd here — the fallback loop
+                # in _connect_foreground still needs it for the next method.
                 self._actual = None
                 raise DeviceConnectionError(
                     f"Unsupported aspect ratio: {actual_w}x{actual_h} "
