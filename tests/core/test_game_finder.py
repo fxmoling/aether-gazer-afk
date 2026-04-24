@@ -64,7 +64,7 @@ class TestGameFinderDesktopShortcuts:
         (game_dir / "AetherGazer.exe").write_bytes(b"exe")
 
         with patch(
-            "anime_game_afk.core.game_finder._DESKTOP", tmp_path
+            "anime_game_afk.core.game_finder._DESKTOPS", [tmp_path]
         ):
             with patch.object(
                 finder, "_read_shortcut_target",
@@ -87,7 +87,7 @@ class TestGameFinderDesktopShortcuts:
         finder = GameFinder()
         (tmp_path / "Unrelated.lnk").write_bytes(b"fake")
 
-        with patch("anime_game_afk.core.game_finder._DESKTOP", tmp_path):
+        with patch("anime_game_afk.core.game_finder._DESKTOPS", [tmp_path]):
             result = finder._find_from_desktop_shortcuts(
                 "AetherGazer.exe",
                 ["AetherGazer", "深空之眼"],

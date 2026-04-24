@@ -137,7 +137,8 @@ class BuyIntelShards:
         ctx.logger.info("  nav: hub -> shop (direct click 0.569, 0.944)")
         for attempt in range(3):
             await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
-            img = ctx.device.screenshot()
+            snap = await ScreenshotOp().run(ctx)
+            img = snap.data
             if is_on_page(img, "shop"):
                 ctx.logger.info(
                     "  nav: shop reached (attempt {attempt})", attempt=attempt,
@@ -147,7 +148,6 @@ class BuyIntelShards:
                 "  nav: shop not reached (attempt {attempt}), retrying",
                 attempt=attempt,
             )
-            # Click center to dismiss any overlay, then try again
             await ClickOp(x=0.5, y=0.5, wait=0.5).run(ctx)
         else:
             ctx.logger.error("  nav: cannot reach shop after 3 attempts")
@@ -455,7 +455,8 @@ class ClaimFreeStamina:
         ctx.logger.info("  nav: hub -> shop (direct click 0.569, 0.944)")
         for attempt in range(3):
             await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
-            img = ctx.device.screenshot()
+            snap = await ScreenshotOp().run(ctx)
+            img = snap.data
             if is_on_page(img, "shop"):
                 ctx.logger.info(
                     "  nav: shop reached (attempt {attempt})", attempt=attempt,

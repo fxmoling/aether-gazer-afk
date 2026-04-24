@@ -56,6 +56,7 @@ _TASK_CLASSES = [
     "GuildSupplyClaim",
     "AmusementStreetDaily",
     "JointDefenseSweep",
+    "MediumSeizureCombat",
     "DailyWeeklyMissionClaim",
     "TacticsTaskClaim",
 ]
@@ -94,12 +95,12 @@ def test_daily_routine_name_and_description():
 
 
 def test_daily_routine_task_count():
-    """DailyRoutine has 11 tasks (startup + 10 daily)."""
-    assert len(_DAILY_TASKS) == 11
+    """DailyRoutine has 12 tasks (startup + 11 daily)."""
+    assert len(_DAILY_TASKS) == 12
 
 
 def test_daily_routine_completes_all_tasks():
-    """Happy path: all 11 tasks succeed (game freshly launched)."""
+    """Happy path: all 12 tasks succeed (game freshly launched)."""
     device = MockDevice()
     ctx = ProcessContext(device=device, config={"game_was_launched": True})
 
@@ -111,7 +112,7 @@ def test_daily_routine_completes_all_tasks():
         _stop_patches(patches)
 
     assert result.status == "success"
-    assert len(result.data["completed"]) == 11
+    assert len(result.data["completed"]) == 12
     assert len(result.data["failed"]) == 0
 
 
@@ -137,7 +138,7 @@ def test_daily_routine_handles_failures():
 
     assert result.status == "success"
     assert result.data["completed"] == []
-    assert len(result.data["failed"]) == 11
+    assert len(result.data["failed"]) == 12
 
 
 def test_daily_routine_skips_if_cannot_run():

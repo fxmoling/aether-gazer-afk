@@ -64,12 +64,12 @@ def classify_infra_error(error: InfrastructureError) -> InfraFailure | None:
     for keyword, failure in _INFRA_ERROR_MAP.items():
         if keyword in error_msg:
             logger.debug(
-                "Classified infra error as {failure}: {msg}",
+                "Classified infra error as {failure}: {err}",
                 failure=failure.value,
-                msg=error_msg,
+                err=error_msg,
             )
             return failure
-    logger.debug("Unclassifiable infra error: {msg}", msg=error_msg)
+    logger.debug("Unclassifiable infra error: {err}", err=error_msg)
     return None
 
 
