@@ -81,7 +81,11 @@ def _check_dotnet() -> bool:
 
 
 def _show_dotnet_error() -> None:
-    """Show a user-friendly dialog when pythonnet/.NET fails."""
+    """Show a user-friendly dialog when pythonnet/.NET fails.
+    
+    Tries tkinter first (richer UI), falls back to Win32 MessageBoxW
+    (always available, no Python package deps).
+    """
     import webbrowser
 
     title = "AetherGazer AFK - 运行环境异常"
@@ -96,25 +100,35 @@ def _show_dotnet_error() -> None:
         "点击「是」打开 VC++ 运行库下载页面。"
     )
 
+    user_said_yes = False
     try:
-        # Use tkinter for the dialog (always available, no .NET needed)
         import tkinter as tk
         from tkinter import messagebox
-
         root = tk.Tk()
         root.withdraw()
-        result = messagebox.askyesno(title, message)
+        user_said_yes = messagebox.askyesno(title, message)
         root.destroy()
-        if result:
-            webbrowser.open(_DOTNET_DOWNLOAD_URL)
     except Exception:
-        # tkinter unavailable (rare) — fall back to console
-        print(f"\n{'='*60}")
-        print(f"  ERROR: {title}")
-        print(f"{'='*60}")
-        print(message)
-        print(f"\n下载地址: {_DOTNET_DOWNLOAD_URL}")
-        print(f"{'='*60}")
+        # tkinter unavailable — fall back to Win32 API
+        try:
+            import ctypes
+            # MB_YESNO=4, MB_ICONERROR=16
+            result = ctypes.windll.user32.MessageBoxW(
+                0, message, title, 4 | 16
+            )
+            user_said_yes = (result == 6)  # IDYES=6
+        except Exception:
+            # Last resort — console
+            print(f"\n{'='*60}")
+            print(f"  ERROR: {title}")
+            print(f"{'='*60}")
+            print(message)
+            print(f"\n下载地址: {_DOTNET_DOWNLOAD_URL}")
+            print(f"{'='*60}")
+            user_said_yes = True  # Auto-open browser
+
+    if user_said_yes:
+        webbrowser.open(_DOTNET_DOWNLOAD_URL)
 
 
 # ── GUI mode ────────────────────────────────────────────────

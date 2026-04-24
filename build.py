@@ -174,6 +174,10 @@ def generate_spec() -> str:
         "anime_game_afk.games.aether_gazer.processes.base",
         "anime_game_afk.games.aether_gazer.processes.daily_routine",
         "anime_game_afk.games.aether_gazer.processes.push_main_story",
+        "anime_game_afk.games.aether_gazer.processes.duowei_process",
+        "anime_game_afk.games.aether_gazer.tasks.duowei_tasks",
+        "anime_game_afk.games.aether_gazer.knowledge.keys",
+        "anime_game_afk.games.aether_gazer.registry",
         "anime_game_afk.games.aether_gazer.tasks",
         "anime_game_afk.games.aether_gazer.tasks.base",
         "anime_game_afk.games.aether_gazer.tasks.startup_tasks",
@@ -216,7 +220,6 @@ a = Analysis(
     excludes=[
         'pytest', 'pytest_cov', 'pytest_asyncio',
         'mypy', 'ruff',
-        'tkinter', '_tkinter',
         'matplotlib', 'scipy', 'pandas',
         'IPython', 'jupyter',
         'torch', 'transformers', 'huggingface_hub',
@@ -320,9 +323,23 @@ def build(skip_spec: bool = False) -> None:
             print(f"Removing unnecessary {ffmpeg.name} ({ffmpeg.stat().st_size // (1024*1024)}MB)")
             ffmpeg.unlink()
 
-        # Remove MSVCP140.dll and MSVCP140_1.dll from _internal — they conflict
-        # with MaaFw's opencv_world4_maa.dll causing WinError 1114.
-        # The system copies in C:\Windows\System32 will be used instead.
+        # ── MSVCP140 DLL conflict (CRITICAL — read before changing) ──
+        # PyInstaller bundles msvcp140.dll in _internal/. This version
+        # conflicts with MaaFw's opencv_world4_maa.dll, causing WinError
+        # 1114 (DllMain initialization failure).
+        #
+        # We MUST remove it so the system's copy (from VC++ Redistributable)
+        # is used instead. This means VC++ 2015-2022 Redistributable is a
+        # HARD REQUIREMENT for end users.
+        #
+        # Trade-off:
+        #   - WITH these DLLs: App starts but MaaFw crashes → tasks fail
+        #   - WITHOUT these DLLs: App won't start if VC++ not installed
+        #   We chose "won't start" because it's a clear, one-time fixable
+        #   error, whereas MaaFw crashes are confusing and unfixable.
+        #
+        # If you're tempted to revert this, see memory/17-packaging-v003-fixes.md
+        # and test BOTH scenarios on a clean Windows install.
         for msvcp in ("MSVCP140_1.dll", "msvcp140.dll"):
             p = internal / msvcp
             if p.exists():
@@ -330,7 +347,9 @@ def build(skip_spec: bool = False) -> None:
                 p.unlink()
 
         # Remove any leftover excluded packages that PyInstaller may have kept
-        for pkg_name in ["sympy", "mpmath", "pytesseract", "bottle"]:
+        # WARNING: Do NOT add 'bottle' here — pywebview depends on it.
+        # See memory/17-packaging-v003-fixes.md for the full story.
+        for pkg_name in ["sympy", "mpmath", "pytesseract"]:
             pkg_dir = internal / pkg_name
             if pkg_dir.exists() and pkg_dir.is_dir():
                 size_mb = sum(f.stat().st_size for f in pkg_dir.rglob("*") if f.is_file()) // (1024*1024)
@@ -353,6 +372,29 @@ def build(skip_spec: bool = False) -> None:
 
         # Ensure logs/ dir exists
         (dist_app / "logs").mkdir(exist_ok=True)
+
+        # Generate start.bat — checks VC++ runtime before launching exe
+        start_bat = dist_app / "start.bat"
+        start_bat.write_text(
+            '@echo off\r\n'
+            'chcp 65001 >nul 2>&1\r\n'
+            'where /Q msvcp140.dll\r\n'
+            'if errorlevel 1 (\r\n'
+            '    echo [错误] 未检测到 Visual C++ 运行库\r\n'
+            '    echo.\r\n'
+            '    echo 请下载安装 VC++ 2015-2022 Redistributable (x64):\r\n'
+            '    echo https://aka.ms/vs/17/release/vc_redist.x64.exe\r\n'
+            '    echo.\r\n'
+            '    echo 安装完成后重新运行此脚本。\r\n'
+            '    echo.\r\n'
+            '    start https://aka.ms/vs/17/release/vc_redist.x64.exe\r\n'
+            '    pause\r\n'
+            '    exit /b 1\r\n'
+            ')\r\n'
+            'start "" "%~dp0anime-game-afk.exe"\r\n',
+            encoding='utf-8',
+        )
+        print(f"Generated {start_bat}")
 
         # Print final size
         total = sum(f.stat().st_size for f in dist_app.rglob("*") if f.is_file())
