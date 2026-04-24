@@ -101,6 +101,7 @@ class DuoweiCombat:
     async def execute(self, ctx: TaskContext) -> TaskResult:
         """Run one complete 多维变量 cycle."""
         try:
+            ctx.logger.info("=== DuoweiCombat: starting ===")
             # Action 1: Navigate to 多维变量 and click 开始挑战
             ctx.logger.info("[duowei] Action 1: Navigate")
             if not await self._navigate_to_duowei(ctx):
@@ -145,12 +146,13 @@ class DuoweiCombat:
             ctx.logger.info("[duowei] Action 6: Exit and settle")
             await self._exit_and_settle(ctx)
 
+            ctx.logger.info("=== DuoweiCombat: completed successfully ===")
             return TaskResult(
                 status="success",
                 message=f"多维变量 completed (battle: {battle})",
             )
         except Exception as exc:
-            ctx.logger.error(f"[duowei] Error: {exc}")
+            ctx.logger.error(f"=== DuoweiCombat: failed — {exc} ===")
             try:
                 await self._exit_and_settle(ctx)
             except Exception:
@@ -161,9 +163,11 @@ class DuoweiCombat:
 
     async def _navigate_to_duowei(self, ctx: TaskContext) -> bool:
         """Navigate to 多维变量 page and click 开始挑战/继续挑战."""
+        ctx.logger.info("[duowei] _navigate_to_duowei starting")
         img = ctx.screenshot()
         ocr = ocr_once(img)
         full = " ".join(r.text for r in ocr._items)
+        ctx.logger.debug(f"[duowei] OCR full text: {full[:100]}")
 
         # Already on 多维变量 detail page (has unique "记忆珍宝图鉴" text)
         if "记忆珍宝图鉴" in full:
@@ -188,11 +192,13 @@ class DuoweiCombat:
             img = ctx.screenshot()
             ocr = ocr_once(img)
             full = " ".join(r.text for r in ocr._items)
+            ctx.logger.debug(f"[duowei] OCR full text: {full[:100]}")
 
             # Find all "多维变量" matches
             matches = [
                 r for r in ocr._items if "多维变量" in r.text
             ]
+            ctx.logger.info(f"[duowei] Found {len(matches)} '多维变量' matches")
             if len(matches) == 1:
                 # Only one match — click it, then re-check if we landed
                 # on the detail page or just highlighted the heading
@@ -204,6 +210,7 @@ class DuoweiCombat:
                 img = ctx.screenshot()
                 ocr = ocr_once(img)
                 full = " ".join(r.text for r in ocr._items)
+                ctx.logger.debug(f"[duowei] OCR full text: {full[:100]}")
                 if "开始挑战" in full or "继续挑战" in full:
                     return await self._click_start_or_continue(ctx, ocr, full)
                 # Didn't land on detail page — may need another click
@@ -220,6 +227,7 @@ class DuoweiCombat:
                     img = ctx.screenshot()
                     ocr = ocr_once(img)
                     full = " ".join(r.text for r in ocr._items)
+                    ctx.logger.debug(f"[duowei] OCR full text: {full[:100]}")
                     return await self._click_start_or_continue(ctx, ocr, full)
             elif len(matches) >= 2:
                 # Multiple matches — click the lowest one (card icon)
@@ -232,6 +240,7 @@ class DuoweiCombat:
                 img = ctx.screenshot()
                 ocr = ocr_once(img)
                 full = " ".join(r.text for r in ocr._items)
+                ctx.logger.debug(f"[duowei] OCR full text: {full[:100]}")
                 return await self._click_start_or_continue(ctx, ocr, full)
 
             # Scroll challenge list by clicking left edge
@@ -250,6 +259,7 @@ class DuoweiCombat:
         for label in ["继续挑战", "开始挑战"]:
             match = ocr.find(label)
             if match:
+                ctx.logger.info(f"[duowei] Clicking '{label}' button")
                 r = match.region
                 ctx.device.click(
                     (r.x + r.w // 2) / 1280, (r.y + r.h // 2) / 720,
@@ -287,15 +297,18 @@ class DuoweiCombat:
     async def _complete_setup(self, ctx: TaskContext) -> None:
         """Difficulty(Lv16) → Character(下一步) → Beacon(赏金猎人 + 开始挑战)."""
         # Step 1: Select LV16 difficulty, then click 下一步
+        ctx.logger.info("[duowei] Setup: selecting difficulty")
         await self._select_difficulty(ctx, target_lv=16)
         await self._ocr_click(ctx, "下一步", "difficulty")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
         # Step 2: Character → 下一步
+        ctx.logger.info("[duowei] Setup: advancing past character page")
         await self._ocr_click(ctx, "下一步", "character")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
         # Step 3: Beacon page → scroll down, find 赏金猎人, click, then 开始挑战
+        ctx.logger.info("[duowei] Setup: selecting beacon")
         await self._select_beacon(ctx)
         await self._ocr_click(ctx, "开始挑战", "beacon start")
         await SleepOp(self._SETUP_WAIT).run(ctx)
@@ -449,6 +462,7 @@ class DuoweiCombat:
 
             # Check for scene transition every 3 steps
             if step % 3 == 2:
+                ctx.logger.debug(f"[duowei] Walk step {step + 1}/12")
                 if await self._check_portal_entered(ctx):
                     return True
 
@@ -461,7 +475,7 @@ class DuoweiCombat:
         fallback_dx = 0.025 * _PORTAL_SWIPE_REF_WIDTH / actual_w
 
         for angle in range(8):
-            ctx.logger.debug(f"[duowei] Scan angle {angle}/8")
+            ctx.logger.debug(f"[duowei] Fallback scan: angle {angle + 1}/8, step 0/8")
             ctx.device.swipe(fx, fy, fx - fallback_dx, fy, _PORTAL_SWIPE_DURATION)
             await SleepOp(0.3).run(ctx)
 
@@ -471,6 +485,7 @@ class DuoweiCombat:
                 await SleepOp(0.2).run(ctx)
 
                 if step % 2 == 1:
+                    ctx.logger.debug(f"[duowei] Fallback scan: angle {angle + 1}/8, step {step + 1}/8")
                     if await self._check_portal_entered(ctx):
                         return True
 
@@ -501,6 +516,7 @@ class DuoweiCombat:
 
     async def _fight_battle(self, ctx: TaskContext) -> str:
         """Attack cycle until battle ends. Returns 'won', 'died', 'timeout'."""
+        ctx.logger.info("[duowei] _fight_battle starting")
         await SleepOp(3.0).run(ctx)
 
         for check in range(self._BATTLE_MAX_CHECKS):
@@ -519,10 +535,13 @@ class DuoweiCombat:
                 ctx.logger.debug(f"[duowei] Fighting... ({check + 1})")
                 continue
             if "珍宝" in full or "确认" in full:
+                ctx.logger.info("[duowei] Battle won result detected")
                 return "won"
             if "当前关卡" in full and "击退" not in full:
+                ctx.logger.info("[duowei] Battle won result detected")
                 return "won"
             if "失败" in full or "复活" in full:
+                ctx.logger.info("[duowei] Battle died result detected")
                 return "died"
             # Transition / loading
             if len(ocr._items) <= 2:
@@ -531,6 +550,7 @@ class DuoweiCombat:
 
             ctx.logger.debug(f"[duowei] Unknown state ({check + 1})")
 
+        ctx.logger.info("[duowei] Battle timeout result detected")
         return "timeout"
 
     # ── Post-battle reward ──
@@ -587,6 +607,7 @@ class DuoweiCombat:
 
     async def _exit_and_settle(self, ctx: TaskContext) -> None:
         """ESC → H (退出并结算) → Enter → click through settlement."""
+        ctx.logger.info("[duowei] Pressing ESC → H → Enter for exit")
         ctx.device.press_key(VK_ESCAPE)
         await SleepOp(1.5).run(ctx)
         ctx.device.press_key(VK_H)
@@ -594,6 +615,7 @@ class DuoweiCombat:
         ctx.device.press_key(VK_ENTER)
         await SleepOp(5.0).run(ctx)
 
+        ctx.logger.info("[duowei] Clicking through settlement screens")
         await self._click_through_settlement(ctx)
 
     async def _click_through_settlement(self, ctx: TaskContext) -> None:
@@ -602,18 +624,22 @@ class DuoweiCombat:
             img = ctx.screenshot()
             ocr = ocr_once(img)
             full = " ".join(r.text for r in ocr._items)
+            ctx.logger.debug(f"[duowei] Settlement round {_ + 1}/15, OCR: {full[:80]}")
 
             # Back at 多维变量 page
             if "多维变量" in full and (
                 "开始挑战" in full or "维度偏移" in full
             ):
+                ctx.logger.info("[duowei] Back at menu/challenge page")
                 return
             # Back at challenge hub
             if "情报" in full or "常驻" in full or "刻印" in full:
+                ctx.logger.info("[duowei] Back at menu/challenge page")
                 return
 
             # Settlement result screen: has 积分 + 退出 button
             if "积分" in full or "伤害统计" in full:
+                ctx.logger.info("[duowei] Settlement screen detected, clicking 退出")
                 # Fixed "退出" button position on settlement screen
                 ctx.device.click(0.901, 0.931)
                 await SleepOp(2.0).run(ctx)
