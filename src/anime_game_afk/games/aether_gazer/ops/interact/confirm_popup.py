@@ -26,9 +26,17 @@ class ConfirmPopupAction:
 
     async def run(self, ctx: OpContext) -> OpResult:
         if self._confirm:
+            ctx.logger.debug(
+                f"[confirm_popup] Will press Enter (0x{VK_ENTER:02X}), "
+                f"wait={self._wait}s"
+            )
             ctx.logger.info("Popup confirmed: pressing Enter")
             await PressKeyOp(key=VK_ENTER, wait=self._wait).run(ctx)
         else:
+            ctx.logger.debug(
+                f"[confirm_popup] Will press ESC (0x{VK_ESCAPE:02X}), "
+                f"wait={self._wait}s"
+            )
             ctx.logger.info("Popup dismissed: pressing ESC")
             await PressKeyOp(key=VK_ESCAPE, wait=self._wait).run(ctx)
 

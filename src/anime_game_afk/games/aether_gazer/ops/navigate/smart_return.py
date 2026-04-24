@@ -17,6 +17,8 @@ Fallback: delegates to WakeHubUiAction after max attempts.
 """
 from __future__ import annotations
 
+import time
+
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
 from anime_game_afk.games.aether_gazer.checks.state import ScreenUnchangedCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
@@ -45,6 +47,7 @@ class ReturnToHubAction:
 
     async def run(self, ctx: OpContext) -> OpResult:
         ctx.logger.info("[smart_return] Starting return to hub")
+        t0 = time.perf_counter()
 
         hub_check = AtHubCheck()
         prev_img = None
@@ -53,9 +56,15 @@ class ReturnToHubAction:
             # ── Step 0: Check if already at hub ──
             # AtHubCheck does: screenshot → template match → idle check → OCR fallback
             hub_result = await hub_check.evaluate(ctx)
+            ctx.logger.debug(
+                f"[smart_return][{attempt}] hub_check: passed={hub_result.passed}, "
+                f"msg={hub_result.message}"
+            )
             if hub_result.passed:
+                elapsed = time.perf_counter() - t0
                 ctx.logger.info(
-                    f"[smart_return] Hub reached after {attempt} steps"
+                    f"[smart_return] Hub reached after {attempt} steps "
+                    f"in {elapsed:.3f}s"
                 )
                 return OpResult(
                     success=True,
@@ -70,12 +79,18 @@ class ReturnToHubAction:
                 await ClickOp(0.022, 0.039, wait=0.5).run(ctx)
                 hub_result = await hub_check.evaluate(ctx)
                 if hub_result.passed:
-                    ctx.logger.info("[smart_return] Hub reached after idle wake")
+                    elapsed = time.perf_counter() - t0
+                    ctx.logger.info(
+                        f"[smart_return] Hub reached after idle wake in {elapsed:.3f}s"
+                    )
                     return OpResult(
                         success=True,
                         data={"attempts": attempt, "method": "idle_wake"},
                     )
                 # If still not at hub, fall through to normal cycle
+                ctx.logger.debug(
+                    f"[smart_return][{attempt}] idle wake failed, falling back to normal cycle"
+                )
 
             # ── Step 1: Try back button (0.022, 0.039) ──
             ctx.logger.debug(
@@ -86,11 +101,17 @@ class ReturnToHubAction:
             # Quick hub re-check after back click
             hub_result = await hub_check.evaluate(ctx)
             if hub_result.passed:
-                ctx.logger.info("[smart_return] Hub reached after back click")
+                elapsed = time.perf_counter() - t0
+                ctx.logger.info(
+                    f"[smart_return] Hub reached after back click in {elapsed:.3f}s"
+                )
                 return OpResult(
                     success=True,
                     data={"attempts": attempt, "method": "back_click"},
                 )
+            ctx.logger.debug(
+                f"[smart_return][{attempt}] back click did not reach hub, trying ESC"
+            )
 
             # ── Step 2: Try ESC ──
             ctx.logger.debug(f"[smart_return][{attempt}] Trying ESC")
@@ -105,7 +126,10 @@ class ReturnToHubAction:
             # Check hub after ESC (template + OCR)
             hub_r2 = await hub_check.evaluate(ctx)
             if hub_r2.passed:
-                ctx.logger.info("[smart_return] Hub reached after ESC")
+                elapsed = time.perf_counter() - t0
+                ctx.logger.info(
+                    f"[smart_return] Hub reached after ESC in {elapsed:.3f}s"
+                )
                 return OpResult(
                     success=True,
                     data={"attempts": attempt, "method": "esc_hub"},
@@ -117,8 +141,10 @@ class ReturnToHubAction:
             if ocr and (
                 ocr.has("退出游戏") or ocr.has("是否退出")
             ):
+                elapsed = time.perf_counter() - t0
                 ctx.logger.info(
-                    "[smart_return] Exit dialog detected — at hub, cancelling"
+                    f"[smart_return] Exit dialog detected — at hub, "
+                    f"cancelling in {elapsed:.3f}s"
                 )
                 await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
                 return OpResult(
@@ -138,7 +164,11 @@ class ReturnToHubAction:
                     await PressKeyOp(VK_ENTER, wait=1.5).run(ctx)
 
         # ── Final fallback: WakeHubUiAction ──
-        ctx.logger.warning("[smart_return] Fallback to WakeHubUiAction")
+        elapsed = time.perf_counter() - t0
+        ctx.logger.warning(
+            f"[smart_return] All {self._max_attempts} attempts exhausted "
+            f"in {elapsed:.3f}s, fallback to WakeHubUiAction"
+        )
 
         from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import (
             WakeHubUiAction,

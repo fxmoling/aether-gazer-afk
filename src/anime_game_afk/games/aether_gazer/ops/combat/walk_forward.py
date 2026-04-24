@@ -7,6 +7,8 @@ Composite Action: uses HoldKeyOp primitive internally.
 """
 from __future__ import annotations
 
+import time
+
 from anime_game_afk.games.aether_gazer.knowledge.constants import (
     WALK_DEFAULT_DURATION,
 )
@@ -22,12 +24,17 @@ class WalkForwardAction:
         self._duration = duration
 
     async def run(self, ctx: OpContext) -> OpResult:
-        ctx.logger.info(f"Walking forward for {self._duration}s")
+        ctx.logger.info(
+            f"[walk_forward] Holding W (0x{VK_W:02X}) for {self._duration}s"
+        )
+        t0 = time.perf_counter()
         await HoldKeyOp(
             key=VK_W,
             duration=self._duration,
             wait=0.2,
         ).run(ctx)
+        elapsed = time.perf_counter() - t0
+        ctx.logger.debug(f"[walk_forward] Completed in {elapsed:.3f}s")
         return OpResult(
             success=True,
             data={"direction": "forward", "duration": self._duration},

@@ -6,6 +6,8 @@ through confirmation screens.
 """
 from __future__ import annotations
 
+import time
+
 from anime_game_afk.games.aether_gazer.ops.base import OpContext, OpResult
 from anime_game_afk.games.aether_gazer.ops.primitives import ClickOp, ClickPxOp
 
@@ -35,6 +37,7 @@ class RapidClickAction:
             f"rapid_click ({self._x}, {self._y}) x{self._times} "
             f"@{self._interval}s"
         )
+        t0 = time.perf_counter()
         click = ClickOp(self._x, self._y, wait=self._interval)
 
         for i in range(self._times):
@@ -50,6 +53,10 @@ class RapidClickAction:
                     data={"completed": i, "total": self._times},
                 )
 
+        elapsed = time.perf_counter() - t0
+        ctx.logger.debug(
+            f"rapid_click done: {self._times} clicks in {elapsed:.3f}s"
+        )
         return OpResult(
             success=True,
             data={
@@ -87,17 +94,26 @@ class RapidClickPxAction:
             f"rapid_click_px ({self._px},{self._py}) -> "
             f"frac ({fx:.3f},{fy:.3f}) x{self._times} @{self._interval}s"
         )
+        t0 = time.perf_counter()
         click = ClickOp(fx, fy, wait=self._interval)
 
         for i in range(self._times):
             result = await click.run(ctx)
             if not result.success:
+                ctx.logger.error(
+                    f"rapid_click_px failed on click {i + 1}/{self._times}: "
+                    f"{result.error}"
+                )
                 return OpResult(
                     success=False,
                     error=f"Failed on click {i + 1}: {result.error}",
                     data={"completed": i, "total": self._times},
                 )
 
+        elapsed = time.perf_counter() - t0
+        ctx.logger.debug(
+            f"rapid_click_px done: {self._times} clicks in {elapsed:.3f}s"
+        )
         return OpResult(
             success=True,
             data={"px": self._px, "py": self._py, "clicks": self._times},

@@ -19,6 +19,9 @@ class HandleReviveAction:
         self._wait = wait_after
 
     async def run(self, ctx: OpContext) -> OpResult:
-        ctx.logger.info("Revive prompt: pressing Enter to accept")
+        ctx.logger.info(
+            f"[handle_revive] Pressing Enter to accept, wait={self._wait}s"
+        )
         await PressKeyOp(key=VK_ENTER, wait=self._wait).run(ctx)
+        ctx.logger.debug("[handle_revive] Revive accepted")
         return OpResult(success=True, data={"action": "revive_accepted"})

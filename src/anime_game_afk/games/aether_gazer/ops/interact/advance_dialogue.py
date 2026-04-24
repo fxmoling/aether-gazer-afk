@@ -18,6 +18,6 @@ class AdvanceDialogueAction:
         self._wait = wait_after
 
     async def run(self, ctx: OpContext) -> OpResult:
-        ctx.logger.debug("Advance dialogue: pressing Space")
+        ctx.logger.debug(f"Advance dialogue: pressing Space, wait={self._wait}s")
         await PressKeyOp(key=VK_SPACE, wait=self._wait).run(ctx)
         return OpResult(success=True)

@@ -26,6 +26,7 @@ Available primitives:
 from __future__ import annotations
 
 import asyncio
+import time
 
 import numpy as np
 
@@ -48,10 +49,13 @@ class ClickOp:
 
     async def run(self, ctx: OpContext) -> OpResult:
         ctx.logger.debug(f"click ({self._x:.3f}, {self._y:.3f})")
+        t0 = time.perf_counter()
         try:
             ctx.device.click(self._x, self._y)
             if self._wait > 0:
                 await asyncio.sleep(self._wait)
+            elapsed = time.perf_counter() - t0
+            ctx.logger.debug(f"click done in {elapsed:.3f}s")
             return OpResult(
                 success=True,
                 data={"x": self._x, "y": self._y},
@@ -151,10 +155,13 @@ class HoldKeyOp:
         ctx.logger.debug(
             f"hold_key 0x{self._key:02X} for {self._duration}s"
         )
+        t0 = time.perf_counter()
         try:
             ctx.device.hold_key(self._key, self._duration)
             if self._wait > 0:
                 await asyncio.sleep(self._wait)
+            elapsed = time.perf_counter() - t0
+            ctx.logger.debug(f"hold_key 0x{self._key:02X} done in {elapsed:.3f}s")
             return OpResult(
                 success=True,
                 data={"key": self._key, "duration": self._duration},
@@ -196,6 +203,7 @@ class SwipeOp:
             f"swipe ({self._x1:.3f},{self._y1:.3f})->"
             f"({self._x2:.3f},{self._y2:.3f}) {self._duration}ms"
         )
+        t0 = time.perf_counter()
         try:
             ctx.device.swipe(
                 self._x1, self._y1, self._x2, self._y2,
@@ -203,6 +211,8 @@ class SwipeOp:
             )
             if self._wait > 0:
                 await asyncio.sleep(self._wait)
+            elapsed = time.perf_counter() - t0
+            ctx.logger.debug(f"swipe done in {elapsed:.3f}s")
             return OpResult(
                 success=True,
                 data={

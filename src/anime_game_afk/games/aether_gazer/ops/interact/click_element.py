@@ -32,6 +32,10 @@ class ClickElementAction:
     async def run(self, ctx: OpContext) -> OpResult:
         elem = find_element(self._page_id, self._element_name)
         if elem is None:
+            ctx.logger.warning(
+                f"[click_element] Element '{self._element_name}' not found "
+                f"on page '{self._page_id}'"
+            )
             return OpResult(
                 success=False,
                 error=f"Element '{self._element_name}' not found "
@@ -39,6 +43,10 @@ class ClickElementAction:
             )
 
         if not elem.safe and not self._force:
+            ctx.logger.warning(
+                f"[click_element] Element '{self._element_name}' is unsafe "
+                f"and force_unsafe is not set"
+            )
             return OpResult(
                 success=False,
                 error=f"Element '{self._element_name}' is unsafe. "
@@ -46,6 +54,10 @@ class ClickElementAction:
             )
 
         fx, fy = elem.coord
+        ctx.logger.debug(
+            f"[click_element] Resolved '{self._element_name}' -> "
+            f"({fx:.3f}, {fy:.3f}) on '{self._page_id}'"
+        )
         ctx.logger.info(
             f"Clicking {self._element_name} at "
             f"({fx:.3f}, {fy:.3f}) on {self._page_id}"

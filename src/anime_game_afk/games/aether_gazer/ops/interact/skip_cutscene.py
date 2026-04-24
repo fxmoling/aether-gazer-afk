@@ -7,6 +7,8 @@ Composite Action: uses PressKeyOp primitive internally.
 """
 from __future__ import annotations
 
+import time
+
 from anime_game_afk.games.aether_gazer.knowledge.keys import (
     VK_ENTER,
     VK_ESCAPE,
@@ -22,12 +24,15 @@ class SkipCutsceneAction:
         self._confirm_wait = confirm_wait
 
     async def run(self, ctx: OpContext) -> OpResult:
+        t0 = time.perf_counter()
         # ESC opens the "skip?" confirmation dialog
-        ctx.logger.info("Skip cutscene: pressing ESC")
+        ctx.logger.info("[skip_cutscene] Pressing ESC to open skip dialog")
         await PressKeyOp(key=VK_ESCAPE, wait=self._confirm_wait).run(ctx)
 
         # Enter confirms the skip
-        ctx.logger.info("Skip cutscene: pressing Enter to confirm")
+        ctx.logger.info("[skip_cutscene] Pressing Enter to confirm skip")
         await PressKeyOp(key=VK_ENTER, wait=2.0).run(ctx)
 
+        elapsed = time.perf_counter() - t0
+        ctx.logger.debug(f"[skip_cutscene] Completed in {elapsed:.3f}s")
         return OpResult(success=True)
