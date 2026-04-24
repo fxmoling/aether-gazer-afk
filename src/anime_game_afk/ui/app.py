@@ -31,6 +31,16 @@ def main() -> None:
         _log.add(str(log_file), rotation="5 MB", level="DEBUG",
                  format="{time:HH:mm:ss} | {level:<7} | {message}")
 
+    _log.info("=" * 60)
+    _log.info("AetherGazer AFK GUI starting")
+    _log.info("Python: {} | Frozen: {} | Exe: {}",
+              sys.version_info[:3], getattr(sys, "frozen", False), sys.executable)
+    if getattr(sys, "frozen", False):
+        app_dir = Path(sys.executable).resolve().parent
+        _log.info("App dir: {}", app_dir)
+    _log.info("Web dir: {} (exists={})", _WEB_DIR, _WEB_DIR.exists())
+    _log.info("=" * 60)
+
     # 1. Set up log forwarding
     log_forwarder = LogForwarder(maxlen=500)
     log_forwarder.install()

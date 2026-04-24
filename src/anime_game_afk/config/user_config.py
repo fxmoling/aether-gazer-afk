@@ -82,7 +82,12 @@ class UserConfig:
             data = yaml.safe_load(f) or {}
 
         logger.info("User config loaded from {path}", path=str(config_path))
-        return cls(data, config_path)
+        # Log key config values for debugging
+        instance = cls(data, config_path)
+        game_cfg = instance._data.get("games", {}).get("aether_gazer", {})
+        logger.debug("Config: games.aether_gazer = {}", game_cfg)
+        logger.debug("Config: settings = {}", instance._data.get("settings", {}))
+        return instance
 
     @staticmethod
     def _default_data() -> dict[str, Any]:
@@ -134,7 +139,8 @@ class UserConfig:
         with open(self._path, "w", encoding="utf-8") as f:
             yaml.dump(self._data, f, default_flow_style=False,
                       allow_unicode=True, sort_keys=False)
-        logger.info("User config saved to {path}", path=str(self._path))
+        logger.info("Config saved to {path}", path=str(self._path))
+        logger.debug("Config data: {}", self._data)
 
     # ------------------------------------------------------------------
     # Raw access
@@ -157,6 +163,8 @@ class UserConfig:
     def _game(self, game_id: str) -> dict[str, Any]:
         """Get or create game config section."""
         games = self._data.setdefault("games", {})
+        if game_id not in games:
+            logger.debug("Creating default config section for game: {}", game_id)
         return games.setdefault(game_id, {})
 
     def game_exe_path(self, game_id: str) -> str:

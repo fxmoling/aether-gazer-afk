@@ -366,6 +366,47 @@ def main() -> None:
     """Route to GUI (default), CLI, or worker based on arguments."""
     app_dir = _setup_paths()
 
+    # ── Environment banner (always log, even if rest of startup fails) ──
+    import platform
+    _frozen = getattr(sys, "frozen", False)
+    _env_lines = [
+        f"AetherGazer AFK starting",
+        f"  Python:    {sys.version}",
+        f"  Platform:  {platform.platform()}",
+        f"  Arch:      {platform.machine()}",
+        f"  Frozen:    {_frozen}",
+        f"  Exe:       {sys.executable}",
+        f"  App dir:   {app_dir}",
+        f"  CWD:       {os.getcwd()}",
+        f"  Args:      {sys.argv}",
+    ]
+    if _frozen:
+        _env_lines.append(f"  _MEIPASS:  {getattr(sys, '_MEIPASS', 'N/A')}")
+    try:
+        import importlib.metadata
+        maa_ver = importlib.metadata.version("maafw")
+        _env_lines.append(f"  MaaFw:     {maa_ver}")
+    except Exception:
+        _env_lines.append(f"  MaaFw:     (unknown)")
+    _env_banner = "\n".join(_env_lines)
+
+    # Write to log file FIRST (before any imports that might fail)
+    _log_dir = app_dir / "logs"
+    _log_dir.mkdir(exist_ok=True)
+    _startup_log = _log_dir / "startup.log"
+    try:
+        from datetime import datetime
+        with open(_startup_log, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"{datetime.now().isoformat()}\n")
+            f.write(_env_banner + "\n")
+            f.write(f"{'='*60}\n")
+    except Exception:
+        pass
+
+    # Also print to stderr (visible in worker mode)
+    print(_env_banner, file=sys.stderr)
+
     is_cli = "--cli" in sys.argv
     is_worker = "--worker" in sys.argv
 

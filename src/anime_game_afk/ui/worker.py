@@ -97,6 +97,18 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     from anime_game_afk.runtime.logger import get_logger
 
     listener = JsonLineListener()
+    logger = get_logger("worker")
+    logger.info("Worker started: pipeline={}, tasks={}", pipeline_id, enabled_ids)
+
+    import platform
+    import time as _time
+    _worker_start = _time.monotonic()
+    logger.info(
+        "Environment: Python {} | {} | frozen={}",
+        sys.version_info[:3], platform.platform(),
+        getattr(sys, "frozen", False),
+    )
+
     user_cfg = UserConfig.load()
     notify_on_complete = user_cfg.notify_on_complete()
 
@@ -214,6 +226,10 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
                 "⚠️ 任务结束",
                 f"完成 {result.succeeded}，失败 {result.failed}",
             )
+
+    _elapsed = _time.monotonic() - _worker_start
+    logger.info("Worker finished: succeeded={}, failed={}, elapsed={:.1f}s",
+                result.succeeded, result.failed, _elapsed)
 
     return 0 if not result.aborted and result.failed == 0 else 1
 
