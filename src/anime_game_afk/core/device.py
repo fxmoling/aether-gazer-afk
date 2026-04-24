@@ -164,22 +164,72 @@ class DeviceAdapter:
         self._connect_foreground()
 
     def _connect_foreground(self) -> None:
-        """Standard foreground connection (existing logic)."""
+        """Standard foreground connection with screencap fallback.
+
+        Tries the configured screencap method first, then falls back through
+        increasingly compatible alternatives:
+            FramePool → DXGI_DesktopDup → GDI
+        """
+        from maa.define import MaaWin32ScreencapMethodEnum
+
         self._hwnd = self.find_window()
 
-        try:
-            self._controller = Win32Controller(
-                hWnd=self._hwnd,
-                screencap_method=self._config.screencap_method,
-                mouse_method=self._config.mouse_method,
-                keyboard_method=self._config.keyboard_method,
-            )
-        except RuntimeError as exc:
-            raise DeviceConnectionError(
-                f"Failed to create Win32Controller: {exc}"
-            ) from exc
+        # Fallback chain: preferred method first, then progressively
+        # more compatible (but potentially slower) alternatives.
+        preferred = self._config.screencap_method
+        fallbacks = [
+            MaaWin32ScreencapMethodEnum.DXGI_DesktopDup,
+            MaaWin32ScreencapMethodEnum.GDI,
+        ]
+        methods_to_try = [preferred] + [m for m in fallbacks if m != preferred]
 
-        self._finish_connection()
+        last_error: Exception | None = None
+        for method in methods_to_try:
+            try:
+                logger.info(
+                    "Trying screencap method: {}",
+                    method.name if hasattr(method, 'name') else method,
+                )
+                self._controller = Win32Controller(
+                    hWnd=self._hwnd,
+                    screencap_method=method,
+                    mouse_method=self._config.mouse_method,
+                    keyboard_method=self._config.keyboard_method,
+                )
+                self._finish_connection()
+                if method != preferred:
+                    logger.warning(
+                        "Using fallback screencap method '{}' (preferred '{}' failed)",
+                        method.name if hasattr(method, 'name') else method,
+                        preferred.name if hasattr(preferred, 'name') else preferred,
+                    )
+                return  # Success
+            except (RuntimeError, OSError) as exc:
+                last_error = exc
+                logger.warning(
+                    "Screencap method {} failed: {}",
+                    method.name if hasattr(method, 'name') else method,
+                    exc,
+                )
+                self._controller = None
+                continue
+            except DeviceConnectionError as exc:
+                # _finish_connection raised — try next method
+                last_error = exc
+                logger.warning(
+                    "Connection with {} failed: {}",
+                    method.name if hasattr(method, 'name') else method,
+                    exc,
+                )
+                self._controller = None
+                continue
+
+        # All methods exhausted
+        raise DeviceConnectionError(
+            f"All screencap methods failed. Last error: {last_error}\n"
+            f"Please ensure Visual C++ Redistributable 2015-2022 is installed:\n"
+            f"https://aka.ms/vs/17/release/vc_redist.x64.exe"
+        )
 
     def _finish_connection(self) -> None:
         """Shared post-connection setup (raw size, screencap, aspect check)."""
