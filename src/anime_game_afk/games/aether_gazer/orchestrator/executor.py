@@ -63,7 +63,13 @@ def classify_infra_error(error: InfrastructureError) -> InfraFailure | None:
     error_msg = str(error).lower()
     for keyword, failure in _INFRA_ERROR_MAP.items():
         if keyword in error_msg:
+            logger.debug(
+                "Classified infra error as {failure}: {msg}",
+                failure=failure.value,
+                msg=error_msg,
+            )
             return failure
+    logger.debug("Unclassifiable infra error: {msg}", msg=error_msg)
     return None
 
 
@@ -95,6 +101,11 @@ class ProcessExecutor:
             ExecutionRecord with status, timing, and any error info.
         """
         logger.info("Starting process: {name}", name=proc_def.name)
+        logger.debug(
+            "Process {name} config: {config}",
+            name=proc_def.name,
+            config=proc_def.config,
+        )
         start = time.monotonic()
 
         try:
@@ -164,6 +175,10 @@ class ProcessExecutor:
             List of ExecutionRecords, one per attempted process.
         """
         records: list[ExecutionRecord] = []
+        logger.info(
+            "Executing {count} processes sequentially",
+            count=len(process_pairs),
+        )
 
         for process, proc_def, ctx in process_pairs:
             record = await self.execute_one(process, proc_def, ctx)
@@ -195,4 +210,14 @@ class ProcessExecutor:
                     )
                     break
 
+        succeeded = sum(1 for r in records if r.status in ("success", "recovered"))
+        failed = sum(1 for r in records if r.status in ("failed", "error"))
+        logger.info(
+            "Execution batch done: {succeeded} succeeded, {failed} failed, "
+            "{recovered} recovered out of {total} attempts",
+            succeeded=succeeded,
+            failed=failed,
+            recovered=sum(1 for r in records if r.status == "recovered"),
+            total=len(records),
+        )
         return records

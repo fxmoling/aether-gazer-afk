@@ -88,11 +88,17 @@ def _parse_process_def(raw: dict[str, Any]) -> ProcessDef:
     if "name" not in raw:
         raise ValueError(f"Process definition missing 'name': {raw}")
 
-    return ProcessDef(
+    proc = ProcessDef(
         name=raw["name"],
         enabled=raw.get("enabled", True),
         config=raw.get("config", {}),
     )
+    logger.debug(
+        "Parsed process '{name}': config_keys={keys}",
+        name=proc.name,
+        keys=list(proc.config.keys()),
+    )
+    return proc
 
 
 def load_plan(source: "str | Path | dict[str, Any]") -> PlanConfig:
@@ -111,6 +117,10 @@ def load_plan(source: "str | Path | dict[str, Any]") -> PlanConfig:
     """
     if isinstance(source, dict):
         data = source
+        logger.debug(
+            "Loading plan from dict (game={game})",
+            game=source.get("game", "unknown"),
+        )
     else:
         path = Path(source)
         if not path.exists():
@@ -138,6 +148,12 @@ def load_plan(source: "str | Path | dict[str, Any]") -> PlanConfig:
         )
 
     processes = [_parse_process_def(p) for p in raw_processes]
+    for proc in processes:
+        logger.debug(
+            "Process '{name}': enabled={enabled}",
+            name=proc.name,
+            enabled=proc.enabled,
+        )
     logger.info(
         "Plan loaded: game={game}, {total} processes ({enabled} enabled)",
         game=game,

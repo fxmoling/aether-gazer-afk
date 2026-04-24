@@ -85,6 +85,11 @@ class RecoveryManager:
             False if recovery failed and pipeline should abort.
         """
         strategy = self._strategies.get(failure)
+        logger.debug(
+            "Recovery strategy lookup: {failure} -> {strategy}",
+            failure=failure.value,
+            strategy=strategy.__name__ if strategy else "None",
+        )
         if strategy is None:
             logger.error("No recovery strategy for {failure}", failure=failure.value)
             return False
@@ -138,8 +143,8 @@ class RecoveryManager:
         """
         try:
             self._device.disconnect()
-        except Exception:
-            pass  # Already disconnected, ignore
+        except Exception as exc:
+            logger.debug("Disconnect before reconnect failed (expected): {exc}", exc=exc)
 
         await asyncio.sleep(2.0)
 
@@ -158,8 +163,8 @@ class RecoveryManager:
         """
         try:
             self._device.disconnect()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Disconnect during window recovery failed (expected): {exc}", exc=exc)
 
         await asyncio.sleep(3.0)
 
@@ -183,14 +188,14 @@ class RecoveryManager:
         try:
             self._device.screenshot()
             return True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Direct screenshot retry failed: {exc}", exc=exc)
 
         # Full reconnect
         try:
             self._device.disconnect()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Disconnect during screenshot recovery failed (expected): {exc}", exc=exc)
 
         await asyncio.sleep(2.0)
 
@@ -217,8 +222,8 @@ class RecoveryManager:
 
         try:
             self._device.disconnect()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Disconnect during crash recovery failed (expected): {exc}", exc=exc)
 
         try:
             self._device.connect()
@@ -251,18 +256,22 @@ class RecoveryManager:
                 return False
 
         # Click center of screen to dismiss "tap to start"
+        logger.debug("Session recovery: clicking center screen to dismiss title")
         self._device.click(0.5, 0.5)
         await asyncio.sleep(3.0)
 
         # Press Enter to confirm any login prompts
+        logger.debug("Session recovery: pressing Enter to confirm login prompt")
         self._device.press_key(0x0D)  # VK_RETURN
         await asyncio.sleep(5.0)
 
         # Press Enter again for server select / announcements
+        logger.debug("Session recovery: pressing Enter for server select")
         self._device.press_key(0x0D)
         await asyncio.sleep(3.0)
 
         # Verify we can screenshot (proves we're connected and in-game)
+        logger.debug("Session recovery: verifying screenshot capture")
         try:
             self._device.screenshot()
             return True

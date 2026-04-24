@@ -148,6 +148,10 @@ class Pipeline:
             enabled=len(enabled),
             total=total,
         )
+        logger.debug(
+            "Enabled processes: {names}",
+            names=[p.name for p in enabled],
+        )
 
         # Validate all process names before starting
         unknown = [p.name for p in enabled if p.name not in self._registry]
@@ -168,6 +172,7 @@ class Pipeline:
         # Build (process, proc_def, ctx) tuples
         process_pairs: list[tuple[Any, ProcessDef, Any]] = []
         for proc_def in enabled:
+            logger.debug("Creating process instance: {name}", name=proc_def.name)
             process = self._registry.create(proc_def.name)
             ctx = self._context_factory(proc_def)
             process_pairs.append((process, proc_def, ctx))
@@ -217,6 +222,14 @@ class Pipeline:
                 seen_names.add(record.process_name)
                 unique_records.append(record)
         unique_records.reverse()
+
+        for r in unique_records:
+            logger.debug(
+                "Final status for {name}: {status} ({elapsed:.1f}s)",
+                name=r.process_name,
+                status=r.status,
+                elapsed=r.elapsed_s,
+            )
 
         # Check abort using final records only — recovered failures
         # should not count as aborted
