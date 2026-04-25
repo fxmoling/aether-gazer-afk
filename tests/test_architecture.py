@@ -80,16 +80,14 @@ def test_checks_state_importable():
     mod = importlib.import_module(
         "anime_game_afk.games.aether_gazer.checks.state"
     )
-    assert hasattr(mod, "DetectGameStateCheck")
     assert hasattr(mod, "ScreenUnchangedCheck")
 
 
-def test_checks_vision_importable():
+def test_checks_battle_importable():
     mod = importlib.import_module(
-        "anime_game_afk.games.aether_gazer.checks.vision"
+        "anime_game_afk.games.aether_gazer.checks.battle"
     )
-    assert hasattr(mod, "TemplateMatchCheck")
-    assert hasattr(mod, "HasColorCheck")
+    assert hasattr(mod, "InBattleCheck")
 
 
 # ── Primitives existence ──
