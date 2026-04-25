@@ -200,6 +200,78 @@ class Api:
             return {"ok": False, "error": str(e)}
 
     # ------------------------------------------------------------------
+    # Schedule (lightweight scheduler)
+    # ------------------------------------------------------------------
+
+    def get_schedule(self) -> dict[str, Any]:
+        """Get current schedule configuration and status."""
+        from anime_game_afk.runtime.scheduler import (
+            WinScheduler,
+            load_schedule_config,
+        )
+        config = load_schedule_config()
+        sched = WinScheduler()
+        task_info = sched.query_task()
+        return {
+            "config": config.to_dict(),
+            "task": {
+                "registered": task_info.registered,
+                "enabled": task_info.enabled,
+                "next_run_time": task_info.next_run_time,
+                "last_run_time": task_info.last_run_time,
+                "last_result": task_info.last_result,
+                "status": task_info.status,
+            },
+        }
+
+    def save_schedule(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Save schedule config and register/update Windows task."""
+        from anime_game_afk.runtime.scheduler import (
+            ScheduleConfig,
+            WinScheduler,
+            save_schedule_config,
+        )
+        try:
+            cfg = ScheduleConfig.from_dict(config)
+            save_schedule_config(cfg)
+
+            sched = WinScheduler()
+            if cfg.enabled:
+                ok, msg = sched.create_task(cfg)
+            else:
+                ok, msg = sched.delete_task()
+
+            return {"ok": ok, "message": msg}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def delete_schedule(self) -> dict[str, Any]:
+        """Delete the scheduled task and disable config."""
+        from anime_game_afk.runtime.scheduler import (
+            ScheduleConfig,
+            WinScheduler,
+            load_schedule_config,
+            save_schedule_config,
+        )
+        try:
+            cfg = load_schedule_config()
+            cfg.enabled = False
+            save_schedule_config(cfg)
+
+            sched = WinScheduler()
+            ok, msg = sched.delete_task()
+            return {"ok": ok, "message": msg}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def get_schedule_history(self) -> list[dict[str, Any]]:
+        """Get schedule execution history (most recent first)."""
+        from anime_game_afk.runtime.scheduler import load_schedule_log
+        records = load_schedule_log()
+        records.reverse()
+        return records[:20]
+
+    # ------------------------------------------------------------------
     # Game launch
     # ------------------------------------------------------------------
 
@@ -228,93 +300,6 @@ class Api:
             result["game_exe"] = path or ""
 
         return result
-
-    # ------------------------------------------------------------------
-    # Orchestrator (multi-script scheduler)
-    # ------------------------------------------------------------------
-
-    def _require_orch(self) -> Any:
-        """Return the orchestrator manager or raise."""
-        if self._orch is None:
-            raise RuntimeError("OrchestratorRunManager not initialised")
-        return self._orch
-
-    def orch_get_tools(self) -> list[dict[str, Any]]:
-        """Get all registered orchestrator tools."""
-        try:
-            return self._require_orch().get_tools()
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    def orch_save_tool(self, tool: dict[str, Any]) -> dict[str, Any]:
-        """Add or update an orchestrator tool."""
-        try:
-            return self._require_orch().save_tool(tool)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_remove_tool(self, tool_id: str) -> dict[str, Any]:
-        """Remove an orchestrator tool by ID."""
-        try:
-            return self._require_orch().remove_tool(tool_id)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_scan_tools(self) -> list[dict[str, Any]]:
-        """Scan common paths for installed automation tools."""
-        try:
-            return self._require_orch().scan_tools()
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    def orch_get_schedules(self) -> list[dict[str, Any]]:
-        """Get all schedule entries."""
-        try:
-            return self._require_orch().get_schedules()
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    def orch_save_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
-        """Add or update a schedule entry."""
-        try:
-            return self._require_orch().save_schedule(schedule)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_remove_schedule(self, schedule_id: str) -> dict[str, Any]:
-        """Remove a schedule entry by ID."""
-        try:
-            return self._require_orch().remove_schedule(schedule_id)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_run_now(self, schedule_id: str) -> dict[str, Any]:
-        """Manually trigger a schedule immediately."""
-        try:
-            return self._require_orch().run_now(schedule_id)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_run_plan(self, plan: dict[str, Any]) -> dict[str, Any]:
-        """Execute a RunPlan directly."""
-        try:
-            return self._require_orch().run_plan(plan)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_stop(self) -> dict[str, Any]:
-        """Stop the current orchestrator run."""
-        try:
-            return self._require_orch().stop()
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def orch_get_run_status(self) -> dict[str, Any]:
-        """Get current orchestrator run status."""
-        try:
-            return self._require_orch().get_run_status()
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
 
     # ------------------------------------------------------------------
     # Game launch

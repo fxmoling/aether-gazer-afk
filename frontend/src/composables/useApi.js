@@ -50,4 +50,9 @@ export const api = {
   stopAutoBattle: () => apiCall('stop_auto_battle'),
   getAutoBattleStatus: () => apiCall('get_auto_battle_status'),
   listCombatScripts: () => apiCall('list_combat_scripts'),
+  // Schedule
+  getSchedule: () => apiCall('get_schedule'),
+  saveSchedule: (config) => apiCall('save_schedule', config),
+  deleteSchedule: () => apiCall('delete_schedule'),
+  getScheduleHistory: () => apiCall('get_schedule_history'),
 }

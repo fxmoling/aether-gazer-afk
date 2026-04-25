@@ -159,6 +159,8 @@ def generate_spec() -> str:
         "anime_game_afk.runtime.clock",
         "anime_game_afk.runtime.events",
         "anime_game_afk.runtime.errors",
+        "anime_game_afk.runtime.scheduler",
+        "anime_game_afk.runtime.headless",
         "anime_game_afk.config",
         "anime_game_afk.config.user_config",
         "anime_game_afk.games.aether_gazer",

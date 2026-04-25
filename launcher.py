@@ -362,6 +362,33 @@ def _run_worker() -> None:
     worker_main()
 
 
+def _run_scheduled(app_dir: Path) -> None:
+    """Run in headless scheduled mode (triggered by Windows Task Scheduler)."""
+    from loguru import logger as loguru_logger
+    import sys as _sys
+
+    # Configure logging to file + stderr (no GUI)
+    loguru_logger.remove()
+    log_dir = app_dir / "logs"
+    log_dir.mkdir(exist_ok=True)
+    loguru_logger.add(
+        _sys.stderr,
+        format="{time:HH:mm:ss} | {level:<7} | {message}",
+        level="DEBUG",
+    )
+    loguru_logger.add(
+        str(log_dir / "scheduled_{time:YYYY-MM-DD}.log"),
+        rotation="1 day",
+        retention="7 days",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level:<7} | {message}",
+        level="DEBUG",
+    )
+
+    from anime_game_afk.runtime.headless import HeadlessRunner
+    runner = HeadlessRunner()
+    _sys.exit(runner.run())
+
+
 def main() -> None:
     """Route to GUI (default), CLI, or worker based on arguments."""
     app_dir = _setup_paths()
@@ -409,10 +436,13 @@ def main() -> None:
 
     is_cli = "--cli" in sys.argv
     is_worker = "--worker" in sys.argv
+    is_scheduled = "--scheduled" in sys.argv
 
     try:
         if is_worker:
             _run_worker()
+        elif is_scheduled:
+            _run_scheduled(app_dir)
         elif is_cli:
             _run_cli(app_dir)
         else:
