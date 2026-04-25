@@ -1,0 +1,14 @@
+name: 默认连招
+description: 通用攻击循环 — Attack×2 Skill1 Attack Skill2 Attack Skill3 Ultimate QTE1 QTE2
+interval: 0.12
+steps:
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: u    # Skill 1
+  - press: j    # Attack
+  - press: i    # Skill 2
+  - press: j    # Attack
+  - press: o    # Skill 3
+  - press: r    # Ultimate
+  - press: "1"  # QTE 1
+  - press: "2"  # QTE 2

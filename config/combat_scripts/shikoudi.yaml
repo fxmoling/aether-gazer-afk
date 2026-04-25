@@ -1,0 +1,11 @@
+name: 诗寇蒂
+description: Skill2 → Attack → Skill3 → Ultimate → QTE1 → Attack → QTE2
+interval: 0.12
+steps:
+  - press: i    # Skill 2
+  - press: j    # Attack
+  - press: o    # Skill 3
+  - press: r    # Ultimate
+  - press: "1"  # QTE 1
+  - press: j    # Attack
+  - press: "2"  # QTE 2
