@@ -67,6 +67,24 @@
       "ref_height": 900
     }
   ],
+  "battle_hud": [
+    {
+      "name": "pause_icon",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\battle_hud__pause_icon.png",
+      "size": [74, 50],
+      "search": [0.92, 0.0, 1.0, 0.11],
+      "ref_height": 720,
+      "threshold": 0.75
+    },
+    {
+      "name": "dodge_button",
+      "path": "assets\\\\aether_gazer\\\\templates\\\\battle_hud__dodge_button.png",
+      "size": [70, 70],
+      "search": [0.92, 0.83, 1.0, 1.0],
+      "ref_height": 720,
+      "threshold": 0.70
+    }
+  ],
   "shop": [
     {
       "name": "shop_trade_tab",
