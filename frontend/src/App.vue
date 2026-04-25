@@ -250,4 +250,43 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.15);
 }
+
+/* Global select styling — dark theme dropdown */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(15, 12, 35, 0.95);
+  color: #c8c8d0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 6px 28px 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+  transition: border-color 0.15s;
+}
+
+select:hover {
+  border-color: rgba(255,255,255,0.18);
+}
+
+select:focus {
+  outline: none;
+  border-color: rgba(102,126,234,0.5);
+}
+
+select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+select option {
+  background: #1a1545;
+  color: #c8c8d0;
+  padding: 6px 10px;
+}
 </style>

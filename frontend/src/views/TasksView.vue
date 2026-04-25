@@ -227,18 +227,7 @@ const progressPct = computed(() =>
 .pipeline-bar select {
   flex: 1;
   max-width: 400px;
-  padding: 6px 12px;
-  background: rgba(255,255,255,0.05);
-  color: #c8c8d0;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
   font-size: 13px;
-  cursor: pointer;
-}
-
-.pipeline-bar select:focus {
-  outline: none;
-  border-color: rgba(102,126,234,0.5);
 }
 
 .pipeline-desc {
