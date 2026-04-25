@@ -15,6 +15,13 @@
       ■ 停止
     </button>
     <div class="auto-battle-group">
+      <button
+        class="btn-auto-battle"
+        :class="{ active: autoBattleOn }"
+        @click="toggleAutoBattle"
+      >
+        ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
+      </button>
       <select
         class="script-select"
         v-model="selectedScript"
@@ -22,13 +29,6 @@
       >
         <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
       </select>
-      <button
-        class="btn-auto-battle"
-        :class="{ active: autoBattleOn }"
-        @click="toggleAutoBattle"
-      >
-        ⚔️ {{ autoBattleOn ? '战斗中' : '战斗' }}
-      </button>
     </div>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
@@ -61,8 +61,15 @@ const scripts = ref([{ id: 'default', name: '默认连招' }])
 let pollTimer = null
 
 async function loadScripts() {
-  const list = await api.listCombatScripts()
-  if (list && list.length > 0) scripts.value = list
+  // pywebview may not be ready on first mount, retry a few times
+  for (let i = 0; i < 5; i++) {
+    const list = await api.listCombatScripts()
+    if (list && list.length > 0) {
+      scripts.value = list
+      return
+    }
+    await new Promise(r => setTimeout(r, 500))
+  }
 }
 
 async function toggleAutoBattle() {
@@ -195,10 +202,11 @@ async function handleStop() {
 }
 
 .btn-auto-battle {
-  padding: 10px 16px;
+  padding: 10px 14px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 0 10px 10px 0;
+  border-right: none;
+  border-radius: 10px 0 0 10px;
   color: rgba(255,255,255,0.4);
   font-size: 12px;
   cursor: pointer;
@@ -228,12 +236,11 @@ async function handleStop() {
   padding: 8px 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
+  border-radius: 0 10px 10px 0;
   color: rgba(255,255,255,0.5);
   font-size: 11px;
   cursor: pointer;
-  max-width: 110px;
+  max-width: 120px;
 }
 
 .script-select:focus {
