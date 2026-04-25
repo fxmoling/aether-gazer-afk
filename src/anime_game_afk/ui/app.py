@@ -48,8 +48,12 @@ def main() -> None:
     # 2. Create task manager
     task_manager = TaskManager()
 
+    # 2.5. Create orchestrator manager
+    from anime_game_afk.orchestrator.run_manager import OrchestratorRunManager
+    orch_manager = OrchestratorRunManager()
+
     # 3. Create API
-    api = Api(task_manager=task_manager, log_forwarder=log_forwarder)
+    api = Api(task_manager=task_manager, log_forwarder=log_forwarder, orch_manager=orch_manager)
 
     # 4. Create pywebview window
     window = webview.create_window(
@@ -69,6 +73,7 @@ def main() -> None:
     webview.start(debug="--debug" in sys.argv)
 
     # 7. Cleanup
+    orch_manager.stop_scheduler()
     log_forwarder.uninstall()
     task_manager.disconnect()
 
