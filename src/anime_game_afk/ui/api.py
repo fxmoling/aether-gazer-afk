@@ -81,9 +81,9 @@ class Api:
     # Auto-battle
     # ------------------------------------------------------------------
 
-    def start_auto_battle(self) -> dict[str, Any]:
+    def start_auto_battle(self, script_name: str = "default") -> dict[str, Any]:
         """Start the auto-battle toggle."""
-        return self._tm.start_auto_battle()
+        return self._tm.start_auto_battle(script_name)
 
     def stop_auto_battle(self) -> dict[str, Any]:
         """Stop the auto-battle toggle."""
@@ -92,6 +92,21 @@ class Api:
     def get_auto_battle_status(self) -> dict[str, Any]:
         """Get auto-battle status."""
         return {"enabled": self._tm._auto_battle_enabled}
+
+    def list_combat_scripts(self) -> list[dict[str, str]]:
+        """List available combat scripts from config/combat_scripts/."""
+        from anime_game_afk.games.aether_gazer.combat.script import (
+            load_script, _CONFIG_DIR,
+        )
+        scripts = []
+        if _CONFIG_DIR.exists():
+            for f in sorted(_CONFIG_DIR.glob("*.yaml")):
+                try:
+                    s = load_script(f.stem)
+                    scripts.append({"id": f.stem, "name": s.name})
+                except Exception:
+                    scripts.append({"id": f.stem, "name": f.stem})
+        return scripts
 
     # ------------------------------------------------------------------
     # Logs

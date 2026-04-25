@@ -14,13 +14,22 @@
     >
       ■ 停止
     </button>
-    <button
-      class="btn-auto-battle"
-      :class="{ active: autoBattleOn }"
-      @click="toggleAutoBattle"
-    >
-      ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
-    </button>
+    <div class="auto-battle-group">
+      <select
+        class="script-select"
+        v-model="selectedScript"
+        :disabled="autoBattleOn"
+      >
+        <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
+      </select>
+      <button
+        class="btn-auto-battle"
+        :class="{ active: autoBattleOn }"
+        @click="toggleAutoBattle"
+      >
+        ⚔️ {{ autoBattleOn ? '战斗中' : '战斗' }}
+      </button>
+    </div>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -47,17 +56,23 @@ import { state, startRun, stopRun } from '../composables/useStore'
 import { api } from '../composables/useApi'
 
 const autoBattleOn = ref(false)
+const selectedScript = ref('default')
+const scripts = ref([{ id: 'default', name: '默认连招' }])
 let pollTimer = null
+
+async function loadScripts() {
+  const list = await api.listCombatScripts()
+  if (list && list.length > 0) scripts.value = list
+}
 
 async function toggleAutoBattle() {
   if (autoBattleOn.value) {
     await api.stopAutoBattle()
     autoBattleOn.value = false
   } else {
-    const result = await api.startAutoBattle()
+    const result = await api.startAutoBattle(selectedScript.value)
     if (result && result.ok) {
       autoBattleOn.value = true
-      // Auto-connect also sets game_verified, reflect in UI
       state.connected = true
     } else if (result) {
       alert(result.error || '启动失败')
@@ -71,6 +86,7 @@ async function pollStatus() {
 }
 
 onMounted(() => {
+  loadScripts()
   pollTimer = setInterval(pollStatus, 3000)
 })
 
@@ -182,7 +198,7 @@ async function handleStop() {
   padding: 10px 16px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
+  border-radius: 0 10px 10px 0;
   color: rgba(255,255,255,0.4);
   font-size: 12px;
   cursor: pointer;
@@ -201,5 +217,32 @@ async function handleStop() {
   border-color: rgba(245,158,11,0.4);
   color: #f5a623;
   box-shadow: 0 0 12px rgba(245,158,11,0.2);
+}
+
+.auto-battle-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.script-select {
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  cursor: pointer;
+  max-width: 110px;
+}
+
+.script-select:focus {
+  outline: none;
+  border-color: rgba(245,158,11,0.3);
+}
+
+.script-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

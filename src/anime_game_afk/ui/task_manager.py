@@ -69,6 +69,7 @@ class TaskManager:
         self._game_verified = False
         self._resolution: str | None = None
         self._auto_battle_enabled = False
+        self._auto_battle_script = "default"
         self._auto_battle_thread: threading.Thread | None = None
 
         self._load_pipelines()
@@ -324,7 +325,7 @@ class TaskManager:
     # Auto-battle toggle
     # ------------------------------------------------------------------
 
-    def start_auto_battle(self) -> dict[str, Any]:
+    def start_auto_battle(self, script_name: str = "default") -> dict[str, Any]:
         """Start the auto-battle service on a background thread."""
         if self._auto_battle_enabled:
             return {"ok": False, "error": "自动战斗已在运行中"}
@@ -336,11 +337,12 @@ class TaskManager:
                 return {"ok": False, "error": conn.get("error", "无法连接游戏")}
 
         self._auto_battle_enabled = True
+        self._auto_battle_script = script_name
         self._auto_battle_thread = threading.Thread(
             target=self._auto_battle_worker, daemon=True,
         )
         self._auto_battle_thread.start()
-        self._logger.info("自动战斗已开启")
+        self._logger.info("自动战斗已开启 (script={})", script_name)
         return {"ok": True}
 
     def stop_auto_battle(self) -> dict[str, Any]:
@@ -364,7 +366,7 @@ class TaskManager:
             device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
             device.connect()
             ctx = OpContext(device=device)
-            script = load_script("default")
+            script = load_script(self._auto_battle_script)
             service = AutoBattleService(script, check_interval=2.0)
 
             async def _run():
