@@ -84,7 +84,7 @@
       "search": [0.92, 0.83, 1.0, 1.0],
       "ref_height": 720,
       "grayscale": true,
-      "threshold": 0.80
+      "threshold": 0.40
     }
   ],
   "shop": [
