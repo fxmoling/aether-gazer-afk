@@ -285,10 +285,12 @@ class DuoweiCombat:
         """Scroll difficulty list and click the target LV item.
 
         Returns True if target difficulty is confirmed selected.
+        Gives up after 5 scroll attempts and treats as success (proceed anyway).
         """
         target_str = f"lv{target_lv}"
+        max_scrolls = 5
 
-        for scroll in range(8):
+        for scroll in range(max_scrolls):
             img = ctx.screenshot()
             ocr = ocr_once(img)
 
@@ -326,13 +328,17 @@ class DuoweiCombat:
                     )
                     return False
 
-            # Scroll down to reveal more levels
-            ctx.logger.debug(f"[duowei] LV{target_lv} not visible, scrolling ({scroll + 1}/8)")
+            # Scroll down to reveal more levels, wait 1s extra to let UI settle
+            ctx.logger.debug(
+                f"[duowei] LV{target_lv} not visible, scrolling ({scroll + 1}/{max_scrolls})"
+            )
             ctx.device.swipe(0.3, 0.7, 0.3, 0.3, 500)
-            await SleepOp(1.0).run(ctx)
+            await SleepOp(2.0).run(ctx)  # 1s scroll + 1s settle
 
-        ctx.logger.warning(f"[duowei] LV{target_lv} not found after scrolling")
-        return False
+        ctx.logger.warning(
+            f"[duowei] LV{target_lv} not found after {max_scrolls} scrolls, proceeding anyway"
+        )
+        return True  # treat as success — click 下一步 regardless
 
     async def _ocr_click(self, ctx: TaskContext, text: str, label: str) -> bool:
         """OCR-find text and click its center. Returns True if found."""
@@ -351,26 +357,54 @@ class DuoweiCombat:
         return False
 
     async def _select_beacon(self, ctx: TaskContext) -> None:
-        """Scroll beacon list and select 赏金猎人."""
-        for scroll in range(4):
+        """Scroll beacon list and select 赏金猎人, 孤狼之道, 残酷天平.
+
+        OCR → click any visible target → scroll → repeat.
+        Stops when all 3 are selected or after 5 scroll cycles.
+        """
+        targets = ["赏金猎人", "孤狼之道", "残酷天平"]
+        selected: set[str] = set()
+        max_scrolls = 5
+
+        for scroll in range(max_scrolls):
             img = ctx.screenshot()
             ocr = ocr_once(img)
-            match = ocr.find("赏金猎人")
-            if match:
-                r = match.region
-                ctx.device.click(
-                    (r.x + r.w // 2) / 1280,
-                    (r.y + r.h // 2) / 720,
-                )
-                ctx.logger.info("[duowei] Selected 赏金猎人 beacon")
-                await SleepOp(1.0).run(ctx)
+
+            # Try to click each unselected target visible on screen
+            found_any = False
+            for name in targets:
+                if name in selected:
+                    continue
+                match = ocr.find(name)
+                if match:
+                    r = match.region
+                    ctx.device.click(
+                        (r.x + r.w // 2) / 1280,
+                        (r.y + r.h // 2) / 720,
+                    )
+                    selected.add(name)
+                    found_any = True
+                    ctx.logger.info(
+                        f"[duowei] Selected beacon: {name} ({len(selected)}/{len(targets)})"
+                    )
+                    await SleepOp(1.0).run(ctx)
+
+            if len(selected) >= len(targets):
+                ctx.logger.info("[duowei] All beacons selected")
                 return
 
-            # Scroll down to reveal more beacons
-            ctx.device.swipe(0.5, 0.5, 0.5, 0.2, 500)
-            await SleepOp(1.0).run(ctx)
+            if not found_any:
+                # Nothing new found — scroll down to reveal more beacons
+                ctx.logger.debug(
+                    f"[duowei] No new beacons visible, scrolling ({scroll + 1}/{max_scrolls})"
+                )
+                ctx.device.swipe(0.5, 0.5, 0.5, 0.2, 500)
+                await SleepOp(1.5).run(ctx)
 
-        ctx.logger.warning("[duowei] 赏金猎人 not found after scrolling")
+        ctx.logger.info(
+            f"[duowei] Beacon selection done: {len(selected)}/{len(targets)} "
+            f"selected ({selected or 'none'}), proceeding"
+        )
 
     # ── Action 3: Treasure handling ──
 
