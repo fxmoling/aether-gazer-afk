@@ -517,13 +517,13 @@ class DuoweiCombat:
     # ── Action 5: Combat ──
 
     async def _fight_battle(self, ctx: TaskContext) -> str:
-        """Execute combat script until battle ends."""
+        """Execute combat script until battle ends (with debounce)."""
         ctx.logger.info("[duowei] _fight_battle starting")
         await SleepOp(3.0).run(ctx)  # Wait for battle to fully load
 
         script = load_script("default")
         service = AutoBattleService(script, check_interval=2.0)
-        await service.run_until_battle_ends(ctx)
+        await service.run_until_battle_ends(ctx, extra_confirms=3)
 
         ctx.logger.info("[duowei] Battle ended")
         return "won"

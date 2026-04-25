@@ -56,22 +56,52 @@ class AutoBattleService:
         self._runner.stop()
         logger.info("AutoBattle stopped")
 
-    async def run_until_battle_ends(self, ctx: OpContext) -> None:
+    async def run_until_battle_ends(
+        self, ctx: OpContext, extra_confirms: int = 1,
+    ) -> None:
         """Start, wait for battle to begin and end, then auto-stop.
 
         For task-driven usage: call this after entering a battle screen.
-        It fights until InBattleCheck goes False, then returns.
+
+        Args:
+            extra_confirms: after first False, recheck at 1s intervals
+                this many extra times. All must be False to confirm end.
+                If any recheck is True, resume normal monitoring.
+                Default 1 (quick confirm). Use 3+ for VFX-heavy scenes.
         """
         self._enabled = True
         monitor = asyncio.create_task(self._monitor_loop(ctx))
         combat = asyncio.create_task(self._combat_loop(ctx))
+        check = InBattleCheck()
         try:
             # Wait for battle to start
             while self._enabled and not self._runner.active:
                 await asyncio.sleep(0.5)
-            # Wait for battle to end
-            while self._enabled and self._runner.active:
-                await asyncio.sleep(0.5)
+            # Wait for battle to end with debounce
+            while self._enabled:
+                await asyncio.sleep(self._check_interval)
+                if not self._runner.active:
+                    # First False detected — run extra confirms at 1s intervals
+                    confirmed = True
+                    for i in range(extra_confirms):
+                        await asyncio.sleep(1.0)
+                        result = await check.evaluate(ctx)
+                        if result.passed:
+                            # Still in battle — false alarm
+                            logger.debug(
+                                "run_until_battle_ends: recheck {}/{} = True, resuming",
+                                i + 1, extra_confirms,
+                            )
+                            self._runner.active = True
+                            confirmed = False
+                            break
+                        logger.debug(
+                            "run_until_battle_ends: recheck {}/{} = False",
+                            i + 1, extra_confirms,
+                        )
+                    if confirmed:
+                        logger.info("run_until_battle_ends: battle ended (confirmed)")
+                        break
         finally:
             self.stop()
             await asyncio.gather(monitor, combat, return_exceptions=True)
