@@ -105,6 +105,7 @@ def _load_templates() -> dict[str, list[dict]]:
                 )
 
             threshold = tpl.get("threshold")  # None = global default
+            grayscale = tpl.get("grayscale", False)
 
             loaded.append({
                 "image": img,
@@ -112,6 +113,7 @@ def _load_templates() -> dict[str, list[dict]]:
                 "search_frac": search_frac,
                 "mask": mask,
                 "threshold": threshold,
+                "grayscale": grayscale,
             })
         if loaded:
             _page_templates[page_id] = loaded
@@ -185,7 +187,16 @@ def _match_one(
         if tpl["search_frac"] is not None
         else None
     )
-    result = match_template(screenshot, scaled, region=region, mask=mask)
+    # Grayscale mode: convert both to single-channel before matching.
+    # CCOEFF_NORMED on grayscale is robust to color/brightness shifts.
+    ss = screenshot
+    tpl_img = scaled
+    if tpl.get("grayscale"):
+        if len(ss.shape) == 3:
+            ss = cv2.cvtColor(ss, cv2.COLOR_BGR2GRAY)
+        if len(tpl_img.shape) == 3:
+            tpl_img = cv2.cvtColor(tpl_img, cv2.COLOR_BGR2GRAY)
+    result = match_template(ss, tpl_img, region=region, mask=mask)
     threshold = tpl.get("threshold") if tpl.get("threshold") is not None else MATCH_THRESHOLD
     return result.score, threshold
 
