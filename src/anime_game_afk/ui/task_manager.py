@@ -328,8 +328,12 @@ class TaskManager:
         """Start the auto-battle service on a background thread."""
         if self._auto_battle_enabled:
             return {"ok": False, "error": "自动战斗已在运行中"}
+
+        # Auto-connect if not yet verified
         if not self._game_verified:
-            return {"ok": False, "error": "请先连接游戏"}
+            conn = self.connect()
+            if not conn.get("ok"):
+                return {"ok": False, "error": conn.get("error", "无法连接游戏")}
 
         self._auto_battle_enabled = True
         self._auto_battle_thread = threading.Thread(

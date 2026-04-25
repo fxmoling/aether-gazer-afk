@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -199,14 +200,100 @@ class OrchestratorRunManager:
         return result
 
     def save_schedule(self, schedule_dict: dict[str, Any]) -> dict[str, Any]:
-        """Add or update a schedule entry."""
+        """Add or update a schedule entry.
+
+        Accepts either the backend ScheduleEntry format or the frontend
+        format (with ``steps``, ``time``, ``days``).
+        """
         try:
-            entry = ScheduleEntry.from_dict(schedule_dict)
+            normalized = self._normalize_schedule_input(schedule_dict)
+            entry = ScheduleEntry.from_dict(normalized)
             self._config.save_schedule(entry)
-            return {"ok": True, "schedule_id": entry.schedule_id}
+            return {"ok": True, "id": entry.schedule_id}
         except Exception as exc:
             logger.exception("Failed to save schedule")
             return {"ok": False, "error": str(exc)}
+
+    @staticmethod
+    def _normalize_schedule_input(d: dict[str, Any]) -> dict[str, Any]:
+        """Translate frontend schedule format → ScheduleEntry dict.
+
+        Frontend sends::
+
+            { id, name, time, days, steps: [{tools:[{tool_id,timeout_min,...}]}],
+              post_action: "nothing"|"kill_games"|"shutdown", enabled }
+
+        Backend expects::
+
+            { schedule_id, name, cron_expr, plan: {waves:[{tools:[{tool_id,...}]}],
+              post_action:{action_type,...}}, enabled }
+        """
+        # Already in backend format?
+        if "plan" in d and "waves" in d.get("plan", {}):
+            return d
+
+        schedule_id = d.get("id") or d.get("schedule_id") or uuid.uuid4().hex[:8]
+
+        # Build cron from time + days
+        time_str = d.get("time", "04:00")
+        parts = time_str.split(":")
+        hour = int(parts[0]) if len(parts) >= 1 else 4
+        minute = int(parts[1]) if len(parts) >= 2 else 0
+
+        days = d.get("days", [])
+        interval_hours = d.get("interval_hours")
+
+        if interval_hours:
+            cron_expr = f"{minute} */{interval_hours} * * *"
+        elif days and set(days) != {"*"} and len(days) < 7:
+            day_map = {"周一": "1", "周二": "2", "周三": "3", "周四": "4",
+                       "周五": "5", "周六": "6", "周日": "0",
+                       "Mon": "1", "Tue": "2", "Wed": "3", "Thu": "4",
+                       "Fri": "5", "Sat": "6", "Sun": "0"}
+            day_nums = [day_map.get(d2, d2) for d2 in days]
+            cron_expr = f"{minute} {hour} * * {','.join(day_nums)}"
+        else:
+            cron_expr = f"{minute} {hour} * * *"
+
+        # Build waves from steps
+        steps = d.get("steps", [])
+        waves = []
+        for i, step in enumerate(steps):
+            tools = []
+            for t in step.get("tools", []):
+                tr: dict[str, Any] = {
+                    "tool_id": t["tool_id"],
+                    "timeout_minutes": t.get("timeout_min", t.get("timeout_minutes", 30)),
+                }
+                if t.get("task_index") is not None:
+                    tr["task_index"] = t["task_index"]
+                if t.get("config_name"):
+                    tr["config_name"] = t["config_name"]
+                if t.get("extra_args"):
+                    tr["extra_args"] = t["extra_args"]
+                tools.append(tr)
+            waves.append({"tools": tools, "label": f"步骤 {i + 1}"})
+
+        # Build post_action
+        pa_raw = d.get("post_action", "nothing")
+        if isinstance(pa_raw, str):
+            post_action = {"action_type": pa_raw, "process_names": [], "delay_seconds": 120}
+        elif isinstance(pa_raw, dict):
+            post_action = pa_raw
+        else:
+            post_action = {"action_type": "nothing"}
+
+        return {
+            "schedule_id": schedule_id,
+            "name": d.get("name", "未命名计划"),
+            "cron_expr": cron_expr,
+            "plan": {
+                "name": d.get("name", "每日任务"),
+                "waves": waves,
+                "post_action": post_action,
+            },
+            "enabled": d.get("enabled", False),
+        }
 
     def remove_schedule(self, schedule_id: str) -> dict[str, Any]:
         """Remove a schedule by ID."""

@@ -57,6 +57,8 @@ async function toggleAutoBattle() {
     const result = await api.startAutoBattle()
     if (result && result.ok) {
       autoBattleOn.value = true
+      // Auto-connect also sets game_verified, reflect in UI
+      state.connected = true
     } else if (result) {
       alert(result.error || '启动失败')
     }

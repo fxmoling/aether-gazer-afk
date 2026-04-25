@@ -530,24 +530,15 @@ async function runNow() {
     return
   }
 
-  // Build plan from current form
-  const plan = {
-    schedule_id: schedule.id,
-    steps: schedule.steps.map(step => ({
-      tools: step.tools.map(t => ({
-        tool_id: t.tool_id,
-        timeout_min: t.timeout_min,
-        task_index: t.task_index,
-        config_name: t.config_name,
-      })),
-    })),
-    post_action: schedule.post_action,
-  }
+  // Always save first to persist current UI state
+  await save()
 
+  // Now run the persisted schedule
   if (schedule.id) {
-    await orchApi.runNow(schedule.id)
-  } else {
-    await orchApi.runPlan(plan)
+    const result = await orchApi.runNow(schedule.id)
+    if (result && !result.ok) {
+      console.error('Run failed:', result.error)
+    }
   }
 }
 </script>
