@@ -7,7 +7,6 @@ Ops do NOT call other ops. Composition belongs in Layer 6.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
@@ -19,21 +18,6 @@ class OpResult:
     success: bool
     data: Any = None
     error: str | None = None
-
-
-class GameState(Enum):
-    """Possible game states during automation."""
-    BATTLE = "battle"
-    CUTSCENE = "cutscene"
-    DIALOGUE = "dialogue"
-    REVIVE_PROMPT = "revive_prompt"
-    LOADING = "loading"
-    STAGE_MAP = "stage_map"
-    SKIP_STORY_CONFIRM = "skip_story_confirm"
-    CONTINUOUS_BATTLE = "continuous_battle"
-    MISSION_FAILED = "mission_failed"
-    PREP_BATTLE = "prep_battle"
-    UNKNOWN = "unknown"
 
 
 @runtime_checkable

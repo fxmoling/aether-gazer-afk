@@ -1,1 +1,1 @@
-"""Perception ops — identify page and detect game state."""
+"""Perception ops — identify page."""

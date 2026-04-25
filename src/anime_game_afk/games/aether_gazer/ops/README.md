@@ -5,11 +5,10 @@ Smallest executable units. Each op does ONE thing, returns OpResult.
 ## Structure
 | Subdir | Purpose |
 |--------|---------|
-| base.py | Op protocol, OpResult, OpContext, GameState |
-| perception/ | "See" — read game state from screenshots |
+| base.py | Op protocol, OpResult, OpContext |
+| perception/ | "See" — identify pages from screenshots |
 | navigate/ | "Go" — move between pages |
-| interact/ | "Act" — click, confirm, skip |
-| combat/ | "Fight" — battle-specific actions |
+| interact/ | "Act" — rapid click |
 
 ## Rules
 - Each file = one op (or small family)

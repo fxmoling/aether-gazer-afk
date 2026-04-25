@@ -17,7 +17,6 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
     FindTextCheck,
     HasTextCheck,
     OcrFullCheck,
-    OcrScanCheck,
 )
 from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE

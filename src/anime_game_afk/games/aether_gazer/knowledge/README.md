@@ -6,8 +6,8 @@ Pure data models for AetherGazer. **ZERO imports** of cv2, device, or vision.
 | File | Contents |
 |------|----------|
 | constants.py | Design resolution, thresholds, timing defaults |
-| keys.py | All VK codes (battle, UI, movement) |
-| resources.py | Template directory paths, state template metadata |
+| keys.py | All VK codes (UI, movement) |
+| resources.py | Template directory paths |
 | pages.py | PageDef with elements and coordinates (15 pages) |
 | navigation.py | NavGraph with page-to-page edges |
 

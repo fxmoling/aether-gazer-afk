@@ -34,16 +34,6 @@ VK_D = 0x44       # Right
 VK_Q = 0x51       # Camera rotate left
 VK_E = 0x45       # Camera rotate right
 
-# --- Attack rotation sequence ---
-# One full cycle: J J U J I J O R 1 2
-ATTACK_CYCLE_KEYS = [
-    VK_J, VK_J, VK_U, VK_J, VK_I, VK_J, VK_O, VK_R, VK_1, VK_2,
-]
-
-# --- Convenience groups ---
-SKILL_KEYS = [VK_U, VK_I, VK_O]
-MOVE_KEYS = [VK_W, VK_A, VK_S, VK_D]
-
 # --- Human-readable names for logging ---
 KEY_NAMES: dict[int, str] = {
     VK_ESCAPE: "ESC", VK_ENTER: "Enter", VK_TAB: "Tab",

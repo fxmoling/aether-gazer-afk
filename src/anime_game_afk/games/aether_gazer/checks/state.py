@@ -1,33 +1,13 @@
-"""Game state checks.
+"""Screen change detection check.
 
-Checks for detecting game state (battle, cutscene, loading, etc.)
-and screen change detection. No side effects.
+No side effects.
 """
 from __future__ import annotations
 
 import numpy as np
 
 from anime_game_afk.games.aether_gazer.checks.base import CheckResult
-from anime_game_afk.games.aether_gazer.ops.base import GameState, OpContext
-from anime_game_afk.games.aether_gazer.ops.perception.detect_game_state import (
-    detect_state,
-)
-
-
-class DetectGameStateCheck:
-    """Detect the current game state from screenshot.
-
-    Always passes. data contains state (GameState) and confidence.
-    """
-
-    async def evaluate(self, ctx: OpContext) -> CheckResult:
-        img = ctx.device.screenshot()
-        state, confidence = detect_state(img)
-        return CheckResult(
-            passed=(state != GameState.UNKNOWN),
-            data={"state": state, "confidence": confidence},
-            message=f"state={state.value} conf={confidence:.2f}",
-        )
+from anime_game_afk.games.aether_gazer.ops.base import OpContext
 
 
 class ScreenUnchangedCheck:

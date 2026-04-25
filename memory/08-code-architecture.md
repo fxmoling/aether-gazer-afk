@@ -23,19 +23,17 @@ Task    — 业务流程编排 Op+Action+Check (禁止直接碰 ctx.device.* 和
 - **所有坐标使用 fractional [0.0, 1.0]**，不再使用像素坐标
 - `ClickOp(x=fx, y=fy)` — 直接传 fractional 坐标给 device
 - `ClickPxOp(px=cx, py=cy)` — OCR/vision 返回的像素坐标自动转换
-- `RapidClickPxAction` — 多次点击 OCR 像素坐标
 - 详见 `memory/10-resolution-agnostic-refactor.md`
 
 ### 命名规则
 - **XxxOp** = 原始设备调用 (7个，在 `ops/primitives.py`)
-- **XxxAction** = 可复用组合动作 (13个，在 `ops/navigate/`, `ops/interact/`, `ops/combat/`)
-- **XxxCheck** = 观察检查 (12个，在 `checks/`)
+- **XxxAction** = 可复用组合动作 (在 `ops/navigate/`, `ops/interact/`)
+- **XxxCheck** = 观察检查 (在 `checks/`)
 
 ### Action 清单 (原"复合 Op"，已重命名)
 - `ReturnToHubAction` — 智能返回 hub (ESC/back/Enter循环，用 AtHubCheck 检测)
 - `GoBackAction`, `WakeHubUiAction` (导航)
-- `AttackCycleAction`, `WalkForwardAction`, `HandleReviveAction` (战斗)
-- `ClickElementAction`, `ConfirmPopupAction`, `SkipCutsceneAction`, `AdvanceDialogueAction`, `RapidClickAction`, `RapidClickPxAction` (交互)
+- `RapidClickAction` (交互)
 
 > **已删除 (2026-04-22)**: `GotoPageAction`, `NavGraph`, `identify()` —
 > identify() 的 CCORR/CCOEFF 评分不可比问题导致 hub_idle 误检，商店导航失败率 ~56%。
