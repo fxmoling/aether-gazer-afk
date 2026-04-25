@@ -21,13 +21,11 @@
     >
       ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
     </button>
-    <select
-      class="script-select"
+    <CustomSelect
       v-model="selectedScript"
+      :options="scriptOptions"
       :disabled="autoBattleOn"
-    >
-      <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
-    </select>
+    />
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -52,10 +50,14 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { state, startRun, stopRun } from '../composables/useStore'
 import { api } from '../composables/useApi'
+import CustomSelect from './CustomSelect.vue'
 
 const autoBattleOn = ref(false)
 const selectedScript = ref('default')
 const scripts = ref([{ id: 'default', name: '默认连招' }])
+const scriptOptions = computed(() =>
+  scripts.value.map(s => ({ value: s.id, label: s.name }))
+)
 let pollTimer = null
 
 async function loadScripts() {
@@ -222,9 +224,5 @@ async function handleStop() {
   border-color: rgba(245,158,11,0.5);
   color: #f5a623;
   box-shadow: 0 0 16px rgba(245,158,11,0.2);
-}
-
-.script-select {
-  max-width: 120px;
 }
 </style>
