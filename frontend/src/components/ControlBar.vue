@@ -14,22 +14,20 @@
     >
       ■ 停止
     </button>
-    <div class="auto-battle-group">
-      <button
-        class="btn-auto-battle"
-        :class="{ active: autoBattleOn }"
-        @click="toggleAutoBattle"
-      >
-        ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
-      </button>
-      <select
-        class="script-select"
-        v-model="selectedScript"
-        :disabled="autoBattleOn"
-      >
-        <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
-      </select>
-    </div>
+    <button
+      class="btn-auto-battle"
+      :class="{ active: autoBattleOn }"
+      @click="toggleAutoBattle"
+    >
+      ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
+    </button>
+    <select
+      class="script-select"
+      v-model="selectedScript"
+      :disabled="autoBattleOn"
+    >
+      <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
+    </select>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -202,11 +200,10 @@ async function handleStop() {
 }
 
 .btn-auto-battle {
-  padding: 10px 14px;
+  padding: 10px 18px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
+  border-radius: 10px;
   color: rgba(255,255,255,0.4);
   font-size: 12px;
   cursor: pointer;
@@ -221,30 +218,13 @@ async function handleStop() {
 }
 
 .btn-auto-battle.active {
-  background: rgba(245,158,11,0.12);
-  border-color: rgba(245,158,11,0.4);
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,108,0,0.15));
+  border-color: rgba(245,158,11,0.5);
   color: #f5a623;
-  box-shadow: 0 0 12px rgba(245,158,11,0.2);
-}
-
-.auto-battle-group {
-  display: flex;
-  align-items: stretch;
+  box-shadow: 0 0 16px rgba(245,158,11,0.2);
 }
 
 .script-select {
-  border-radius: 0 10px 10px 0;
-  border-left: none;
   max-width: 120px;
-}
-
-.script-select:focus {
-  outline: none;
-  border-color: rgba(245,158,11,0.3);
-}
-
-.script-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>
