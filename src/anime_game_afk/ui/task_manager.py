@@ -68,6 +68,8 @@ class TaskManager:
         # Verify-then-release: no persistent device
         self._game_verified = False
         self._resolution: str | None = None
+        self._auto_battle_enabled = False
+        self._auto_battle_thread: threading.Thread | None = None
 
         self._load_pipelines()
         self._load_config()
@@ -317,6 +319,73 @@ class TaskManager:
                         self._push_task_status(t.id, "failed")
         self._logger.info("已请求停止")
         return {"ok": True}
+
+    # ------------------------------------------------------------------
+    # Auto-battle toggle
+    # ------------------------------------------------------------------
+
+    def start_auto_battle(self) -> dict[str, Any]:
+        """Start the auto-battle service on a background thread."""
+        if self._auto_battle_enabled:
+            return {"ok": False, "error": "自动战斗已在运行中"}
+        if not self._game_verified:
+            return {"ok": False, "error": "请先连接游戏"}
+
+        self._auto_battle_enabled = True
+        self._auto_battle_thread = threading.Thread(
+            target=self._auto_battle_worker, daemon=True,
+        )
+        self._auto_battle_thread.start()
+        self._logger.info("自动战斗已开启")
+        return {"ok": True}
+
+    def stop_auto_battle(self) -> dict[str, Any]:
+        """Stop the auto-battle service."""
+        if not self._auto_battle_enabled:
+            return {"ok": True}
+        self._auto_battle_enabled = False
+        self._logger.info("自动战斗已关闭")
+        return {"ok": True}
+
+    def _auto_battle_worker(self) -> None:
+        """Background thread: run AutoBattleService until stopped."""
+        import asyncio
+        from anime_game_afk.core.device import DeviceAdapter
+        from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
+        from anime_game_afk.games.aether_gazer.combat.script import load_script
+        from anime_game_afk.games.aether_gazer.combat.service import AutoBattleService
+        from anime_game_afk.games.aether_gazer.ops.base import OpContext
+
+        try:
+            device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
+            device.connect()
+            ctx = OpContext(device=device)
+            script = load_script("default")
+            service = AutoBattleService(script, check_interval=2.0)
+
+            async def _run():
+                await service.start(ctx)
+
+            loop = asyncio.new_event_loop()
+
+            # Run start() in a task so we can cancel it
+            task = loop.create_task(_run())
+
+            # Poll self._auto_battle_enabled to know when to stop
+            async def _poll_stop():
+                while self._auto_battle_enabled:
+                    await asyncio.sleep(0.5)
+                service.stop()
+
+            loop.run_until_complete(asyncio.gather(task, _poll_stop()))
+        except Exception as e:
+            self._logger.error("自动战斗异常: {}", e)
+        finally:
+            self._auto_battle_enabled = False
+            try:
+                device.disconnect()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Worker subprocess I/O

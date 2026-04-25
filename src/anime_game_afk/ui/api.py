@@ -18,10 +18,14 @@ class Api:
     """JavaScript-callable API for the automation GUI."""
 
     def __init__(
-        self, task_manager: TaskManager, log_forwarder: LogForwarder
+        self,
+        task_manager: TaskManager,
+        log_forwarder: LogForwarder,
+        orch_manager: Any | None = None,
     ) -> None:
         self._tm = task_manager
         self._lf = log_forwarder
+        self._orch = orch_manager
 
     # ------------------------------------------------------------------
     # Connection
@@ -72,6 +76,22 @@ class Api:
     def stop_run(self) -> dict[str, Any]:
         """Stop execution after the current task completes."""
         return self._tm.stop()
+
+    # ------------------------------------------------------------------
+    # Auto-battle
+    # ------------------------------------------------------------------
+
+    def start_auto_battle(self) -> dict[str, Any]:
+        """Start the auto-battle toggle."""
+        return self._tm.start_auto_battle()
+
+    def stop_auto_battle(self) -> dict[str, Any]:
+        """Stop the auto-battle toggle."""
+        return self._tm.stop_auto_battle()
+
+    def get_auto_battle_status(self) -> dict[str, Any]:
+        """Get auto-battle status."""
+        return {"enabled": self._tm._auto_battle_enabled}
 
     # ------------------------------------------------------------------
     # Logs
@@ -193,6 +213,97 @@ class Api:
             result["game_exe"] = path or ""
 
         return result
+
+    # ------------------------------------------------------------------
+    # Orchestrator (multi-script scheduler)
+    # ------------------------------------------------------------------
+
+    def _require_orch(self) -> Any:
+        """Return the orchestrator manager or raise."""
+        if self._orch is None:
+            raise RuntimeError("OrchestratorRunManager not initialised")
+        return self._orch
+
+    def orch_get_tools(self) -> list[dict[str, Any]]:
+        """Get all registered orchestrator tools."""
+        try:
+            return self._require_orch().get_tools()
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    def orch_save_tool(self, tool: dict[str, Any]) -> dict[str, Any]:
+        """Add or update an orchestrator tool."""
+        try:
+            return self._require_orch().save_tool(tool)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_remove_tool(self, tool_id: str) -> dict[str, Any]:
+        """Remove an orchestrator tool by ID."""
+        try:
+            return self._require_orch().remove_tool(tool_id)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_scan_tools(self) -> list[dict[str, Any]]:
+        """Scan common paths for installed automation tools."""
+        try:
+            return self._require_orch().scan_tools()
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    def orch_get_schedules(self) -> list[dict[str, Any]]:
+        """Get all schedule entries."""
+        try:
+            return self._require_orch().get_schedules()
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    def orch_save_schedule(self, schedule: dict[str, Any]) -> dict[str, Any]:
+        """Add or update a schedule entry."""
+        try:
+            return self._require_orch().save_schedule(schedule)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_remove_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Remove a schedule entry by ID."""
+        try:
+            return self._require_orch().remove_schedule(schedule_id)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_run_now(self, schedule_id: str) -> dict[str, Any]:
+        """Manually trigger a schedule immediately."""
+        try:
+            return self._require_orch().run_now(schedule_id)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_run_plan(self, plan: dict[str, Any]) -> dict[str, Any]:
+        """Execute a RunPlan directly."""
+        try:
+            return self._require_orch().run_plan(plan)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_stop(self) -> dict[str, Any]:
+        """Stop the current orchestrator run."""
+        try:
+            return self._require_orch().stop()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def orch_get_run_status(self) -> dict[str, Any]:
+        """Get current orchestrator run status."""
+        try:
+            return self._require_orch().get_run_status()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Game launch
+    # ------------------------------------------------------------------
 
     def launch_game(self) -> dict[str, Any]:
         """Launch the game and wait for its window to appear."""

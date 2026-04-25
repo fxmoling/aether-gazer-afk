@@ -14,6 +14,13 @@
     >
       ■ 停止
     </button>
+    <button
+      class="btn-auto-battle"
+      :class="{ active: autoBattleOn }"
+      @click="toggleAutoBattle"
+    >
+      ⚔️ {{ autoBattleOn ? '自动战斗中' : '自动战斗' }}
+    </button>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -35,8 +42,39 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { state, startRun, stopRun } from '../composables/useStore'
+import { api } from '../composables/useApi'
+
+const autoBattleOn = ref(false)
+let pollTimer = null
+
+async function toggleAutoBattle() {
+  if (autoBattleOn.value) {
+    await api.stopAutoBattle()
+    autoBattleOn.value = false
+  } else {
+    const result = await api.startAutoBattle()
+    if (result && result.ok) {
+      autoBattleOn.value = true
+    } else if (result) {
+      alert(result.error || '启动失败')
+    }
+  }
+}
+
+async function pollStatus() {
+  const s = await api.getAutoBattleStatus()
+  if (s) autoBattleOn.value = s.enabled
+}
+
+onMounted(() => {
+  pollTimer = setInterval(pollStatus, 3000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 const circumference = computed(() => 2 * Math.PI * 16)
 
@@ -136,5 +174,30 @@ async function handleStop() {
 .run-time {
   font-size: 12px;
   color: rgba(255,255,255,0.3);
+}
+
+.btn-auto-battle {
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-auto-battle:hover {
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.3);
+  color: #f5a623;
+}
+
+.btn-auto-battle.active {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.4);
+  color: #f5a623;
+  box-shadow: 0 0 12px rgba(245,158,11,0.2);
 }
 </style>
