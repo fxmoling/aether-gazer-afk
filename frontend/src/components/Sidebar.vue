@@ -25,6 +25,7 @@ defineEmits(['navigate'])
 
 const items = [
   { page: 'tasks', icon: '☑', label: '任务' },
+  { page: 'scheduler', icon: '📅', label: '调度' },
   { page: 'logs', icon: '≡', label: '日志' },
   { page: 'settings', icon: '⚙', label: '设置' },
 ]

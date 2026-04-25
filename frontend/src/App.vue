@@ -12,6 +12,7 @@
       <main class="main-content">
         <Transition name="page" mode="out-in">
           <TasksView v-if="currentPage === 'tasks'" key="tasks" />
+          <SchedulerView v-else-if="currentPage === 'scheduler'" key="scheduler" />
           <LogsView v-else-if="currentPage === 'logs'" key="logs" />
           <SettingsView v-else-if="currentPage === 'settings'" key="settings" />
         </Transition>
@@ -24,6 +25,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import TasksView from './views/TasksView.vue'
+import SchedulerView from './views/SchedulerView.vue'
 import LogsView from './views/LogsView.vue'
 import SettingsView from './views/SettingsView.vue'
 import { api } from './composables/useApi'
