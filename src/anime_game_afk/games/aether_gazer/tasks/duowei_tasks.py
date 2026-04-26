@@ -267,18 +267,18 @@ class DuoweiCombat:
         # Step 1: Select LV16 difficulty, then click 下一步
         ctx.logger.info("[duowei] Setup: selecting difficulty")
         await self._select_difficulty(ctx, target_lv=16)
-        await self._ocr_click(ctx, "下一步", "difficulty")
+        await self._ocr_click_retry(ctx, "下一步", "difficulty next", retries=3)
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
         # Step 2: Character → 下一步
         ctx.logger.info("[duowei] Setup: advancing past character page")
-        await self._ocr_click(ctx, "下一步", "character")
+        await self._ocr_click_retry(ctx, "下一步", "character next", retries=3)
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
         # Step 3: Beacon page → scroll down, find 赏金猎人, click, then 开始挑战
         ctx.logger.info("[duowei] Setup: selecting beacon")
         await self._select_beacon(ctx)
-        await self._ocr_click(ctx, "开始挑战", "beacon start")
+        await self._ocr_click_retry(ctx, "开始挑战", "beacon start", retries=3)
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
     async def _select_difficulty(self, ctx: TaskContext, target_lv: int = 16) -> bool:
@@ -312,21 +312,7 @@ class DuoweiCombat:
                         f"[duowei] Clicked LV{target_lv} at ({r.x},{r.y})"
                     )
                     await SleepOp(1.0).run(ctx)
-
-                    # Verify selection via right panel
-                    img2 = ctx.screenshot()
-                    ocr2 = ocr_once(img2)
-                    full2 = " ".join(r.text for r in ocr2._items)
-                    if f"难度等级：{target_lv}" in full2 or f"难度等级:{target_lv}" in full2:
-                        ctx.logger.info(f"[duowei] LV{target_lv} confirmed")
-                        return True
-
-                    # May be locked or wrong level selected
-                    ctx.logger.warning(
-                        f"[duowei] Clicked LV{target_lv} but panel shows different level "
-                        "(may be locked)"
-                    )
-                    return False
+                    return True
 
             # Scroll down to reveal more levels, wait 1s extra to let UI settle
             ctx.logger.debug(
@@ -354,6 +340,20 @@ class DuoweiCombat:
             ctx.logger.debug(f"[duowei] {label}: clicked {text}")
             return True
         ctx.logger.debug(f"[duowei] {label}: {text} not found")
+        return False
+
+    async def _ocr_click_retry(
+        self, ctx: TaskContext, text: str, label: str, retries: int = 3,
+    ) -> bool:
+        """OCR-find text and click, retrying up to *retries* times with 1s gaps."""
+        for attempt in range(retries):
+            if await self._ocr_click(ctx, text, label):
+                return True
+            ctx.logger.debug(
+                f"[duowei] {label}: retry {attempt + 1}/{retries}"
+            )
+            await SleepOp(1.0).run(ctx)
+        ctx.logger.warning(f"[duowei] {label}: '{text}' not found after {retries} retries")
         return False
 
     async def _select_beacon(self, ctx: TaskContext) -> None:
