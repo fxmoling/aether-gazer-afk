@@ -20,7 +20,7 @@ from anime_game_afk.ui.task_manager import TaskManager
 _WEB_DIR = Path(__file__).parent / "web"
 
 
-_WEBVIEW2_DOWNLOAD = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+_EDGE_DOWNLOAD = "https://www.microsoft.com/edge"
 
 
 def _is_webview2_installed() -> bool:
@@ -41,23 +41,23 @@ def _is_webview2_installed() -> bool:
 
 
 def _ensure_webview2(log) -> None:
-    """Prompt user to install WebView2 if missing, then exit."""
+    """Prompt user to install Edge browser if WebView2 is missing, then exit."""
     if sys.platform != "win32":
         return
     try:
         if _is_webview2_installed():
             return
     except Exception:
-        return  # Can't check — proceed anyway
+        return
 
     log.warning("WebView2 Runtime not detected")
 
     import webbrowser
-    title = "AetherGazer AFK - 需要安装组件"
+    title = "AetherGazer AFK - 需要安装 Edge 浏览器"
     message = (
-        "本程序需要 Microsoft Edge WebView2 Runtime 才能正常显示界面。\n\n"
-        "您的系统似乎未安装此组件（Windows 11 自带，Windows 10 需手动安装）。\n\n"
-        "点击「是」打开下载页面，安装后重新启动程序即可。"
+        "本程序需要 Microsoft Edge 浏览器才能正常显示界面。\n\n"
+        "您的系统似乎未安装 Edge（Windows 11 自带，Windows 10 可能需要手动安装）。\n\n"
+        "点击「是」打开 Edge 下载页面，安装后重新启动程序即可。"
     )
     user_said_yes = False
     try:
@@ -76,7 +76,7 @@ def _ensure_webview2(log) -> None:
             pass
 
     if user_said_yes:
-        webbrowser.open(_WEBVIEW2_DOWNLOAD)
+        webbrowser.open(_EDGE_DOWNLOAD)
 
     sys.exit(1)
 
