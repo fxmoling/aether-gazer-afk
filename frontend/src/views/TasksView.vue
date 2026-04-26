@@ -57,6 +57,22 @@
     </div>
 
     <TaskList :tasks="currentTasks" />
+
+    <!-- Duowei-specific settings -->
+    <div class="duowei-settings" v-if="state.selectedPipelineId === 'duowei_challenge'">
+      <div class="duowei-setting-row">
+        <label>视角旋转幅度</label>
+        <input
+          type="range"
+          min="0.5" max="2.0" step="0.1"
+          v-model.number="swipeMultiplier"
+          @change="saveSwipeMultiplier"
+        >
+        <span class="multiplier-value">{{ swipeMultiplier.toFixed(1) }}x</span>
+      </div>
+      <p class="duowei-hint">调整 1-1 走向传送门前的视角旋转角度。过大会转过头，过小会找不到传送门。</p>
+    </div>
+
     <ControlBar />
   </div>
 </template>
@@ -67,13 +83,27 @@ import ConnectionBar from '../components/ConnectionBar.vue'
 import TaskList from '../components/TaskList.vue'
 import ControlBar from '../components/ControlBar.vue'
 import { state, selectedPipeline, selectPipeline } from '../composables/useStore'
+import { api } from '../composables/useApi'
 
 const showTips = ref(true)
+const swipeMultiplier = ref(1.0)
 
 onMounted(() => {
   const saved = localStorage.getItem('tips_dismissed')
   if (saved === 'true') showTips.value = false
+  loadSwipeMultiplier()
 })
+
+async function loadSwipeMultiplier() {
+  const data = await api.getSettings()
+  if (data && data.duowei_swipe_multiplier != null) {
+    swipeMultiplier.value = data.duowei_swipe_multiplier
+  }
+}
+
+async function saveSwipeMultiplier() {
+  await api.saveDuoweiSwipeMultiplier(swipeMultiplier.value)
+}
 
 function dismissTips() {
   showTips.value = false
@@ -271,5 +301,46 @@ const progressPct = computed(() =>
   background: linear-gradient(90deg, #667eea, #764ba2);
   border-radius: 2px;
   transition: width 0.3s ease;
+}
+
+/* Duowei settings */
+.duowei-settings {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255,255,255,0.03);
+}
+
+.duowei-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.duowei-setting-row label {
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+  flex-shrink: 0;
+  width: 90px;
+}
+
+.duowei-setting-row input[type="range"] {
+  flex: 1;
+  max-width: 180px;
+  accent-color: #667eea;
+  height: 4px;
+}
+
+.multiplier-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b8c4ff;
+  min-width: 36px;
+  text-align: right;
+}
+
+.duowei-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,0.25);
+  margin-top: 4px;
+  margin-left: 102px;
 }
 </style>

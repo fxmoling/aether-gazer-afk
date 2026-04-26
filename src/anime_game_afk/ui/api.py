@@ -133,6 +133,7 @@ class Api:
             "auto_update": cfg.auto_update(),
             "notify_on_complete": cfg.notify_on_complete(),
             "combat_keybinds": cfg.combat_keybinds(),
+            "duowei_swipe_multiplier": cfg.duowei_swipe_multiplier(),
         }
 
     def save_settings(
@@ -157,6 +158,18 @@ class Api:
         try:
             cfg = UserConfig.load()
             cfg.set_combat_keybinds(binds)
+            cfg.save()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def save_duowei_swipe_multiplier(self, value: float) -> dict[str, Any]:
+        """Save duowei camera rotation multiplier (0.5–2.0)."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            cfg.set_duowei_swipe_multiplier(value)
             cfg.save()
             return {"ok": True}
         except Exception as e:

@@ -427,16 +427,20 @@ class DuoweiCombat:
         """Swipe camera left to align with portal, then W walk + J spam.
 
         Camera rotation uses fractional swipe (dx=0.02) for resolution
-        independence. The portal direction from 1-1 spawn is fixed.
+        independence. User-configurable multiplier scales the angle.
         """
         ctx.logger.info("[duowei] Swipe + W walk + J spam")
 
+        # Load user multiplier (0.5–2.0, default 1.0)
+        from anime_game_afk.config.user_config import UserConfig
+        multiplier = UserConfig.load().duowei_swipe_multiplier()
+
         # Scale swipe dx by resolution (calibrated at 1280 width)
         actual_w = ctx.device.actual_resolution.width
-        dx = _PORTAL_SWIPE_DX_BASE * _PORTAL_SWIPE_REF_WIDTH / actual_w
+        dx = _PORTAL_SWIPE_DX_BASE * _PORTAL_SWIPE_REF_WIDTH / actual_w * multiplier
         ctx.logger.debug(
             f"[duowei] Portal swipe dx={dx:.4f} (base={_PORTAL_SWIPE_DX_BASE}, "
-            f"ref={_PORTAL_SWIPE_REF_WIDTH}, actual={actual_w})"
+            f"ref={_PORTAL_SWIPE_REF_WIDTH}, actual={actual_w}, mult={multiplier:.1f})"
         )
 
         fx, fy = _PORTAL_SWIPE_FROM

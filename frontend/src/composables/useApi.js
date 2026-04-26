@@ -55,4 +55,6 @@ export const api = {
   saveSchedule: (config) => apiCall('save_schedule', config),
   deleteSchedule: () => apiCall('delete_schedule'),
   getScheduleHistory: () => apiCall('get_schedule_history'),
+  // Duowei settings
+  saveDuoweiSwipeMultiplier: (value) => apiCall('save_duowei_swipe_multiplier', value),
 }
