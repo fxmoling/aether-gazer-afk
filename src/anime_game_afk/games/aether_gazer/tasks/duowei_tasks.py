@@ -267,8 +267,10 @@ class DuoweiCombat:
         # Step 1: Select LV16 difficulty, then click 下一步
         ctx.logger.info("[duowei] Setup: selecting difficulty")
         await self._select_difficulty(ctx, target_lv=16)
-        await SleepOp(1.0).run(ctx)
-        await self._ocr_click(ctx, "下一步", "difficulty")
+        await SleepOp(1.5).run(ctx)
+        if not await self._ocr_click(ctx, "下一步", "difficulty"):
+            await SleepOp(1.0).run(ctx)
+            await self._ocr_click(ctx, "下一步", "difficulty fallback")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
         # Step 2: Character → 下一步
