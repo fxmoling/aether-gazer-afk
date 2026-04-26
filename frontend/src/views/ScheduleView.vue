@@ -203,7 +203,7 @@ async function loadSchedule() {
     form.days = data.config.days || []
     form.pipeline_id = data.config.pipeline_id || 'daily_routine'
     form.retry_on_failure = data.config.retry_on_failure || false
-    form.post_action = data.config.post_action || 'nothing'
+    form.post_action = data.config.post_action || 'exit_app_and_game'
 
     if (data.config.time) {
       const parts = data.config.time.split(':')

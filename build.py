@@ -359,11 +359,34 @@ def build(skip_spec: bool = False) -> None:
                 shutil.rmtree(pkg_dir)
 
         # Copy config/ to dist top-level (user-editable)
+        # Merge: copy source config, but preserve user runtime files
         config_src = PROJECT_ROOT / "config"
         config_dst = dist_app / "config"
-        if config_src.exists() and not config_dst.exists():
-            shutil.copytree(config_src, config_dst)
-            print(f"Copied config/ -> {config_dst}")
+        if config_src.exists():
+            # Preserve user runtime files that shouldn't be overwritten
+            _user_files = ("scheduler.json", "schedule_log.json", "ui_state.json")
+            preserved: dict[str, bytes] = {}
+            for uf in _user_files:
+                uf_path = config_dst / uf
+                if uf_path.exists():
+                    preserved[uf] = uf_path.read_bytes()
+
+            if not config_dst.exists():
+                shutil.copytree(config_src, config_dst)
+            else:
+                # Overlay source files onto existing config dir
+                for item in config_src.rglob("*"):
+                    if item.is_file():
+                        rel = item.relative_to(config_src)
+                        dst_file = config_dst / rel
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(item, dst_file)
+
+            # Restore preserved user files
+            for uf, data in preserved.items():
+                (config_dst / uf).write_bytes(data)
+
+            print(f"Copied config/ -> {config_dst} (preserved {len(preserved)} user files)")
 
         # Copy plans/ to dist top-level (user-editable, also found by launcher)
         plans_src = dist_app / "_internal" / "plans"
