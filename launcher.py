@@ -363,72 +363,11 @@ def _run_worker() -> None:
 
 
 def _run_scheduled(app_dir: Path) -> None:
-    """Run in headless scheduled mode (triggered by Windows Task Scheduler)."""
-    from loguru import logger as loguru_logger
-    import sys as _sys
-
-    # Allocate a visible console window so user can see progress and close it
-    try:
-        import ctypes
-        ctypes.windll.kernel32.AllocConsole()
-        # Reopen stdio to the new console
-        _sys.stdout = open("CONOUT$", "w", encoding="utf-8")
-        _sys.stderr = open("CONOUT$", "w", encoding="utf-8")
-        _sys.stdin = open("CONIN$", "r", encoding="utf-8")
-        # Set console title
-        ctypes.windll.kernel32.SetConsoleTitleW("AetherGazer AFK - 定时任务执行中")
-    except Exception:
-        pass
-
-    print("=" * 50)
-    print("  AetherGazer AFK - 定时任务")
-    print("  关闭此窗口可停止执行")
-    print("=" * 50)
-    print()
-
-    # Configure logging to file + console
-    loguru_logger.remove()
-    log_dir = app_dir / "logs"
-    log_dir.mkdir(exist_ok=True)
-
-    loguru_logger.add(
-        _sys.stderr,
-        format="{time:HH:mm:ss} | {level:<7} | {message}",
-        level="INFO",
-    )
-    loguru_logger.add(
-        str(log_dir / "scheduled_{time:YYYY-MM-DD}.log"),
-        rotation="1 day",
-        retention="7 days",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level:<7} | {message}",
-        level="DEBUG",
-    )
-
-    loguru_logger.info("=== Scheduled mode starting ===")
-
-    try:
-        from anime_game_afk.runtime.headless import HeadlessRunner
-        runner = HeadlessRunner()
-        exit_code = runner.run()
-    except Exception as exc:
-        loguru_logger.error("Scheduled run crashed: {}", exc)
-        import traceback
-        loguru_logger.error(traceback.format_exc())
-        exit_code = 1
-
-    loguru_logger.info("=== Scheduled mode exiting (code={}) ===", exit_code)
-
-    print()
-    if exit_code == 0:
-        print("✅ 定时任务完成")
-    else:
-        print("❌ 定时任务失败")
-    print()
-    try:
-        input("按回车键关闭窗口...")
-    except (EOFError, OSError):
-        pass
-    _sys.exit(exit_code)
+    """Run in scheduled mode — open normal GUI and auto-start the pipeline."""
+    # Just set a flag; the GUI app will detect it and auto-start
+    import builtins
+    builtins._SCHEDULED_MODE = True  # type: ignore[attr-defined]
+    _run_gui(app_dir)
 
 
 def main() -> None:

@@ -488,6 +488,9 @@ class TaskManager:
                     )
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
+            # Scheduled mode: apply post-action after run completes
+            self._handle_scheduled_post_action(proc)
+
     def _read_worker_stderr(self) -> None:
         """Stderr reader thread: forward worker log lines to host logger."""
         proc = self._process
@@ -531,3 +534,54 @@ class TaskManager:
             if p.id == pipeline_id:
                 return p
         return None
+
+    def _handle_scheduled_post_action(self, proc: subprocess.Popen | None) -> None:
+        """In scheduled mode, apply post-action after pipeline completes."""
+        import builtins
+        if not getattr(builtins, '_SCHEDULED_MODE', False):
+            return
+
+        from anime_game_afk.runtime.scheduler import load_schedule_config
+        config = load_schedule_config()
+        self._logger.info("[scheduled] Post-action: {}", config.post_action)
+
+        success = proc is not None and proc.returncode == 0
+
+        # Log execution result
+        try:
+            from anime_game_afk.runtime.scheduler import append_schedule_log
+            from datetime import datetime
+            elapsed = time.time() - self._start_time if self._start_time else 0
+            append_schedule_log({
+                "timestamp": datetime.now().isoformat(),
+                "pipeline": "daily_routine",
+                "result": "success" if success else "failed",
+                "duration_s": round(elapsed, 1),
+                "retried": False,
+                "post_action": config.post_action,
+            })
+        except Exception as e:
+            self._logger.error("[scheduled] Failed to write log: {}", e)
+
+        if config.post_action == "kill_game":
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "AetherGazer.exe"],
+                    capture_output=True, timeout=10,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                self._logger.info("[scheduled] Game process killed")
+            except Exception as e:
+                self._logger.warning("[scheduled] Failed to kill game: {}", e)
+
+        if config.post_action in ("exit_app", "kill_game"):
+            # Close the app window after a short delay
+            def _delayed_exit():
+                time.sleep(3)
+                window = self._window
+                if window:
+                    try:
+                        window.destroy()
+                    except Exception:
+                        pass
+            threading.Thread(target=_delayed_exit, daemon=True).start()

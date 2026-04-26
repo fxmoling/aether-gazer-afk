@@ -66,6 +66,24 @@ def main() -> None:
     log_forwarder.bind_window(window)
 
     # 6. Start pywebview (blocks until window closes)
+    #    In scheduled mode, auto-start the daily pipeline after window loads
+    import builtins
+    is_scheduled = getattr(builtins, '_SCHEDULED_MODE', False)
+
+    def _on_loaded():
+        """Called when the webview window finishes loading."""
+        if is_scheduled:
+            import threading
+            import time
+            def _auto_start():
+                time.sleep(2)  # Wait for frontend JS to initialize
+                _log.info("[scheduled] Auto-starting pipeline: daily_routine")
+                result = task_manager.start("daily_routine")
+                _log.info("[scheduled] start result: {}", result)
+            threading.Thread(target=_auto_start, daemon=True).start()
+
+    window.events.loaded += _on_loaded
+
     webview.start(debug="--debug" in sys.argv)
 
     # 7. Cleanup
