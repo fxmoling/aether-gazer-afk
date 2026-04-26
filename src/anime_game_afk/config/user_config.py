@@ -279,12 +279,12 @@ class UserConfig:
     # ------------------------------------------------------------------
 
     def duowei_swipe_multiplier(self, game_id: str = "aether_gazer") -> float:
-        """Camera rotation multiplier for duowei 1-1 portal navigation (0.5–2.0)."""
+        """Camera rotation multiplier for duowei 1-1 portal navigation (0.1–2.0)."""
         val = self._game(game_id).get("duowei_swipe_multiplier", 1.0)
-        return max(0.5, min(2.0, float(val)))
+        return max(0.1, min(2.0, float(val)))
 
     def set_duowei_swipe_multiplier(
         self, value: float, game_id: str = "aether_gazer",
     ) -> None:
-        """Set camera rotation multiplier (clamped to 0.5–2.0)."""
-        self._game(game_id)["duowei_swipe_multiplier"] = max(0.5, min(2.0, float(value)))
+        """Set camera rotation multiplier (clamped to 0.1–2.0)."""
+        self._game(game_id)["duowei_swipe_multiplier"] = max(0.1, min(2.0, float(value)))

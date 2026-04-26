@@ -61,16 +61,27 @@
     <!-- Duowei-specific settings -->
     <div class="duowei-settings" v-if="state.selectedPipelineId === 'duowei_challenge'">
       <div class="duowei-setting-row">
+        <label>游戏帧率</label>
+        <div class="fps-chips">
+          <button
+            v-for="fp in fpsPresets" :key="fp.fps"
+            class="fps-chip"
+            :class="{ active: selectedFps === fp.fps }"
+            @click="selectFps(fp)"
+          >{{ fp.label }}</button>
+        </div>
+      </div>
+      <div class="duowei-setting-row">
         <label>视角旋转幅度</label>
         <input
           type="range"
-          min="0.5" max="2.0" step="0.1"
+          min="0.1" max="2.0" step="0.1"
           v-model.number="swipeMultiplier"
           @change="saveSwipeMultiplier"
         >
         <span class="multiplier-value">{{ swipeMultiplier.toFixed(1) }}x</span>
       </div>
-      <p class="duowei-hint">调整 1-1 走向传送门前的视角旋转角度。过大会转过头，过小会找不到传送门。</p>
+      <p class="duowei-hint">基于帧率自动设置，也可手动微调。120帧=1.0x，帧率越低需要值越小。</p>
     </div>
 
     <ControlBar />
@@ -87,6 +98,14 @@ import { api } from '../composables/useApi'
 
 const showTips = ref(true)
 const swipeMultiplier = ref(1.0)
+const selectedFps = ref(120)
+
+const fpsPresets = [
+  { fps: 120, label: '120帧', multiplier: 1.0 },
+  { fps: 90,  label: '90帧',  multiplier: 0.7 },
+  { fps: 60,  label: '60帧',  multiplier: 0.5 },
+  { fps: 30,  label: '30帧',  multiplier: 0.3 },
+]
 
 onMounted(() => {
   const saved = localStorage.getItem('tips_dismissed')
@@ -98,11 +117,24 @@ async function loadSwipeMultiplier() {
   const data = await api.getSettings()
   if (data && data.duowei_swipe_multiplier != null) {
     swipeMultiplier.value = data.duowei_swipe_multiplier
+    // Detect which FPS preset matches (within tolerance)
+    const preset = fpsPresets.find(p => Math.abs(p.multiplier - swipeMultiplier.value) < 0.05)
+    if (preset) selectedFps.value = preset.fps
+    else selectedFps.value = 0  // custom
   }
+}
+
+function selectFps(preset) {
+  selectedFps.value = preset.fps
+  swipeMultiplier.value = preset.multiplier
+  saveSwipeMultiplier()
 }
 
 async function saveSwipeMultiplier() {
   await api.saveDuoweiSwipeMultiplier(swipeMultiplier.value)
+  // Update FPS highlight
+  const preset = fpsPresets.find(p => Math.abs(p.multiplier - swipeMultiplier.value) < 0.05)
+  selectedFps.value = preset ? preset.fps : 0
 }
 
 function dismissTips() {
@@ -342,5 +374,34 @@ const progressPct = computed(() =>
   color: rgba(255,255,255,0.25);
   margin-top: 4px;
   margin-left: 102px;
+}
+
+/* FPS preset chips */
+.fps-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.fps-chip {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.fps-chip:hover {
+  border-color: rgba(102,126,234,0.3);
+  color: rgba(255,255,255,0.7);
+}
+
+.fps-chip.active {
+  background: rgba(102,126,234,0.15);
+  border-color: rgba(102,126,234,0.5);
+  color: #b8c4ff;
+  font-weight: 600;
 }
 </style>
