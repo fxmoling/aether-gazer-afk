@@ -20,6 +20,67 @@ from anime_game_afk.ui.task_manager import TaskManager
 _WEB_DIR = Path(__file__).parent / "web"
 
 
+_WEBVIEW2_DOWNLOAD = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+
+
+def _is_webview2_installed() -> bool:
+    """Check if Microsoft Edge WebView2 Runtime is installed."""
+    import winreg
+    for key_path in (
+        r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+    ):
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
+                ver, _ = winreg.QueryValueEx(key, "pv")
+                if ver and ver != "0.0.0.0":
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def _ensure_webview2(log) -> None:
+    """Prompt user to install WebView2 if missing, then exit."""
+    if sys.platform != "win32":
+        return
+    try:
+        if _is_webview2_installed():
+            return
+    except Exception:
+        return  # Can't check — proceed anyway
+
+    log.warning("WebView2 Runtime not detected")
+
+    import webbrowser
+    title = "AetherGazer AFK - 需要安装组件"
+    message = (
+        "本程序需要 Microsoft Edge WebView2 Runtime 才能正常显示界面。\n\n"
+        "您的系统似乎未安装此组件（Windows 11 自带，Windows 10 需手动安装）。\n\n"
+        "点击「是」打开下载页面，安装后重新启动程序即可。"
+    )
+    user_said_yes = False
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        user_said_yes = messagebox.askyesno(title, message)
+        root.destroy()
+    except Exception:
+        try:
+            import ctypes
+            result = ctypes.windll.user32.MessageBoxW(0, message, title, 4 | 48)
+            user_said_yes = (result == 6)
+        except Exception:
+            pass
+
+    if user_said_yes:
+        webbrowser.open(_WEBVIEW2_DOWNLOAD)
+
+    sys.exit(1)
+
+
 def main() -> None:
     """Launch the GUI application."""
     # 0. Set up file logging for frozen builds (no console)
@@ -51,7 +112,10 @@ def main() -> None:
     # 3. Create API
     api = Api(task_manager=task_manager, log_forwarder=log_forwarder)
 
-    # 4. Create pywebview window
+    # 4. Check WebView2 availability — required for Vue 3 rendering
+    _ensure_webview2(_log)
+
+    # 5. Create pywebview window
     window = webview.create_window(
         title="AetherGazer AFK",
         url=str(_WEB_DIR / "index.html"),
@@ -61,11 +125,11 @@ def main() -> None:
         min_size=(750, 500),
     )
 
-    # 5. Bind window for evaluate_js push
+    # 6. Bind window for evaluate_js push
     task_manager.bind_window(window)
     log_forwarder.bind_window(window)
 
-    # 6. Start pywebview (blocks until window closes)
+    # 7. Start pywebview (blocks until window closes)
     #    In scheduled mode, auto-start the daily pipeline after window loads
     import builtins
     is_scheduled = getattr(builtins, '_SCHEDULED_MODE', False)
