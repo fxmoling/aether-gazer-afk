@@ -367,26 +367,34 @@ def _run_scheduled(app_dir: Path) -> None:
     from loguru import logger as loguru_logger
     import sys as _sys
 
-    # Configure logging to file + stderr (no GUI)
+    # Configure logging to file (no console in windowless mode)
     loguru_logger.remove()
     log_dir = app_dir / "logs"
     log_dir.mkdir(exist_ok=True)
+
+    log_file = str(log_dir / "scheduled_{time:YYYY-MM-DD}.log")
     loguru_logger.add(
-        _sys.stderr,
-        format="{time:HH:mm:ss} | {level:<7} | {message}",
-        level="DEBUG",
-    )
-    loguru_logger.add(
-        str(log_dir / "scheduled_{time:YYYY-MM-DD}.log"),
+        log_file,
         rotation="1 day",
         retention="7 days",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level:<7} | {message}",
         level="DEBUG",
     )
 
-    from anime_game_afk.runtime.headless import HeadlessRunner
-    runner = HeadlessRunner()
-    _sys.exit(runner.run())
+    loguru_logger.info("=== Scheduled mode starting ===")
+
+    try:
+        from anime_game_afk.runtime.headless import HeadlessRunner
+        runner = HeadlessRunner()
+        exit_code = runner.run()
+    except Exception as exc:
+        loguru_logger.error("Scheduled run crashed: {}", exc)
+        import traceback
+        loguru_logger.error(traceback.format_exc())
+        exit_code = 1
+
+    loguru_logger.info("=== Scheduled mode exiting (code={}) ===", exit_code)
+    _sys.exit(exit_code)
 
 
 def main() -> None:
@@ -456,7 +464,8 @@ def main() -> None:
         print(f"\n程序出错 / Error: {exc}")
         import traceback
         traceback.print_exc()
-        _pause_before_exit()
+        if is_cli:
+            _pause_before_exit()
         sys.exit(1)
 
 
