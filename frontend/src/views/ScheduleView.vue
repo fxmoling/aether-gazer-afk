@@ -13,7 +13,7 @@
       </div>
 
       <div class="setting-row">
-        <label>执行时间</label>
+        <label>执行时间（24小时制）</label>
         <div class="time-picker">
           <input
             type="number" min="0" max="23"
