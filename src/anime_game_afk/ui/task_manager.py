@@ -563,7 +563,7 @@ class TaskManager:
         except Exception as e:
             self._logger.error("[scheduled] Failed to write log: {}", e)
 
-        if config.post_action == "kill_game":
+        if config.post_action in ("kill_game", "exit_app_and_game"):
             try:
                 subprocess.run(
                     ["taskkill", "/F", "/IM", "AetherGazer.exe"],
@@ -574,8 +574,7 @@ class TaskManager:
             except Exception as e:
                 self._logger.warning("[scheduled] Failed to kill game: {}", e)
 
-        if config.post_action in ("exit_app", "kill_game"):
-            # Close the app window after a short delay
+        if config.post_action in ("exit_app", "exit_app_and_game"):
             def _delayed_exit():
                 time.sleep(3)
                 window = self._window

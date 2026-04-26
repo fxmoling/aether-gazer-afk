@@ -43,7 +43,7 @@ class ScheduleConfig:
     days: list[str] = field(default_factory=list)  # empty = daily
     pipeline_id: str = "daily_routine"
     retry_on_failure: bool = False
-    post_action: str = "nothing"  # nothing | exit_app | kill_game
+    post_action: str = "exit_app_and_game"  # nothing | exit_app | kill_game | exit_app_and_game
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

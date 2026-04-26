@@ -58,9 +58,10 @@
       <div class="setting-row">
         <label>完成后动作</label>
         <select v-model="form.post_action" @change="onSave" :disabled="saving">
+          <option value="exit_app_and_game">关闭工具并退出游戏</option>
           <option value="nothing">什么都不做</option>
-          <option value="kill_game">关闭游戏</option>
-          <option value="exit_app">退出程序</option>
+          <option value="exit_app">关闭工具</option>
+          <option value="kill_game">退出游戏</option>
         </select>
       </div>
     </div>
@@ -126,7 +127,7 @@ const form = reactive({
   days: [],
   pipeline_id: 'daily_routine',
   retry_on_failure: false,
-  post_action: 'nothing',
+  post_action: 'exit_app_and_game',
 })
 
 const hour = ref(4)
