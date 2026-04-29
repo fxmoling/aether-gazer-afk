@@ -18,9 +18,10 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
     HasTextCheck,
     OcrFullCheck,
 )
-from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
+from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck, OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
+from anime_game_afk.vision.ocr import ocr_once
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -35,6 +36,24 @@ from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
 
 if TYPE_CHECKING:
     from anime_game_afk.runtime.run_log import RunLog
+
+
+# Shop page keywords visible on the shop bottom bar
+_SHOP_KEYWORDS = ("交易区", "补给区")
+
+
+def _is_shop_page(img) -> bool:
+    """Check if screenshot shows the shop page.
+
+    Template match first (fast), then OCR fallback (robust).
+    Fixes template mismatch on some resolutions/GPU renderings.
+    """
+    if is_on_page(img, "shop"):
+        return True
+    # OCR fallback: look for shop-specific bottom bar text
+    ocr = ocr_once(img)
+    found = sum(1 for kw in _SHOP_KEYWORDS if ocr.has(kw))
+    return found >= 1
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -63,6 +82,10 @@ class BuyIntelShards:
 
     _MAX_PURCHASES = 10  # Safety cap per run
     _INTEL_REGION = Rect(160, 104, 1040, 280)  # Top row where intel items appear
+    # Purchase popup center region — used to verify the popup item name.
+    # Must be WITHIN the opaque popup dialog so background "情报" text
+    # (from the daily shop page behind the popup) is NOT captured by OCR.
+    _POPUP_REGION = Rect(450, 250, 700, 350)
     # Purchase popup buttons (verified 2026-04-06 via OCR, 1067,624 / 1236,625 @ 1600x900)
     _MAX_BTN_X, _MAX_BTN_Y = 0.667, 0.693    # 最大 button
     _BUY_BTN_X, _BUY_BTN_Y = 0.773, 0.694    # 购买 button
@@ -138,7 +161,7 @@ class BuyIntelShards:
             await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
             snap = await ScreenshotOp().run(ctx)
             img = snap.data
-            if is_on_page(img, "shop"):
+            if _is_shop_page(img):
                 ctx.logger.info(
                     "  nav: shop reached (attempt {attempt})", attempt=attempt,
                 )
@@ -228,14 +251,19 @@ class BuyIntelShards:
                 break
 
             # Click the item → popup opens
-            await ClickPxOp(px=cx, py=cy, wait=0.5).run(ctx)
+            await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
 
-            # Safety check: verify popup has "情报"
-            has_intel = await HasTextCheck(target="情报").evaluate(ctx)
+            # Safety check: verify popup item name contains "情报".
+            # CRITICAL: restrict to _POPUP_REGION so background page text
+            # (e.g. other intel item names still visible behind the popup)
+            # does NOT cause a false positive.
+            has_intel = await HasTextCheck(
+                target="情报", region=self._POPUP_REGION,
+            ).evaluate(ctx)
             if not has_intel.passed:
                 ctx.logger.error(
                     f"  buy[{attempt}]: popup does NOT contain '情报' "
-                    f"— SAFETY STOP"
+                    f"— SAFETY STOP (non-intel item?)"
                 )
                 await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
                 break
@@ -265,6 +293,8 @@ class BuyIntelShards:
         """Find the first (leftmost) intel item in the top row.
 
         Returns (name, center_x, center_y) or None if none found.
+        The click target is the card body area (above the text label)
+        to avoid accidentally clicking the card below.
         """
         r = await FindAllTextCheck(
             target="情报", region=self._INTEL_REGION,
@@ -283,12 +313,22 @@ class BuyIntelShards:
         items.sort(key=lambda i: i.region.x)
         first = items[0]
         cx = first.region.x + first.region.w // 2
-        cy = first.region.y + first.region.h // 2
+        # Click the card body, NOT the text label at the card bottom.
+        # "XX情报" text sits at the bottom of the item card; clicking
+        # its center risks landing on the card below (e.g. a 刻印 card).
+        # Move up ~80px to target the card image area.
+        cy = max(first.region.y - 80, self._INTEL_REGION.y + 10)
         return (first.text, cx, cy)
 
     async def _is_sold_out_at(self, ctx: TaskContext, item_x: int) -> bool:
-        """Check if the item at given x position is sold out."""
-        r = await FindAllTextCheck(target="售").evaluate(ctx)
+        """Check if the item at given x position is sold out.
+
+        Searches the intel region for "售" (from "本日售罄") and
+        matches by x-proximity AND y-range within the intel region.
+        """
+        r = await FindAllTextCheck(
+            target="售", region=self._INTEL_REGION,
+        ).evaluate(ctx)
         if not r.passed:
             return False
         for s in r.data:
@@ -456,7 +496,7 @@ class ClaimFreeStamina:
             await ClickOp(x=0.569, y=0.944, wait=2.0).run(ctx)
             snap = await ScreenshotOp().run(ctx)
             img = snap.data
-            if is_on_page(img, "shop"):
+            if _is_shop_page(img):
                 ctx.logger.info(
                     "  nav: shop reached (attempt {attempt})", attempt=attempt,
                 )
@@ -667,21 +707,22 @@ class ClaimDailyStaminaPacks:
             find_element,
         )
 
-        # Guard 1: verify we're on hub via template matching
-        hub_check = await OnPageCheck(page="main_hub").evaluate(ctx)
+        # Guard: verify we're on hub (template + OCR fallback)
+        hub_check = await AtHubCheck().evaluate(ctx)
         if not hub_check.passed:
-            ctx.logger.error("  panel: not on hub page (template mismatch)")
-            return False
+            # Idle hub → wake and retry once
+            if hub_check.data and hub_check.data.get("hub_state") == "idle":
+                ctx.logger.warning("  panel: hub idle, waking up")
+                await WakeHubUiAction().run(ctx)
+                await SleepOp(seconds=0.5).run(ctx)
+                hub_check = await AtHubCheck().evaluate(ctx)
+            if not hub_check.passed:
+                ctx.logger.error("  panel: not on hub page")
+                return False
 
-        # Guard 2: verify hub UI is active (not idle/screensaver)
-        # Template match already passed — if idle, wake and continue
-        # (don't block on OCR which is slow and can miss partially-rendered text)
-        hub_active = await HasTextCheck(target="前往作战").evaluate(ctx)
-        if not hub_active.passed:
-            ctx.logger.warning(
-                "  panel: hub UI may be idle ('前往作战' not found), "
-                "waking up"
-            )
+        # Ensure hub UI is active (not idle/screensaver)
+        if hub_check.data and hub_check.data.get("hub_state") != "active":
+            ctx.logger.warning("  panel: hub UI may be idle, waking up")
             await WakeHubUiAction().run(ctx)
             await SleepOp(seconds=0.5).run(ctx)
 
