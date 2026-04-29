@@ -97,6 +97,25 @@ Step 8 改为 ESC ×1（已在街道页面）+ 返回 hub
 - 文件: `shop_tasks.py`
 - 弹窗等待时间: 0.5s → 1.0s（确保弹窗完全打开）
 
+### 7. 模板匹配 OCR 回退 — 修复用户环境下模板不匹配
+
+**变更**: 所有页面检测点增加 OCR 回退，不再仅依赖模板匹配。
+**原因**: 用户反馈 4 个任务持续失败（领取体力包、商店免费体力、联防协议、购买情报），日志显示模板匹配（`is_on_page`）对 "main_hub" 和 "shop" 页面一直失败，但 OCR 检测正常工作。
+
+| 失败任务 | 错误信息 | 根因 | 修复 |
+|----------|----------|------|------|
+| stamina_packs | `panel: not on hub page (template mismatch)` | `OnPageCheck(main_hub)` 仅用模板 | 改用 `AtHubCheck()`（模板+OCR） |
+| joint_defense | `Not on hub (template mismatch)` | 同上 | 同上 + idle wake 重试 |
+| intel_shards | `cannot reach shop` | `is_on_page(img, "shop")` 仅用模板 | 改用 `_is_shop_page()`（模板+OCR） |
+| free_stamina | `cannot reach shop` | 同上 | 同上 |
+
+关键发现：
+- `ReturnToHubAction` 使用 `AtHubCheck`（含 OCR 回退），所以始终成功
+- `OnPageCheck` 仅用模板匹配，在某些分辨率/GPU 下失败
+- `is_on_page` 新增 debug 日志，记录匹配分数方便后续诊断
+
+**规则**: 所有页面识别检查必须有 OCR 回退，禁止仅依赖模板匹配。
+
 ## 状态
 
 - **创建**: 2026-04-18
