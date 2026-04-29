@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from anime_game_afk.core.types import Rect
 from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
-from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
+from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
@@ -96,11 +96,18 @@ class JointDefenseSweep:
             return TaskResult(status="failed", message="Cannot return to hub")
         await SleepOp(seconds=0.5).run(ctx)
 
-        # Verify hub + UI active (one OCR pass)
-        hub_check = await OnPageCheck(page="main_hub").evaluate(ctx)
+        # Verify hub + UI active (template + OCR fallback)
+        hub_check = await AtHubCheck().evaluate(ctx)
         if not hub_check.passed:
-            ctx.logger.error("[Step 1] Not on hub (template mismatch)")
-            return TaskResult(status="failed", message="Not on hub page")
+            # Idle hub → wake and retry once
+            if hub_check.data and hub_check.data.get("hub_state") == "idle":
+                ctx.logger.warning("[Step 1] Hub idle, waking up")
+                await WakeHubUiAction().run(ctx)
+                await SleepOp(seconds=0.5).run(ctx)
+                hub_check = await AtHubCheck().evaluate(ctx)
+            if not hub_check.passed:
+                ctx.logger.error("[Step 1] Not on hub page")
+                return TaskResult(status="failed", message="Not on hub page")
         r = await OcrScanCheck().evaluate(ctx)
         ocr = r.data
         if not ocr.has("前往作战"):

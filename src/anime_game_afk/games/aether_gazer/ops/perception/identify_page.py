@@ -215,5 +215,10 @@ def is_on_page(screenshot: np.ndarray, page_id: str) -> bool:
     for tpl in tpl_list:
         score, threshold = _match_one(tpl, screenshot, img_w, img_h)
         if score < threshold:
+            _loguru.debug(
+                "[is_on_page] {} FAIL: score={:.3f} < threshold={:.3f} "
+                "(screenshot {}x{}, ref_height={})",
+                page_id, score, threshold, img_w, img_h, tpl["ref_height"],
+            )
             return False
     return True

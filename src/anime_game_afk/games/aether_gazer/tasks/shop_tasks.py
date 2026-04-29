@@ -18,7 +18,7 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
     HasTextCheck,
     OcrFullCheck,
 )
-from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck, OnPageCheck
+from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
 from anime_game_afk.vision.ocr import ocr_once
