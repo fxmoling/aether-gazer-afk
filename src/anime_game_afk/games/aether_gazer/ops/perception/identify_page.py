@@ -25,6 +25,7 @@ import numpy as np
 from loguru import logger as _loguru
 
 from anime_game_afk.core.types import Rect
+from anime_game_afk.vision.io import imread
 from anime_game_afk.vision.matcher import match_template
 from anime_game_afk.games.aether_gazer.knowledge.constants import (
     MATCH_THRESHOLD,
@@ -81,7 +82,7 @@ def _load_templates() -> dict[str, list[dict]]:
             img_path = Path(raw_path)
             if not img_path.is_absolute():
                 img_path = _tpl_base / img_path
-            img = cv2.imread(str(img_path))
+            img = imread(str(img_path))
             if img is None:
                 continue
             search = tpl.get("search")

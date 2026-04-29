@@ -34,6 +34,8 @@ import cv2
 import numpy as np
 from loguru import logger as _loguru
 
+from anime_game_afk.vision.io import imwrite as _imwrite
+
 if TYPE_CHECKING:
     from anime_game_afk.core.device import DeviceAdapter
 
@@ -117,14 +119,14 @@ class RunLog:
         filepath = self.screenshots_dir / filename
 
         if full_size:
-            cv2.imwrite(
-                str(filepath), img,
+            _imwrite(
+                filepath, img,
                 [cv2.IMWRITE_JPEG_QUALITY, SCREENSHOT_QUALITY],
             )
         else:
             thumb = cv2.resize(img, THUMBNAIL_SIZE)
-            cv2.imwrite(
-                str(filepath), thumb,
+            _imwrite(
+                filepath, thumb,
                 [cv2.IMWRITE_JPEG_QUALITY, SCREENSHOT_QUALITY],
             )
 
@@ -153,14 +155,14 @@ class RunLog:
         filepath = self.screenshots_dir / filename
 
         if full_size:
-            cv2.imwrite(
-                str(filepath), img,
+            _imwrite(
+                filepath, img,
                 [cv2.IMWRITE_JPEG_QUALITY, SCREENSHOT_QUALITY],
             )
         else:
             thumb = cv2.resize(img, THUMBNAIL_SIZE)
-            cv2.imwrite(
-                str(filepath), thumb,
+            _imwrite(
+                filepath, thumb,
                 [cv2.IMWRITE_JPEG_QUALITY, SCREENSHOT_QUALITY],
             )
 
