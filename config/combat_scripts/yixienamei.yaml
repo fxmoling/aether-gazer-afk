@@ -1,0 +1,36 @@
+name: 伊邪那美
+description: Skill2 → Attack → Skill3 → Ultimate → QTE1 → Attack → QTE2
+interval: 0.12
+steps:
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: space    # 闪
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: o    # Skill 3
+  - press: u    # Skill 1
+  - press: r    # Ultimate
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: i    # Skill 2
+  - press: r    # Ultimate
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: j    # Attack
+  - press: space    # 闪
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: u    # Skill 1
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack 
+  - press: i    # Skill 2
+  - press: "1"  # QTE 1
+  - press: j    # Attack
+  - press: "2"  # QTE 2
