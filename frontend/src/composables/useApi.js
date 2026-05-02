@@ -46,7 +46,7 @@ export const api = {
   checkUpdate: () => apiCall('check_update'),
   setAutoUpdate: (enabled) => apiCall('set_auto_update', enabled),
   setNotifyOnComplete: (enabled) => apiCall('set_notify_on_complete', enabled),
-  startAutoBattle: (scriptName = 'default') => apiCall('start_auto_battle', scriptName),
+  startAutoBattle: (scriptName = '') => apiCall('start_auto_battle', scriptName),
   stopAutoBattle: () => apiCall('stop_auto_battle'),
   getAutoBattleStatus: () => apiCall('get_auto_battle_status'),
   listCombatScripts: () => apiCall('list_combat_scripts'),

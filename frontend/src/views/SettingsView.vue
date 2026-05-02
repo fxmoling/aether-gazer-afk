@@ -55,6 +55,22 @@
     </div>
 
     <div class="settings-section">
+      <h3>连招脚本</h3>
+      <div class="setting-row">
+        <label>当前连招</label>
+        <select v-model="form.combatScript" @change="onCombatScriptChange" class="setting-input">
+          <option v-for="s in combatScripts" :key="s.id" :value="s.id">
+            {{ s.name }} ({{ s.id }})
+          </option>
+        </select>
+        <span v-if="scriptSaved" class="save-hint">✔ 已保存</span>
+      </div>
+      <p class="setting-hint">
+        所有自动战斗（多维变量、介质攫取等）将使用此连招。脚本文件在 config/combat_scripts/ 目录。
+      </p>
+    </div>
+
+    <div class="settings-section">
       <h3>战斗按键</h3>
       <p class="setting-hint" style="margin-left: 0; margin-bottom: 10px">
         如果你修改了游戏内的战斗快捷键，请在此处同步配置。<br>
@@ -132,6 +148,7 @@ const form = reactive({
   windowTitle: 'AetherGazer',
   autoUpdate: true,
   notifyOnComplete: true,
+  combatScript: 'default',
   keybinds: {
     attack: 'J',
     skill1: 'U',
@@ -151,6 +168,8 @@ const updateMsgClass = ref('')
 const updateInfo = ref(null)
 const savedHint = ref('')
 const keybindSaved = ref(false)
+const scriptSaved = ref(false)
+const combatScripts = ref([])
 
 const keybindLabels = {
   attack: '攻击',
@@ -171,9 +190,14 @@ onMounted(async () => {
     form.windowTitle = data.window_title || 'AetherGazer'
     form.autoUpdate = data.auto_update !== false
     form.notifyOnComplete = data.notify_on_complete !== false
+    form.combatScript = data.combat_script || 'default'
     if (data.combat_keybinds) {
       Object.assign(form.keybinds, data.combat_keybinds)
     }
+  }
+  const scripts = await api.listCombatScripts()
+  if (scripts) {
+    combatScripts.value = scripts
   }
 })
 
@@ -198,6 +222,14 @@ async function detectGamePath() {
 
 async function onAutoUpdateToggle() {
   await api.setAutoUpdate(form.autoUpdate)
+}
+
+async function onCombatScriptChange() {
+  const result = await api.setCombatScript(form.combatScript)
+  if (result && result.ok) {
+    scriptSaved.value = true
+    setTimeout(() => { scriptSaved.value = false }, 2000)
+  }
 }
 
 function onKeybindKey(key, event) {

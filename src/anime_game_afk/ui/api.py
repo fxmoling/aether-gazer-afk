@@ -81,7 +81,7 @@ class Api:
     # Auto-battle
     # ------------------------------------------------------------------
 
-    def start_auto_battle(self, script_name: str = "default") -> dict[str, Any]:
+    def start_auto_battle(self, script_name: str = "") -> dict[str, Any]:
         """Start the auto-battle toggle."""
         return self._tm.start_auto_battle(script_name)
 
