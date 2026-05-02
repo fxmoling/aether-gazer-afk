@@ -30,8 +30,9 @@ const statusText = computed(() => {
   display: flex;
   align-items: center;
   padding: 12px 20px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .status-left {
