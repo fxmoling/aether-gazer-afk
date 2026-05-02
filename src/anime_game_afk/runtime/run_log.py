@@ -82,6 +82,18 @@ class RunLog:
             encoding="utf-8",
         )
 
+        # Stable log path for external tools (AUTO-MAS, etc.)
+        # Always points to the current run's output at logs/latest.log
+        self._latest_log_path = self._logs_dir / "latest.log"
+        self._latest_sink_id = _loguru.add(
+            str(self._latest_log_path),
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}",
+            level="INFO",
+            rotation=None,
+            mode="w",  # Overwrite each run
+            encoding="utf-8",
+        )
+
         # Clean up old runs
         self._cleanup_old_runs()
 
@@ -190,15 +202,16 @@ class RunLog:
     # ------------------------------------------------------------------
 
     def close(self) -> None:
-        """Remove the loguru sink. Call when run is complete."""
+        """Remove the loguru sinks. Call when run is complete."""
         _loguru.info(
             f"[RunLog] Run finished: {self.run_id} "
             f"({self._snap_counter} screenshots)"
         )
-        try:
-            _loguru.remove(self._sink_id)
-        except ValueError:
-            pass  # Already removed
+        for sink_id in (self._sink_id, self._latest_sink_id):
+            try:
+                _loguru.remove(sink_id)
+            except ValueError:
+                pass  # Already removed
 
     @property
     def snap_count(self) -> int:
