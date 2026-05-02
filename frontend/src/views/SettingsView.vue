@@ -1,6 +1,30 @@
 <template>
   <div class="settings-view">
     <div class="settings-section">
+      <h3>主题</h3>
+      <div class="theme-grid">
+        <div
+          v-for="t in themeList"
+          :key="t.id"
+          class="theme-card"
+          :class="{ active: currentTheme === t.id }"
+          @click="setTheme(t.id)"
+        >
+          <div class="theme-preview">
+            <div
+              v-for="(c, i) in t.preview"
+              :key="i"
+              class="preview-dot"
+              :style="{ background: c }"
+            ></div>
+          </div>
+          <div class="theme-name">{{ t.name }}</div>
+          <div class="theme-desc">{{ t.desc }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h3>关于</h3>
       <div class="info-row">
         <span class="info-label">应用名称</span>
@@ -122,6 +146,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { api } from '../composables/useApi'
+import { useTheme } from '../themes/useTheme'
+
+const { currentTheme, setTheme, themeList } = useTheme()
 
 const settings = reactive({
   version: '',
@@ -479,5 +506,58 @@ function openRelease() {
 
 .footer-link:hover {
   text-decoration: underline;
+}
+
+/* Theme selector grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.theme-card {
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.theme-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-surface-hover);
+}
+
+.theme-card.active {
+  border-color: var(--accent-1);
+  background: var(--accent-tint);
+}
+
+.theme-preview {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.preview-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+}
+
+.theme-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.theme-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 </style>
