@@ -524,7 +524,9 @@ class DuoweiCombat:
             )
             script = load_script("default")
         ctx.logger.info(f"[duowei] Using combat script: {script.name}")
-        service = AutoBattleService(script, check_interval=2.0)
+        service = AutoBattleService(
+            script, check_interval=2.0, script_id=script_name,
+        )
         await service.run_until_battle_ends(ctx, extra_confirms=3)
 
         ctx.logger.info("[duowei] Battle ended")

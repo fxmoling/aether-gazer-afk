@@ -394,7 +394,7 @@ class TaskManager:
         except Exception as e:
             return {"ok": False, "error": str(e)}
         self._auto_battle_script = script_name
-        self._auto_battle_service.swap_script(script)
+        self._auto_battle_service.swap_script(script, script_id=script_name)
         self._logger.info("自动战斗连招已切换: {}", script_name)
         return {"ok": True, "script": script_name}
 
@@ -422,7 +422,9 @@ class TaskManager:
                 script.name, len(script.startup_steps),
                 len(script.loop_steps), keys,
             )
-            service = AutoBattleService(script, check_interval=2.0)
+            service = AutoBattleService(
+                script, check_interval=2.0, script_id=self._auto_battle_script,
+            )
             self._auto_battle_service = service  # expose for hot-swap
 
             async def _run():

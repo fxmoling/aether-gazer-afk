@@ -27,35 +27,93 @@ from anime_game_afk.games.aether_gazer.combat.runner import (
     execute_loop,
     execute_startup,
 )
-from anime_game_afk.games.aether_gazer.combat.script import CombatScript
+from anime_game_afk.games.aether_gazer.combat.script import (
+    CombatScript,
+    _CONFIG_DIR,
+    load_script_file,
+)
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
 
 # After this many consecutive idle checks, consider the battle truly ended
 # and allow startup to re-run for the next encounter.
 _IDLE_CONFIRM_COUNT = 3
 
+# How often to check the script file for changes (seconds).
+_FILE_CHECK_INTERVAL = 3.0
+
 
 class AutoBattleService:
     """Toggle-based auto-battle: monitor battle state + run combat script."""
 
-    def __init__(self, script: CombatScript, check_interval: float = 2.0) -> None:
+    def __init__(
+        self, script: CombatScript, check_interval: float = 2.0,
+        script_id: str = "",
+    ) -> None:
         self._script = script
+        self._script_id = script_id
         self._check_interval = check_interval
         self._runner = CombatRunner(script)
         self._enabled = False
         self._startup_done = False
+        self._file_mtime: float = 0.0
+        self._update_mtime()
 
     # ── Public API ──
 
-    def swap_script(self, script: CombatScript) -> None:
+    def swap_script(self, script: CombatScript, script_id: str = "") -> None:
         """Hot-swap the combat script. Takes effect on next loop iteration."""
         old_name = self._script.name
         self._script = script
-        self._startup_done = False  # re-run startup for new script
+        if script_id:
+            self._script_id = script_id
+        self._startup_done = False
+        self._update_mtime()
         logger.info(
             "AutoBattle: script swapped {!r} -> {!r}",
             old_name, script.name,
         )
+
+    def _update_mtime(self) -> None:
+        """Cache the mtime of the current script file."""
+        path = self._script_path()
+        try:
+            self._file_mtime = path.stat().st_mtime if path and path.exists() else 0.0
+        except OSError:
+            self._file_mtime = 0.0
+
+    def _script_path(self):
+        """Return Path to current script YAML, or None."""
+        if not self._script_id:
+            return None
+        return _CONFIG_DIR / f"{self._script_id}.yaml"
+
+    def _check_file_changed(self) -> bool:
+        """Check if the script file was modified and reload if so."""
+        path = self._script_path()
+        if not path or not path.exists():
+            return False
+        try:
+            current_mtime = path.stat().st_mtime
+        except OSError:
+            return False
+        if current_mtime <= self._file_mtime:
+            return False
+        # File changed — reload
+        try:
+            new_script = load_script_file(path)
+            old_name = self._script.name
+            self._script = new_script
+            self._file_mtime = current_mtime
+            self._startup_done = False
+            logger.info(
+                "AutoBattle: file change detected, reloaded {!r} ({} startup + {} loop steps)",
+                new_script.name, len(new_script.startup_steps), len(new_script.loop_steps),
+            )
+            return True
+        except Exception as e:
+            logger.warning("AutoBattle: failed to reload script: {}", e)
+            self._file_mtime = current_mtime  # don't retry until next change
+            return False
 
     async def start(self, ctx: OpContext) -> None:
         """Start monitor + combat loops. Blocks until ``stop()`` called."""
@@ -161,8 +219,15 @@ class AutoBattleService:
             await asyncio.sleep(self._check_interval)
 
     async def _combat_loop(self, ctx: OpContext) -> None:
+        last_file_check = 0.0
         while self._enabled:
             if self._runner.active:
+                # Periodically check for file changes
+                import time
+                now = time.monotonic()
+                if now - last_file_check >= _FILE_CHECK_INTERVAL:
+                    self._check_file_changed()
+                    last_file_check = now
                 if not self._startup_done:
                     await execute_startup(ctx, self._script)
                     self._startup_done = True
