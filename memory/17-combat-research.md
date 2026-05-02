@@ -12,17 +12,26 @@
 
 ---
 
-## 我们的现状
+## 我们的现状 (2026-05-02 更新)
 
 ### 已有能力
+- `AutoBattleService`: **主动战斗** — 三信号检测 + YAML连招循环 ✅
+- `InBattleCheck`: **三信号 AND 战斗检测** ✅ (Pause+Dodge+技能区std)
+- `CombatScript`: **startup+loop 两阶段连招** ✅ (startup执行一次 + loop循环)
+- 7个角色连招脚本: default/fantian/shikoudi/wuchang/tuote/yixienamei/fengqianfangtiangou
+- `UserConfig.combat_script()`: 用户可选连招脚本 ✅
+- CRUD API: 前端可创建/编辑/删除/验证连招脚本 ✅
+- HTML连招编辑器: `docs/combat-script-editor.html` ✅
+- 连招文档: `docs/combat-scripts.md` (中文) ✅
+- `DuoweiCombat`: 多维变量完整循环 (导航→配置→寻路→战斗→结算) ✅
 - `MediumSeizureCombat`: 介质攫取导航 + **被动挂机等待**（5 分钟超时）
-- `InBattleCheck`: **双信号 AND 战斗检测** ✅ 已实现并实测验证
 
 ### 关键差距
-1. **无主动战斗**: 介质攫取靠队友打，站着不动
-2. **无多维变量**: 完全未支持
-3. **无角色适配**: 无角色连招系统
-4. **无楼层导航**: 多维变量需要在关卡间行走
+1. **介质攫取仍是被动挂机**: MediumSeizureCombat 不调用 AutoBattleService
+2. **无角色识别**: 无法检测当前上场角色自动匹配连招
+3. **无闪避/移动策略**: 所有连招都是原地技能循环
+4. **多维变量只打 1-2 层**: 简化策略，打完第2层就退出
+5. **无体力/次数管理**: 不检查剩余次数就开打
 
 ### InBattleCheck 实测结果 (2026-04-25)
 - **方案**: 灰度 `TM_CCOEFF_NORMED` **三信号 AND**
