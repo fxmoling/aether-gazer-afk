@@ -288,3 +288,17 @@ class UserConfig:
     ) -> None:
         """Set camera rotation multiplier (clamped to 0.1–2.0)."""
         self._game(game_id)["duowei_swipe_multiplier"] = max(0.1, min(2.0, float(value)))
+
+    # ------------------------------------------------------------------
+    # Combat script selection
+    # ------------------------------------------------------------------
+
+    def combat_script(self, game_id: str = "aether_gazer") -> str:
+        """Return the selected combat script name (default: 'default')."""
+        return self._game(game_id).get("combat_script", "default")
+
+    def set_combat_script(
+        self, name: str, game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the active combat script by name."""
+        self._game(game_id)["combat_script"] = name

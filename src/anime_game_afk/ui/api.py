@@ -93,20 +93,74 @@ class Api:
         """Get auto-battle status."""
         return {"enabled": self._tm._auto_battle_enabled}
 
-    def list_combat_scripts(self) -> list[dict[str, str]]:
+    def list_combat_scripts(self) -> list[dict[str, Any]]:
         """List available combat scripts from config/combat_scripts/."""
+        from anime_game_afk.games.aether_gazer.combat.script import list_scripts
+        return list_scripts()
+
+    def get_combat_script(self, script_id: str) -> dict[str, Any]:
+        """Get full YAML content of a combat script."""
         from anime_game_afk.games.aether_gazer.combat.script import (
-            load_script, _CONFIG_DIR,
+            _CONFIG_DIR, load_script, validate_script_id,
         )
-        scripts = []
-        if _CONFIG_DIR.exists():
-            for f in sorted(_CONFIG_DIR.glob("*.yaml")):
-                try:
-                    s = load_script(f.stem)
-                    scripts.append({"id": f.stem, "name": s.name})
-                except Exception:
-                    scripts.append({"id": f.stem, "name": f.stem})
-        return scripts
+        try:
+            script_id = validate_script_id(script_id)
+            path = _CONFIG_DIR / f"{script_id}.yaml"
+            if not path.exists():
+                return {"ok": False, "error": f"Script '{script_id}' not found"}
+            content = path.read_text(encoding="utf-8")
+            script = load_script(script_id)
+            return {
+                "ok": True, "id": script_id,
+                "content": content, "script": script.to_dict(),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def save_combat_script(
+        self, script_id: str, content: str,
+    ) -> dict[str, Any]:
+        """Validate and save a combat script YAML file."""
+        from anime_game_afk.games.aether_gazer.combat.script import save_script_file
+        try:
+            path = save_script_file(script_id, content)
+            return {"ok": True, "path": str(path)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def delete_combat_script(self, script_id: str) -> dict[str, Any]:
+        """Delete a combat script (cannot delete 'default')."""
+        from anime_game_afk.games.aether_gazer.combat.script import delete_script_file
+        try:
+            delete_script_file(script_id)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def validate_combat_script(self, content: str) -> dict[str, Any]:
+        """Validate a YAML combat script without saving."""
+        from anime_game_afk.games.aether_gazer.combat.script import load_script_from_string
+        try:
+            script = load_script_from_string(content)
+            return {
+                "ok": True,
+                "name": script.name,
+                "startup_count": len(script.startup_steps),
+                "loop_count": len(script.loop_steps),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def set_combat_script(self, script_name: str) -> dict[str, Any]:
+        """Set the active combat script in user config."""
+        from anime_game_afk.config.user_config import UserConfig
+        try:
+            cfg = UserConfig.load()
+            cfg.set_combat_script(script_name)
+            cfg.save()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     # ------------------------------------------------------------------
     # Logs
@@ -133,6 +187,7 @@ class Api:
             "auto_update": cfg.auto_update(),
             "notify_on_complete": cfg.notify_on_complete(),
             "combat_keybinds": cfg.combat_keybinds(),
+            "combat_script": cfg.combat_script(),
             "duowei_swipe_multiplier": cfg.duowei_swipe_multiplier(),
         }
 

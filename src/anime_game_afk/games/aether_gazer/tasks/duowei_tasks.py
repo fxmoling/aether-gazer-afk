@@ -514,7 +514,16 @@ class DuoweiCombat:
         ctx.logger.info("[duowei] _fight_battle starting")
         await SleepOp(3.0).run(ctx)  # Wait for battle to fully load
 
-        script = load_script("default")
+        from anime_game_afk.config.user_config import UserConfig
+        script_name = UserConfig.load().combat_script()
+        try:
+            script = load_script(script_name)
+        except FileNotFoundError:
+            ctx.logger.warning(
+                f"[duowei] Script '{script_name}' not found, falling back to 'default'"
+            )
+            script = load_script("default")
+        ctx.logger.info(f"[duowei] Using combat script: {script.name}")
         service = AutoBattleService(script, check_interval=2.0)
         await service.run_until_battle_ends(ctx, extra_confirms=3)
 

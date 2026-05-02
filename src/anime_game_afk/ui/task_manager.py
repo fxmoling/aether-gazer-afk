@@ -325,7 +325,7 @@ class TaskManager:
     # Auto-battle toggle
     # ------------------------------------------------------------------
 
-    def start_auto_battle(self, script_name: str = "default") -> dict[str, Any]:
+    def start_auto_battle(self, script_name: str = "") -> dict[str, Any]:
         """Start the auto-battle service on a background thread."""
         if self._auto_battle_enabled:
             return {"ok": False, "error": "自动战斗已在运行中"}
@@ -336,6 +336,29 @@ class TaskManager:
             if not conn.get("ok"):
                 return {"ok": False, "error": conn.get("error", "无法连接游戏")}
 
+        # Resolve script name: explicit arg > user config > "default"
+        if not script_name:
+            from anime_game_afk.config.user_config import UserConfig
+            script_name = UserConfig.load().combat_script()
+        if not script_name:
+            script_name = "default"
+
+        # Validate script before spawning thread
+        from anime_game_afk.games.aether_gazer.combat.script import load_script
+        try:
+            script = load_script(script_name)
+        except FileNotFoundError:
+            self._logger.warning(
+                "Script '{}' not found, falling back to 'default'", script_name
+            )
+            try:
+                script = load_script("default")
+                script_name = "default"
+            except FileNotFoundError:
+                return {"ok": False, "error": f"连招脚本 '{script_name}' 未找到"}
+        except Exception as e:
+            return {"ok": False, "error": f"连招脚本加载失败: {e}"}
+
         self._auto_battle_enabled = True
         self._auto_battle_script = script_name
         self._auto_battle_thread = threading.Thread(
@@ -343,7 +366,7 @@ class TaskManager:
         )
         self._auto_battle_thread.start()
         self._logger.info("自动战斗已开启 (script={})", script_name)
-        return {"ok": True}
+        return {"ok": True, "script": script_name}
 
     def stop_auto_battle(self) -> dict[str, Any]:
         """Stop the auto-battle service."""

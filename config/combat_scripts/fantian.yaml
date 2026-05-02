@@ -1,14 +1,15 @@
 name: 梵天
-description: Skill2 → Attack → Skill3 → Ultimate → QTE1 → Attack → QTE2
+description: 开场闪避蓄力 → 攻击技能循环连招
 interval: 0.12
-steps:
-  - hold: space 
+startup:
+  - hold: space
     duration: 0.3
+loop:
   - press: j    # Attack
   - press: j    # Attack
-  - press: j    # Attack 
   - press: j    # Attack
-  - press: j    # Attack 
+  - press: j    # Attack
+  - press: j    # Attack
   - press: j    # Attack
   - press: u    # Skill 1
   - press: u    # Skill 1
@@ -19,12 +20,12 @@ steps:
   - press: "2"  # QTE 2
   - press: i    # Skill 2
   - press: j    # Attack
-  - press: j    # Attack 
   - press: j    # Attack
   - press: j    # Attack
-  - press: j    # Attack 
   - press: j    # Attack
-  - press: j    # Attack 
+  - press: j    # Attack
+  - press: j    # Attack
+  - press: j    # Attack
   - press: u    # Skill 1
   - press: u    # Skill 1
   - press: o    # Skill 3
