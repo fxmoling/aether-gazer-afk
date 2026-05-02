@@ -90,7 +90,8 @@ def main() -> None:
         log_file = app_dir / "logs" / "gui.log"
         log_file.parent.mkdir(exist_ok=True)
         _log.add(str(log_file), rotation="5 MB", level="DEBUG",
-                 format="{time:HH:mm:ss} | {level:<7} | {message}")
+                 format="{time:HH:mm:ss} | {level:<7} | {message}",
+                 enqueue=True)  # thread-safe queued writes
 
     _log.info("=" * 60)
     _log.info("AetherGazer AFK GUI starting")
