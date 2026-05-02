@@ -25,6 +25,7 @@
       v-model="selectedScript"
       :disabled="autoBattleOn"
       class="script-select"
+      @change="onScriptChange"
     >
       <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
     </select>
@@ -64,10 +65,19 @@ async function loadScripts() {
     const list = await api.listCombatScripts()
     if (list && list.length > 0) {
       scripts.value = list
-      return
+      break
     }
     await new Promise(r => setTimeout(r, 500))
   }
+  // Load saved script selection from user config
+  const settings = await api.getSettings()
+  if (settings && settings.combat_script) {
+    selectedScript.value = settings.combat_script
+  }
+}
+
+async function onScriptChange() {
+  await api.setCombatScript(selectedScript.value)
 }
 
 async function toggleAutoBattle() {
