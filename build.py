@@ -297,6 +297,19 @@ def build(skip_spec: bool = False) -> None:
         SPEC_FILE.write_text(spec_content, encoding="utf-8")
         print(f"Generated {SPEC_FILE}")
 
+    # Step 1.5: Preserve user files from existing dist before PyInstaller wipes it
+    dist_app = DIST_DIR / APP_NAME
+    _user_files = ("scheduler.json", "schedule_log.json", "ui_state.json", "user_config.yaml")
+    _preserved_user: dict[str, bytes] = {}
+    config_dst_pre = dist_app / "config"
+    if config_dst_pre.exists():
+        for uf in _user_files:
+            uf_path = config_dst_pre / uf
+            if uf_path.exists():
+                _preserved_user[uf] = uf_path.read_bytes()
+        if _preserved_user:
+            print(f"Preserved {len(_preserved_user)} user files before rebuild: {list(_preserved_user.keys())}")
+
     # Step 2: Run PyInstaller
     cmd = [
         sys.executable,
@@ -370,14 +383,6 @@ def build(skip_spec: bool = False) -> None:
         config_src = PROJECT_ROOT / "config"
         config_dst = dist_app / "config"
         if config_src.exists():
-            # Preserve user runtime files that shouldn't be overwritten
-            _user_files = ("scheduler.json", "schedule_log.json", "ui_state.json")
-            preserved: dict[str, bytes] = {}
-            for uf in _user_files:
-                uf_path = config_dst / uf
-                if uf_path.exists():
-                    preserved[uf] = uf_path.read_bytes()
-
             if not config_dst.exists():
                 shutil.copytree(config_src, config_dst)
             else:
@@ -389,11 +394,11 @@ def build(skip_spec: bool = False) -> None:
                         dst_file.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(item, dst_file)
 
-            # Restore preserved user files
-            for uf, data in preserved.items():
+            # Restore user files preserved before PyInstaller wiped dist/
+            for uf, data in _preserved_user.items():
                 (config_dst / uf).write_bytes(data)
 
-            print(f"Copied config/ -> {config_dst} (preserved {len(preserved)} user files)")
+            print(f"Copied config/ -> {config_dst} (restored {len(_preserved_user)} user files)")
 
         # Copy plans/ to dist top-level (user-editable, also found by launcher)
         plans_src = dist_app / "_internal" / "plans"
