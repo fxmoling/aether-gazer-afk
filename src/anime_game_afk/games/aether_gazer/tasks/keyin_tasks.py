@@ -522,12 +522,17 @@ class JointSpecialOpsSweep:
             )
             await ClickOp(self._REFRESH_X, self._REFRESH_Y, wait=1.5).run(ctx)
 
+            # Check for confirmation popup — if it appears, refreshing
+            # would consume resources. Cancel and abort.
             await SleepOp(0.5).run(ctx)
             img2 = ctx.device.screenshot()
             ocr2 = ocr_once(img2)
             if ocr2.has("确定") or ocr2.has("确认"):
-                ctx.logger.info("[joint_ops] Confirm refresh popup")
-                await PressKeyOp(VK_ENTER, wait=1.5).run(ctx)
+                ctx.logger.info(
+                    "[joint_ops] Refresh costs resources — cancelling"
+                )
+                await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+                return False
 
             await SleepOp(1.0).run(ctx)
 
