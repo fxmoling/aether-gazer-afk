@@ -72,3 +72,4 @@ npm run build   # → src/anime_game_afk/ui/web/ (index.html + app.js + index.cs
 - **创建**: 2026-04-18
 - **验证**: pywebview 启动正常，界面显示正确
 - **更新**: 2026-04-18 — 一键启动 UX，移除手动连接/断开按钮
+- **更新**: 2026-05-02 — 12 主题系统 (详见 `21-theme-system.md`)，所有硬编码颜色迁移到 CSS 变量
