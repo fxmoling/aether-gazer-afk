@@ -10,6 +10,9 @@ import pytest
 from anime_game_afk.games.aether_gazer.combat.runner import (
     CombatRunner,
     execute_cycle,
+    execute_loop,
+    execute_startup,
+    execute_steps,
 )
 from anime_game_afk.games.aether_gazer.combat.script import CombatScript, CombatStep
 from anime_game_afk.games.aether_gazer.ops.base import OpContext
@@ -35,7 +38,7 @@ class MockDevice:
 
 
 def _make_script(steps: list[CombatStep], name: str = "test") -> CombatScript:
-    return CombatScript(name=name, description="", steps=tuple(steps))
+    return CombatScript(name=name, description="", startup_steps=(), loop_steps=tuple(steps))
 
 
 def _press(key: str, vk: int, interval: float = 0.12) -> CombatStep:
@@ -88,7 +91,7 @@ class TestExecuteCycle:
     def test_empty_script_noop(self):
         dev = MockDevice()
         ctx = OpContext(device=dev)
-        script = CombatScript(name="empty", description="", steps=())
+        script = CombatScript(name="empty", description="", startup_steps=(), loop_steps=())
         asyncio.run(execute_cycle(ctx, script))
         assert dev.pressed == []
 
@@ -131,3 +134,37 @@ class TestCombatRunner:
         monkeypatch.setattr("asyncio.sleep", _sleep_and_stop)
         asyncio.run(runner.run(ctx))
         assert dev.pressed == []  # Never active, no keys pressed
+
+
+class TestExecuteStartupLoop:
+    """Tests for execute_startup, execute_loop, and execute_steps."""
+
+    def test_execute_startup(self):
+        dev = MockDevice()
+        ctx = OpContext(device=dev)
+        script = CombatScript(
+            name="test", description="",
+            startup_steps=(_press("u", 0x55), _press("i", 0x49)),
+            loop_steps=(_press("j", 0x4A),),
+        )
+        asyncio.run(execute_startup(ctx, script))
+        assert dev.pressed == [0x55, 0x49]
+
+    def test_execute_loop(self):
+        dev = MockDevice()
+        ctx = OpContext(device=dev)
+        script = CombatScript(
+            name="test", description="",
+            startup_steps=(_press("u", 0x55),),
+            loop_steps=(_press("j", 0x4A), _press("i", 0x49)),
+        )
+        asyncio.run(execute_loop(ctx, script))
+        assert dev.pressed == [0x4A, 0x49]
+
+    def test_execute_steps_directly(self):
+        dev = MockDevice()
+        ctx = OpContext(device=dev)
+        steps = [_press("j", 0x4A), _hold("u", 0x55, 1.0), _wait(0.1)]
+        asyncio.run(execute_steps(ctx, steps))
+        assert dev.pressed == [0x4A]
+        assert dev.held == [(0x55, 1.0)]

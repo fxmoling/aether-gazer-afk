@@ -43,7 +43,8 @@ def _simple_script() -> CombatScript:
     return CombatScript(
         name="test",
         description="",
-        steps=(
+        startup_steps=(),
+        loop_steps=(
             CombatStep(action="press", key="j", vk_code=0x4A, duration=0.0, interval=0.12),
         ),
     )
@@ -265,3 +266,89 @@ class TestAutoBattleServiceRunOnce:
 
         assert keys_when_battle_starts[0] == 0
         assert len(dev.pressed) > 0
+
+
+class TestAutoBattleStartup:
+    """Test startup-phase-only-once behavior."""
+
+    def test_startup_runs_once_in_battle(self, monkeypatch):
+        """Startup steps execute once, then loop repeats."""
+        monkeypatch.setattr("asyncio.sleep", _yield_sleep)
+        dev = MockDevice()
+        ctx = OpContext(device=dev)
+        script = CombatScript(
+            name="test_startup", description="",
+            startup_steps=(
+                CombatStep(action="press", key="u", vk_code=0x55, duration=0.0, interval=0.12),
+            ),
+            loop_steps=(
+                CombatStep(action="press", key="j", vk_code=0x4A, duration=0.0, interval=0.12),
+            ),
+        )
+        service = AutoBattleService(script, check_interval=0.1)
+        call_count = [0]
+
+        async def mock_evaluate(self_check, ctx_arg):
+            call_count[0] += 1
+            if call_count[0] <= 8:
+                return CheckResult(passed=True)
+            service.stop()
+            return CheckResult(passed=False)
+
+        async def _run():
+            await asyncio.wait_for(service.start(ctx), timeout=5.0)
+
+        with patch(
+            "anime_game_afk.games.aether_gazer.combat.service.InBattleCheck.evaluate",
+            mock_evaluate,
+        ):
+            asyncio.run(_run())
+
+        # First key pressed must be the startup key (U = 0x55)
+        assert len(dev.pressed) > 2
+        assert dev.pressed[0] == 0x55
+        # All subsequent presses are the loop key (J = 0x4A)
+        assert all(vk == 0x4A for vk in dev.pressed[1:])
+
+    def test_startup_not_rerun_on_false_negative(self, monkeypatch):
+        """A single false negative doesn't re-trigger startup."""
+        monkeypatch.setattr("asyncio.sleep", _yield_sleep)
+        dev = MockDevice()
+        ctx = OpContext(device=dev)
+        script = CombatScript(
+            name="test_startup", description="",
+            startup_steps=(
+                CombatStep(action="press", key="u", vk_code=0x55, duration=0.0, interval=0.12),
+            ),
+            loop_steps=(
+                CombatStep(action="press", key="j", vk_code=0x4A, duration=0.0, interval=0.12),
+            ),
+        )
+        service = AutoBattleService(script, check_interval=0.1)
+        call_count = [0]
+
+        async def mock_evaluate(self_check, ctx_arg):
+            call_count[0] += 1
+            if call_count[0] <= 4:
+                return CheckResult(passed=True)
+            elif call_count[0] == 5:
+                # Single false negative — shouldn't reset startup
+                return CheckResult(passed=False)
+            elif call_count[0] <= 10:
+                return CheckResult(passed=True)
+            service.stop()
+            return CheckResult(passed=False)
+
+        async def _run():
+            await asyncio.wait_for(service.start(ctx), timeout=5.0)
+
+        with patch(
+            "anime_game_afk.games.aether_gazer.combat.service.InBattleCheck.evaluate",
+            mock_evaluate,
+        ):
+            asyncio.run(_run())
+
+        # Startup key (U) should appear exactly once at position 0
+        startup_count = sum(1 for vk in dev.pressed if vk == 0x55)
+        assert startup_count == 1
+        assert dev.pressed[0] == 0x55
