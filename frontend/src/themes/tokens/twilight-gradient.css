@@ -10,8 +10,8 @@
   --bg-input: rgba(26, 5, 51, 0.9);
   --bg-dropdown: linear-gradient(180deg, rgba(26, 5, 51, 0.95), rgba(49, 46, 129, 0.95));
   --text-primary: rgba(255, 255, 255, 0.85);
-  --text-secondary: rgba(255, 255, 255, 0.65);
-  --text-muted: rgba(255, 255, 255, 0.35);
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --text-muted: rgba(255, 255, 255, 0.55);
   --text-on-accent: #ffffff;
   --text-link: #a78bfa;
   --accent-1: #a78bfa;
@@ -51,7 +51,7 @@
   --toggle-on-bg: linear-gradient(135deg, #a78bfa, #60a5fa);
   --toggle-off-bg: rgba(255, 255, 255, 0.08);
   --toggle-knob-on: #ffffff;
-  --toggle-knob-off: rgba(255, 255, 255, 0.3);
+  --toggle-knob-off: rgba(255, 255, 255, 0.5);
   --checkbox-checked: linear-gradient(135deg, #a78bfa, #60a5fa);
   --checkbox-border: rgba(255, 255, 255, 0.15);
   --glass-bg: rgba(255, 255, 255, 0.1);
@@ -76,7 +76,7 @@
   --log-success: #4ade80;
   --sidebar-tab-active-bg: rgba(167, 139, 250, 0.12);
   --sidebar-tab-active-text: #c4b5fd;
-  --sidebar-tab-text: rgba(255, 255, 255, 0.35);
+  --sidebar-tab-text: rgba(255, 255, 255, 0.5);
   --sidebar-logo-shadow: 0 2px 12px rgba(167, 139, 250, 0.3);
   --tips-bg: rgba(251, 191, 36, 0.08);
   --tips-border: rgba(251, 191, 36, 0.2);
@@ -95,7 +95,7 @@
   --chip-active-text: #c4b5fd;
   --chip-inactive-bg: rgba(255, 255, 255, 0.04);
   --chip-inactive-border: rgba(255, 255, 255, 0.08);
-  --chip-inactive-text: rgba(255, 255, 255, 0.35);
+  --chip-inactive-text: rgba(255, 255, 255, 0.5);
   --select-bg: rgba(26, 5, 51, 0.9);
   --select-border: rgba(255, 255, 255, 0.08);
   --select-text: rgba(255, 255, 255, 0.7);

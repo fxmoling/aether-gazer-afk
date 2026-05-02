@@ -11,7 +11,7 @@
   --bg-dropdown: linear-gradient(180deg, rgba(13, 14, 20, 0.98), rgba(18, 20, 28, 0.98));
   --text-primary: rgba(0, 240, 255, 0.85);
   --text-secondary: rgba(0, 240, 255, 0.6);
-  --text-muted: rgba(0, 240, 255, 0.3);
+  --text-muted: rgba(0, 240, 255, 0.5);
   --text-on-accent: #0d0e14;
   --text-link: #00f0ff;
   --accent-1: #00f0ff;
@@ -76,7 +76,7 @@
   --log-success: #05ffa1;
   --sidebar-tab-active-bg: rgba(0, 240, 255, 0.08);
   --sidebar-tab-active-text: #00f0ff;
-  --sidebar-tab-text: rgba(0, 240, 255, 0.3);
+  --sidebar-tab-text: rgba(0, 240, 255, 0.5);
   --sidebar-logo-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
   --tips-bg: rgba(252, 238, 10, 0.06);
   --tips-border: rgba(252, 238, 10, 0.2);
@@ -95,7 +95,7 @@
   --chip-active-text: #00f0ff;
   --chip-inactive-bg: rgba(0, 240, 255, 0.02);
   --chip-inactive-border: rgba(0, 240, 255, 0.06);
-  --chip-inactive-text: rgba(0, 240, 255, 0.3);
+  --chip-inactive-text: rgba(0, 240, 255, 0.5);
   --select-bg: rgba(13, 14, 20, 0.95);
   --select-border: rgba(0, 240, 255, 0.1);
   --select-text: rgba(0, 240, 255, 0.7);

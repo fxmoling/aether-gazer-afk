@@ -11,7 +11,7 @@
   --bg-dropdown: linear-gradient(180deg, rgba(2, 8, 16, 0.98), rgba(6, 20, 40, 0.98));
   --text-primary: rgba(186, 230, 253, 0.85);
   --text-secondary: rgba(186, 230, 253, 0.6);
-  --text-muted: rgba(186, 230, 253, 0.35);
+  --text-muted: rgba(186, 230, 253, 0.5);
   --text-on-accent: #ffffff;
   --text-link: #38bdf8;
   --accent-1: #0ea5e9;
@@ -95,7 +95,7 @@
   --chip-active-text: #7dd3fc;
   --chip-inactive-bg: rgba(14, 165, 233, 0.02);
   --chip-inactive-border: rgba(14, 165, 233, 0.06);
-  --chip-inactive-text: rgba(186, 230, 253, 0.3);
+  --chip-inactive-text: rgba(186, 230, 253, 0.5);
   --select-bg: rgba(2, 8, 16, 0.95);
   --select-border: rgba(14, 165, 233, 0.08);
   --select-text: rgba(186, 230, 253, 0.7);

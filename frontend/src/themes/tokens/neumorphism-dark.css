@@ -11,7 +11,7 @@
   --bg-dropdown: #22243a;
   --text-primary: #b2b7c7;
   --text-secondary: #8e95ad;
-  --text-muted: #505570;
+  --text-muted: #6b7088;
   --text-on-accent: #ffffff;
   --text-link: #818cf8;
   --accent-1: #6366f1;
@@ -69,14 +69,14 @@
   --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
   --log-bg: rgba(30, 32, 48, 0.7);
-  --log-debug: #505570;
+  --log-debug: #6b7088;
   --log-info: #8e95ad;
   --log-warning: #fbbf24;
   --log-error: #f87171;
   --log-success: #4ade80;
   --sidebar-tab-active-bg: rgba(99, 102, 241, 0.1);
   --sidebar-tab-active-text: #818cf8;
-  --sidebar-tab-text: #505570;
+  --sidebar-tab-text: #6b7088;
   --sidebar-logo-shadow: 3px 3px 6px #121420, -3px -3px 6px #282c42;
   --tips-bg: rgba(251, 191, 36, 0.06);
   --tips-border: rgba(251, 191, 36, 0.18);

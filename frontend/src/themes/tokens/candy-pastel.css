@@ -11,7 +11,7 @@
   --bg-dropdown: #ffffff;
   --text-primary: #374151;
   --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
+  --text-muted: #6b7280;
   --text-on-accent: #ffffff;
   --text-link: #c084fc;
   --accent-1: #c084fc;
@@ -69,7 +69,7 @@
   --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
   --log-bg: #ffffff;
-  --log-debug: #9ca3af;
+  --log-debug: #6b7280;
   --log-info: #6b7280;
   --log-warning: #ea580c;
   --log-error: #dc2626;
