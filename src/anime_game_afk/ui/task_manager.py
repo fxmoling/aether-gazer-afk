@@ -338,6 +338,9 @@ class TaskManager:
                 return {"ok": False, "error": conn.get("error", "无法连接游戏")}
 
         # Resolve script name: explicit arg > user config > "default"
+        self._logger.info(
+            "[start_auto_battle] received script_name={!r}", script_name
+        )
         if not script_name:
             from anime_game_afk.config.user_config import UserConfig
             script_name = UserConfig.load().combat_script()
@@ -408,7 +411,17 @@ class TaskManager:
             device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
             device.connect()
             ctx = OpContext(device=device)
+            self._logger.info(
+                "[auto-battle-worker] Loading script: {}", self._auto_battle_script
+            )
             script = load_script(self._auto_battle_script)
+            keys = [s.key for s in script.loop_steps[:8]]
+            self._logger.info(
+                "[auto-battle-worker] Loaded '{}' ({} startup + {} loop steps), "
+                "first keys: {}",
+                script.name, len(script.startup_steps),
+                len(script.loop_steps), keys,
+            )
             service = AutoBattleService(script, check_interval=2.0)
             self._auto_battle_service = service  # expose for hot-swap
 

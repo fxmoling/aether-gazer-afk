@@ -95,7 +95,10 @@ class Api:
 
     def get_auto_battle_status(self) -> dict[str, Any]:
         """Get auto-battle status."""
-        return {"enabled": self._tm._auto_battle_enabled}
+        return {
+            "enabled": self._tm._auto_battle_enabled,
+            "script": self._tm._auto_battle_script,
+        }
 
     def list_combat_scripts(self) -> list[dict[str, Any]]:
         """List available combat scripts from config/combat_scripts/."""
