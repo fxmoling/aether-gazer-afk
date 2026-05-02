@@ -83,6 +83,72 @@ def _config_path() -> Path:
     return Path(__file__).resolve().parent.parent.parent.parent / "config" / "scheduler.json"
 
 
+def schedule_config_exists() -> bool:
+    """Check if schedule config file exists on disk."""
+    return _config_path().exists()
+
+
+def reconstruct_config_from_task() -> ScheduleConfig | None:
+    """Reconstruct schedule config from Windows Task Scheduler XML.
+
+    Used when the config file is missing but the task is registered.
+    Returns None if the task is not registered or parsing fails.
+    App-specific fields (pipeline_id, retry_on_failure, post_action) use defaults.
+    """
+    import xml.etree.ElementTree as ET
+
+    try:
+        cmd = [
+            "schtasks", "/Query",
+            "/TN", TASK_FULL_PATH,
+            "/XML",
+        ]
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        if result.returncode != 0:
+            return None
+
+        ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
+        root = ET.fromstring(result.stdout)
+
+        config = ScheduleConfig(enabled=True)
+
+        # Parse start time from <StartBoundary>2026-01-01T15:07:00</StartBoundary>
+        sb = root.find(".//t:StartBoundary", ns)
+        if sb is not None and sb.text and "T" in sb.text:
+            time_part = sb.text.split("T")[1][:5]  # "15:07"
+            config.time = time_part
+
+        # Parse daily vs weekly schedule
+        if root.find(".//t:ScheduleByWeek", ns) is not None:
+            dow = root.find(".//t:DaysOfWeek", ns)
+            if dow is not None:
+                _day_tag_map = {
+                    "Monday": "mon", "Tuesday": "tue", "Wednesday": "wed",
+                    "Thursday": "thu", "Friday": "fri",
+                    "Saturday": "sat", "Sunday": "sun",
+                }
+                for child in dow:
+                    tag = child.tag.split("}")[-1]  # Remove namespace prefix
+                    if tag in _day_tag_map:
+                        config.days.append(_day_tag_map[tag])
+        # ScheduleByDay → days stays [] (= every day)
+
+        # Check if task is enabled via Settings/Enabled (absent = enabled)
+        enabled_el = root.find(".//t:Settings/t:Enabled", ns)
+        if enabled_el is not None and (enabled_el.text or "").lower() == "false":
+            config.enabled = False
+
+        logger.info("Reconstructed schedule config from Windows task: {}", config)
+        return config
+
+    except Exception as e:
+        logger.warning("Failed to reconstruct config from task XML: {}", e)
+        return None
+
+
 def load_schedule_config() -> ScheduleConfig:
     """Load schedule config from disk."""
     path = _config_path()

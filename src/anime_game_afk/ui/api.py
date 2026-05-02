@@ -272,14 +272,33 @@ class Api:
     # ------------------------------------------------------------------
 
     def get_schedule(self) -> dict[str, Any]:
-        """Get current schedule configuration and status."""
+        """Get current schedule configuration and status.
+
+        If the config file is missing but a Windows task is registered,
+        reconstructs the config from the task XML and persists it.
+        """
         from anime_game_afk.runtime.scheduler import (
             WinScheduler,
             load_schedule_config,
+            save_schedule_config,
+            schedule_config_exists,
+            reconstruct_config_from_task,
         )
         config = load_schedule_config()
         sched = WinScheduler()
         task_info = sched.query_task()
+
+        # Self-heal: if config file missing but task is registered,
+        # reconstruct config from Windows Task Scheduler XML.
+        if not schedule_config_exists() and task_info.registered:
+            recovered = reconstruct_config_from_task()
+            if recovered is not None:
+                config = recovered
+                try:
+                    save_schedule_config(config)
+                except Exception:
+                    pass  # Best-effort persistence; still return recovered config
+
         return {
             "config": config.to_dict(),
             "task": {

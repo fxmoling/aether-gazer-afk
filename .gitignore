@@ -142,6 +142,8 @@ user_config.json
 # User-specific runtime config (game paths, UI state)
 /config/user_config.yaml
 /config/ui_state.json
+/config/scheduler.json
+/config/schedule_log.json
 
 # Superpowers plugin cache
 .superpowers/
