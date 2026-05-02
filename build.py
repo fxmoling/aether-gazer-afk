@@ -195,6 +195,13 @@ def generate_spec() -> str:
         "anime_game_afk.games.aether_gazer.tasks.observation_tasks",
         "anime_game_afk.games.aether_gazer.ops",
         "anime_game_afk.games.aether_gazer.ops.base",
+        # Lazy imports — PyInstaller cannot trace these via static analysis
+        "anime_game_afk.games.aether_gazer.combat.script",
+        "anime_game_afk.games.aether_gazer.combat.service",
+        "anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui",
+        "anime_game_afk.games.aether_gazer.knowledge.pages",
+        "anime_game_afk.core.notifier",
+        "anime_game_afk.runtime.run_log",
     ]
 
     hidden_str = ",\n        ".join(f"'{m}'" for m in hidden_imports)
