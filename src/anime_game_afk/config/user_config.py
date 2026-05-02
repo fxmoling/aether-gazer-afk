@@ -252,6 +252,18 @@ class UserConfig:
         self._settings()["notify_on_complete"] = enabled
 
     # ------------------------------------------------------------------
+    # Theme
+    # ------------------------------------------------------------------
+
+    def theme(self) -> str:
+        """Return the currently selected UI theme ID."""
+        return self._settings().get("theme", "cosmic-purple")
+
+    def set_theme(self, theme_id: str) -> None:
+        """Set the UI theme."""
+        self._settings()["theme"] = theme_id
+
+    # ------------------------------------------------------------------
     # Combat keybinds
     # ------------------------------------------------------------------
 
