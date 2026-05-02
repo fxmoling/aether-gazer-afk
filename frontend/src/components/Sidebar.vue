@@ -35,9 +35,9 @@ const items = [
 <style scoped>
 .sidebar {
   width: 88px;
-  background: rgba(8,6,26,0.85);
+  background: var(--bg-sidebar);
   backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -53,20 +53,20 @@ const items = [
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border-radius: 10px;
+  background: var(--accent-gradient);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 6px;
   font-size: 18px;
-  color: white;
-  box-shadow: 0 2px 12px rgba(102,126,234,0.3);
+  color: var(--text-on-accent);
+  box-shadow: var(--sidebar-logo-shadow);
 }
 
 .logo-text {
   font-size: 9px;
-  color: rgba(255,255,255,0.4);
+  color: var(--text-muted);
   letter-spacing: 0.5px;
 }
 
@@ -76,10 +76,10 @@ const items = [
   align-items: center;
   padding: 10px 8px;
   margin: 2px 0;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   text-decoration: none;
-  color: rgba(255,255,255,0.3);
+  color: var(--sidebar-tab-text);
   transition: color 0.1s, background 0.1s;
   width: 64px;
   position: relative;
@@ -87,8 +87,8 @@ const items = [
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.65);
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
 }
 
 .nav-item:hover .nav-icon {
@@ -96,8 +96,8 @@ const items = [
 }
 
 .nav-item.active {
-  color: #b8c4ff;
-  background: rgba(102,126,234,0.1);
+  color: var(--sidebar-tab-active-text);
+  background: var(--sidebar-tab-active-bg);
 }
 
 .nav-item.active::before {
@@ -107,9 +107,9 @@ const items = [
   top: 12px;
   bottom: 12px;
   width: 3px;
-  background: #667eea;
+  background: var(--accent-1);
   border-radius: 2px;
-  box-shadow: 0 0 8px rgba(102,126,234,0.6);
+  box-shadow: 0 0 8px var(--accent-1);
 }
 
 .nav-icon {

@@ -114,42 +114,42 @@ function taskClass(task) {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.025);
-  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
 }
 
 .task-item:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.1);
+  background: var(--bg-surface-hover);
+  border-color: var(--border-default);
 }
 
 .task-item.running {
-  background: rgba(102,126,234,0.1);
-  border-color: rgba(102,126,234,0.35);
-  box-shadow: 0 0 24px rgba(102,126,234,0.12);
+  background: var(--accent-tint);
+  border-color: var(--accent-border-strong);
+  box-shadow: 0 0 24px var(--accent-tint-hover);
   animation: glowPulse 3s ease-in-out infinite;
 }
 
 .task-item.success {
-  border-color: rgba(76,175,80,0.15);
+  border-color: var(--status-success-bg);
 }
 
 .task-item.failed {
-  border-color: rgba(244,67,54,0.3);
+  border-color: var(--status-error-bg);
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(102,126,234,0.12); }
-  50% { box-shadow: 0 0 36px rgba(102,126,234,0.22); }
+  0%, 100% { box-shadow: 0 0 24px var(--accent-tint-hover); }
+  50% { box-shadow: 0 0 36px var(--accent-border); }
 }
 
 /* Custom checkbox */
 .task-check {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
+  border: 2px solid var(--checkbox-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -158,25 +158,25 @@ function taskClass(task) {
 }
 
 .task-check.checked {
-  background: #667eea;
-  border-color: #667eea;
+  background: var(--accent-1);
+  border-color: var(--accent-1);
 }
 
 .task-check.checked::after {
   content: '✓';
-  color: white;
+  color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 700;
 }
 
 .task-check.indeterminate {
-  background: rgba(102,126,234,0.4);
-  border-color: rgba(102,126,234,0.6);
+  background: var(--accent-glow);
+  border-color: var(--accent-1);
 }
 
 .task-check.indeterminate::after {
   content: '—';
-  color: white;
+  color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 700;
 }
@@ -200,11 +200,11 @@ function taskClass(task) {
 .task-name {
   flex: 1;
   font-size: 13px;
-  color: #c8c8d0;
+  color: var(--text-secondary);
 }
 
 .task-name.unsafe {
-  color: #ffb74d;
+  color: var(--status-warning-text);
 }
 
 .task-item.success .task-name {
@@ -216,23 +216,23 @@ function taskClass(task) {
 .task-badge {
   font-size: 11px;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-weight: 500;
   flex-shrink: 0;
 }
 
-.badge-pending { color: rgba(255,255,255,0.12); }
-.badge-running { background: rgba(102,126,234,0.15); color: #8b9cf7; }
-.badge-success { background: rgba(76,175,80,0.1); color: #66bb6a; }
-.badge-failed { background: rgba(244,67,54,0.1); color: #ef5350; }
-.badge-skipped { color: rgba(255,255,255,0.15); }
+.badge-pending { color: var(--border-hover); }
+.badge-running { background: var(--status-running-bg); color: var(--status-running); }
+.badge-success { background: var(--status-success-bg); color: var(--status-success-text); }
+.badge-failed { background: var(--status-error-bg); color: var(--status-error-text); }
+.badge-skipped { color: var(--checkbox-border); }
 
 /* Spinner for running tasks */
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(102,126,234,0.3);
-  border-top-color: #667eea;
+  border: 2px solid var(--accent-border);
+  border-top-color: var(--accent-1);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   flex-shrink: 0;
@@ -245,7 +245,7 @@ function taskClass(task) {
 .task-empty {
   padding: 24px;
   text-align: center;
-  color: rgba(255,255,255,0.2);
+  color: var(--text-muted);
 }
 
 .checkbox-label {
@@ -254,6 +254,6 @@ function taskClass(task) {
   gap: 8px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
 }
 </style>

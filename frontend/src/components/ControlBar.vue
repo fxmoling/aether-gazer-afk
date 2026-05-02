@@ -23,12 +23,14 @@
     </button>
     <select
       v-model="selectedScript"
-      :disabled="autoBattleOn"
       class="script-select"
       @change="onScriptChange"
     >
       <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
     </select>
+    <span v-if="autoBattleOn && activeScriptName" class="active-script-hint">
+      ▸ {{ activeScriptName }}
+    </span>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -56,6 +58,7 @@ import { api } from '../composables/useApi'
 
 const autoBattleOn = ref(false)
 const selectedScript = ref('default')
+const activeScriptName = ref('')
 const scripts = ref([{ id: 'default', name: '默认连招' }])
 let pollTimer = null
 
@@ -76,12 +79,20 @@ async function loadScripts() {
   }
 }
 
+function scriptDisplayName(id) {
+  const s = scripts.value.find(s => s.id === id)
+  return s ? s.name : id
+}
+
 async function onScriptChange() {
   // Save to config for future sessions
   await api.setCombatScript(selectedScript.value)
   // If auto-battle is running, hot-swap immediately
   if (autoBattleOn.value) {
-    await api.swapAutoBattleScript(selectedScript.value)
+    const result = await api.swapAutoBattleScript(selectedScript.value)
+    if (result && result.ok) {
+      activeScriptName.value = scriptDisplayName(selectedScript.value)
+    }
   }
 }
 
@@ -89,10 +100,12 @@ async function toggleAutoBattle() {
   if (autoBattleOn.value) {
     await api.stopAutoBattle()
     autoBattleOn.value = false
+    activeScriptName.value = ''
   } else {
     const result = await api.startAutoBattle(selectedScript.value)
     if (result && result.ok) {
       autoBattleOn.value = true
+      activeScriptName.value = scriptDisplayName(result.script || selectedScript.value)
       state.connected = true
     } else if (result) {
       alert(result.error || '启动失败')
@@ -102,7 +115,14 @@ async function toggleAutoBattle() {
 
 async function pollStatus() {
   const s = await api.getAutoBattleStatus()
-  if (s) autoBattleOn.value = s.enabled
+  if (s) {
+    autoBattleOn.value = s.enabled
+    if (s.enabled && s.script) {
+      activeScriptName.value = scriptDisplayName(s.script)
+    } else if (!s.enabled) {
+      activeScriptName.value = ''
+    }
+  }
 }
 
 onMounted(() => {
@@ -150,28 +170,28 @@ async function handleStop() {
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  background: rgba(255,255,255,0.015);
-  border-top: 1px solid rgba(255,255,255,0.04);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .btn-start {
   flex: 1;
   max-width: 220px;
   padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--btn-primary-bg);
   border: none;
-  border-radius: 12px;
-  color: white;
+  border-radius: var(--radius-lg);
+  color: var(--text-on-accent);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 20px rgba(102,126,234,0.35);
+  box-shadow: 0 4px 20px var(--accent-border-strong);
   transition: box-shadow 0.15s, transform 0.15s;
 }
 
 .btn-start:hover:not(:disabled) {
-  box-shadow: 0 6px 28px rgba(102,126,234,0.5);
+  box-shadow: 0 6px 28px var(--border-focus);
   transform: translateY(-1px);
 }
 
@@ -182,19 +202,19 @@ async function handleStop() {
 
 .btn-stop {
   padding: 12px 20px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  color: rgba(255,255,255,0.25);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 
 .btn-stop:hover:not(:disabled) {
-  background: rgba(244,67,54,0.08);
-  border-color: rgba(244,67,54,0.3);
-  color: #ef5350;
+  background: var(--btn-danger-hover-bg);
+  border-color: var(--btn-danger-hover-border);
+  color: var(--btn-danger-text);
 }
 
 .btn-stop:disabled {
@@ -211,15 +231,15 @@ async function handleStop() {
 
 .run-time {
   font-size: 12px;
-  color: rgba(255,255,255,0.3);
+  color: var(--text-muted);
 }
 
 .btn-auto-battle {
   padding: 10px 18px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  color: rgba(255,255,255,0.4);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -227,20 +247,26 @@ async function handleStop() {
 }
 
 .btn-auto-battle:hover {
-  background: rgba(245,158,11,0.08);
-  border-color: rgba(245,158,11,0.3);
-  color: #f5a623;
+  background: var(--autobattle-active-bg);
+  border-color: var(--autobattle-active-border);
+  color: var(--autobattle-active-text);
 }
 
 .btn-auto-battle.active {
-  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,108,0,0.15));
-  border-color: rgba(245,158,11,0.5);
-  color: #f5a623;
-  box-shadow: 0 0 16px rgba(245,158,11,0.2);
+  background: var(--autobattle-active-bg);
+  border-color: var(--autobattle-active-border);
+  color: var(--autobattle-active-text);
+  box-shadow: var(--autobattle-active-glow);
 }
 
 .script-select {
   max-width: 130px;
   font-size: 12px;
+}
+
+.active-script-hint {
+  font-size: 11px;
+  color: var(--autobattle-active-text);
+  white-space: nowrap;
 }
 </style>

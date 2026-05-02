@@ -30,8 +30,8 @@ const statusText = computed(() => {
   display: flex;
   align-items: center;
   padding: 12px 20px;
-  background: rgba(255,255,255,0.02);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .status-left {
@@ -48,28 +48,28 @@ const statusText = computed(() => {
 }
 
 .status-dot.connected {
-  background: #4caf50;
-  box-shadow: 0 0 8px rgba(76,175,80,0.5);
+  background: var(--conn-dot-connected);
+  box-shadow: var(--conn-dot-glow);
   animation: dotPulse 2s ease-in-out infinite;
 }
 
 .status-dot.working {
-  background: #8b9cf7;
-  box-shadow: 0 0 8px rgba(102,126,234,0.5);
+  background: var(--conn-dot-working);
+  box-shadow: 0 0 8px var(--accent-glow);
   animation: dotPulse 2s ease-in-out infinite;
 }
 
 .status-dot.disconnected {
-  background: rgba(255,255,255,0.2);
+  background: var(--text-muted);
 }
 
 @keyframes dotPulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(76,175,80,0.5); }
-  50% { box-shadow: 0 0 16px rgba(76,175,80,0.8); }
+  0%, 100% { box-shadow: var(--conn-dot-glow); }
+  50% { box-shadow: 0 0 16px var(--conn-dot-connected); }
 }
 
 .status-text {
   font-size: 13px;
-  color: rgba(255,255,255,0.5);
+  color: var(--text-secondary);
 }
 </style>

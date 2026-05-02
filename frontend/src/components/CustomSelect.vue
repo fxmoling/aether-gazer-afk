@@ -72,11 +72,11 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   padding: 8px 30px 8px 12px;
   font-size: 12px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   white-space: nowrap;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  color: #c8c8d0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   position: relative;
   transition: border-color 0.15s;
 }
@@ -89,7 +89,7 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   transform: translateY(-50%);
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 5px solid rgba(255,255,255,0.3);
+  border-top: 5px solid var(--text-muted);
   transition: transform 0.15s;
 }
 
@@ -98,11 +98,11 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 }
 
 .display:hover {
-  border-color: rgba(255,255,255,0.15);
+  border-color: var(--border-hover);
 }
 
 .open .display {
-  border-color: rgba(102,126,234,0.4);
+  border-color: var(--accent-glow);
 }
 
 .menu {
@@ -111,10 +111,10 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
   left: 0;
   right: 0;
   min-width: 100%;
-  background: linear-gradient(180deg, #1a1545, #130f30);
-  border: 1px solid rgba(102,126,234,0.2);
-  border-radius: 10px;
-  box-shadow: 0 8px 40px rgba(102,126,234,0.15), 0 2px 10px rgba(0,0,0,0.4);
+  background: var(--bg-dropdown);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow), var(--shadow-md);
   overflow: hidden;
   z-index: 100;
 }
@@ -122,19 +122,19 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
 .menu-item {
   padding: 9px 12px;
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
 
 .menu-item:hover {
-  background: linear-gradient(90deg, rgba(102,126,234,0.12), transparent);
-  color: #e0e0e8;
+  background: var(--select-item-hover);
+  color: var(--text-primary);
 }
 
 .menu-item.selected {
-  background: linear-gradient(90deg, rgba(102,126,234,0.2), transparent);
-  color: #667eea;
+  background: var(--select-item-active);
+  color: var(--accent-1);
   font-weight: 600;
 }
 
