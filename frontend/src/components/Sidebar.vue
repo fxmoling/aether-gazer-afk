@@ -27,7 +27,7 @@ const items = [
   { page: 'tasks', icon: '☑', label: '任务' },
   { page: 'schedule', icon: '⏰', label: '定时' },
   { page: 'logs', icon: '≡', label: '日志' },
-  { page: 'combat', icon: '⚔', label: '连招' },
+  // { page: 'combat', icon: '⚔', label: '连招' },  // TODO: 待完善后启用
   { page: 'settings', icon: '⚙', label: '设置' },
 ]
 </script>
