@@ -453,88 +453,89 @@ class JointSpecialOpsSweep:
     # ------------------------------------------------------------------
 
     async def _find_and_select_s_rank(self, ctx: TaskContext) -> bool:
-        """Find S-rank card by color detection. Refresh up to 3 times if not found.
+        """Find S-rank card by red color detection. Refresh up to 3 times.
 
-        The grade letters (S/B/A) are stylized graphics that OCR can't read.
-        Strategy: find all OCR "级" text positions, then check the color
-        region to the LEFT of each — S-rank has a distinctive red/orange hue.
+        S-rank cards have a large red/orange border that is visually distinct.
+        Strategy: scan the card zone for the largest red contiguous region.
+        If area > threshold, that's the S-rank card — click its center.
+        No OCR dependency — pure color + contour detection.
         """
         import cv2
         import numpy as np
 
+        # Card zone: top portion of the screen where cards appear
+        # Normalized: y=0.19~0.74, x=0~0.89
+        _CARD_Y1_FRAC = 0.19
+        _CARD_Y2_FRAC = 0.74
+        _CARD_X2_FRAC = 0.89
+        _MIN_S_AREA = 20000  # Minimum red contour area to qualify as S-rank
+
         for attempt in range(1, self._MAX_REFRESH + 1):
             ctx.logger.info(
                 f"[joint_ops] Attempt {attempt}/{self._MAX_REFRESH}: "
-                f"scanning for S级 (color detection)"
+                f"scanning for S级 (red contour detection)"
             )
             img = ctx.device.screenshot()
-            ocr = ocr_once(img)
             ih, iw = img.shape[:2]
 
-            # Find all "级" text positions — each marks a grade card
-            grade_items = [item for item in ocr.items if "级" in item.text]
-            ctx.logger.info(
-                f"[joint_ops] Found {len(grade_items)} grade markers"
+            # Crop card zone
+            y1 = int(ih * _CARD_Y1_FRAC)
+            y2 = int(ih * _CARD_Y2_FRAC)
+            x2 = int(iw * _CARD_X2_FRAC)
+            card_zone = img[y1:y2, 0:x2]
+
+            # Detect red pixels (HSV)
+            hsv = cv2.cvtColor(card_zone, cv2.COLOR_BGR2HSV)
+            mask1 = cv2.inRange(hsv, np.array([0, 100, 120]), np.array([12, 255, 255]))
+            mask2 = cv2.inRange(hsv, np.array([168, 100, 120]), np.array([180, 255, 255]))
+            red_mask = cv2.bitwise_or(mask1, mask2)
+
+            # Dilate to merge nearby red pixels into solid regions
+            kernel = np.ones((15, 15), np.uint8)
+            dilated = cv2.dilate(red_mask, kernel, iterations=2)
+
+            contours, _ = cv2.findContours(
+                dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
 
-            # Check color to the left of each "级" to identify S-rank
-            s_card = None
-            for item in grade_items:
-                r = item.region
-                # Sample a region to the LEFT of the "级" character
-                # That's where the stylized S/B/A letter sits
-                x1 = max(0, r.x - 80)
-                y1 = max(0, r.y - 10)
-                x2 = r.x
-                y2 = min(ih, r.y + r.h + 10)
+            # Find the largest red contour
+            best = None
+            best_area = 0
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area > best_area:
+                    best_area = area
+                    best = cnt
 
-                if x2 <= x1 or y2 <= y1:
-                    continue
+            ctx.logger.info(
+                f"[joint_ops] Largest red contour area: {best_area:.0f} "
+                f"(threshold: {_MIN_S_AREA})"
+            )
 
-                roi = img[y1:y2, x1:x2]
-                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-
-                # S-rank = red/orange: H in [0,15] or [165,180], S>80, V>100
-                mask1 = cv2.inRange(hsv, np.array([0, 80, 100]), np.array([15, 255, 255]))
-                mask2 = cv2.inRange(hsv, np.array([165, 80, 100]), np.array([180, 255, 255]))
-                red_pixels = cv2.countNonZero(mask1) + cv2.countNonZero(mask2)
-                total_pixels = roi.shape[0] * roi.shape[1]
-                red_pct = red_pixels / total_pixels * 100 if total_pixels > 0 else 0
-
+            if best is not None and best_area >= _MIN_S_AREA:
+                x, y, w, h = cv2.boundingRect(best)
+                # Convert back to full image normalized coordinates
+                card_cx = (x + w / 2) / iw
+                card_cy = (y1 + y + h / 2) / ih
                 ctx.logger.info(
-                    f"[joint_ops] Grade '{item.text}' at ({r.x},{r.y}): "
-                    f"red={red_pct:.1f}%"
-                )
-
-                if red_pct > 15:  # S-rank threshold
-                    s_card = item
-                    break
-
-            if s_card is not None:
-                # Click the CENTER of the card (the "级" text is top-left corner,
-                # card extends rightward and downward)
-                r = s_card.region
-                # Card center is roughly 150px right and 100px below the grade label
-                card_cx = (r.x + r.w / 2 + 100) / iw
-                card_cy = (r.y + r.h / 2 + 80) / ih
-                ctx.logger.info(
-                    f"[joint_ops] S级 card found! Clicking card center "
-                    f"at ({card_cx:.3f}, {card_cy:.3f})"
+                    f"[joint_ops] S级 card detected! "
+                    f"bbox=({x},{y1+y},{w},{h}) "
+                    f"center=({card_cx:.3f}, {card_cy:.3f})"
                 )
                 await ClickOp(card_cx, card_cy, wait=1.5).run(ctx)
                 return True
 
             ctx.logger.info(
-                f"[joint_ops] S级 not found by color (attempt {attempt})"
+                f"[joint_ops] No S级 card found (attempt {attempt})"
             )
 
             # Don't refresh on the last attempt
             if attempt >= self._MAX_REFRESH:
                 break
 
-            # Click refresh button (fixed position, bottom right)
+            # Click refresh button
             ctx.logger.info(
-                f"[joint_ops] Clicking 刷新 at fixed coord "
+                f"[joint_ops] Clicking 刷新 at "
                 f"({self._REFRESH_X}, {self._REFRESH_Y})"
             )
             await ClickOp(self._REFRESH_X, self._REFRESH_Y, wait=1.5).run(ctx)
