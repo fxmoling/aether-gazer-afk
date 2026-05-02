@@ -47,6 +47,16 @@ class AutoBattleService:
 
     # ── Public API ──
 
+    def swap_script(self, script: CombatScript) -> None:
+        """Hot-swap the combat script. Takes effect on next loop iteration."""
+        old_name = self._script.name
+        self._script = script
+        self._startup_done = False  # re-run startup for new script
+        logger.info(
+            "AutoBattle: script swapped {!r} -> {!r}",
+            old_name, script.name,
+        )
+
     async def start(self, ctx: OpContext) -> None:
         """Start monitor + combat loops. Blocks until ``stop()`` called."""
         self._enabled = True

@@ -70,6 +70,7 @@ class TaskManager:
         self._resolution: str | None = None
         self._auto_battle_enabled = False
         self._auto_battle_script = "default"
+        self._auto_battle_service = None
         self._auto_battle_thread: threading.Thread | None = None
 
         self._load_pipelines()
@@ -361,6 +362,7 @@ class TaskManager:
 
         self._auto_battle_enabled = True
         self._auto_battle_script = script_name
+        self._auto_battle_service = None  # set by worker thread
         self._auto_battle_thread = threading.Thread(
             target=self._auto_battle_worker, daemon=True,
         )
@@ -373,8 +375,25 @@ class TaskManager:
         if not self._auto_battle_enabled:
             return {"ok": True}
         self._auto_battle_enabled = False
+        self._auto_battle_service = None
         self._logger.info("自动战斗已关闭")
         return {"ok": True}
+
+    def swap_auto_battle_script(self, script_name: str) -> dict[str, Any]:
+        """Hot-swap the combat script while auto-battle is running."""
+        if not self._auto_battle_enabled or not self._auto_battle_service:
+            return {"ok": False, "error": "自动战斗未运行"}
+        from anime_game_afk.games.aether_gazer.combat.script import load_script
+        try:
+            script = load_script(script_name)
+        except FileNotFoundError:
+            return {"ok": False, "error": f"连招脚本 '{script_name}' 未找到"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        self._auto_battle_script = script_name
+        self._auto_battle_service.swap_script(script)
+        self._logger.info("自动战斗连招已切换: {}", script_name)
+        return {"ok": True, "script": script_name}
 
     def _auto_battle_worker(self) -> None:
         """Background thread: run AutoBattleService until stopped."""
@@ -391,6 +410,7 @@ class TaskManager:
             ctx = OpContext(device=device)
             script = load_script(self._auto_battle_script)
             service = AutoBattleService(script, check_interval=2.0)
+            self._auto_battle_service = service  # expose for hot-swap
 
             async def _run():
                 await service.start(ctx)

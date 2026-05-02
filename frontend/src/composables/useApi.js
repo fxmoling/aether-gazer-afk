@@ -49,6 +49,7 @@ export const api = {
   setTheme: (themeId) => apiCall('set_theme', themeId),
   startAutoBattle: (scriptName = '') => apiCall('start_auto_battle', scriptName),
   stopAutoBattle: () => apiCall('stop_auto_battle'),
+  swapAutoBattleScript: (scriptName) => apiCall('swap_auto_battle_script', scriptName),
   getAutoBattleStatus: () => apiCall('get_auto_battle_status'),
   listCombatScripts: () => apiCall('list_combat_scripts'),
   getCombatScript: (scriptId) => apiCall('get_combat_script', scriptId),

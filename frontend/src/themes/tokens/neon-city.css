@@ -1,0 +1,129 @@
+[data-theme="neon-city"] {
+  --bg-body: #0d0e14;
+  --bg-gradient: #0d0e14;
+  --bg-gradient-size: 100% 100%;
+  --bg-gradient-animation: none;
+  --bg-sidebar: rgba(13, 14, 20, 0.92);
+  --bg-surface: rgba(0, 240, 255, 0.03);
+  --bg-surface-hover: rgba(0, 240, 255, 0.06);
+  --bg-surface-active: rgba(0, 240, 255, 0.08);
+  --bg-input: rgba(13, 14, 20, 0.95);
+  --bg-dropdown: linear-gradient(180deg, rgba(13, 14, 20, 0.98), rgba(18, 20, 28, 0.98));
+  --text-primary: rgba(0, 240, 255, 0.85);
+  --text-secondary: rgba(0, 240, 255, 0.6);
+  --text-muted: rgba(0, 240, 255, 0.3);
+  --text-on-accent: #0d0e14;
+  --text-link: #00f0ff;
+  --accent-1: #00f0ff;
+  --accent-2: #ff2a6d;
+  --accent-gradient: linear-gradient(135deg, #00f0ff, #ff2a6d);
+  --accent-tint: rgba(0, 240, 255, 0.06);
+  --accent-tint-hover: rgba(0, 240, 255, 0.1);
+  --accent-border: rgba(0, 240, 255, 0.2);
+  --accent-border-strong: rgba(0, 240, 255, 0.4);
+  --accent-glow: rgba(0, 240, 255, 0.5);
+  --accent-text: #00f0ff;
+  --border-subtle: rgba(0, 240, 255, 0.04);
+  --border-default: rgba(0, 240, 255, 0.08);
+  --border-hover: rgba(0, 240, 255, 0.2);
+  --border-focus: rgba(0, 240, 255, 0.5);
+  --border-separator: rgba(0, 240, 255, 0.06);
+  --status-success: #05ffa1;
+  --status-success-text: #05ffa1;
+  --status-success-bg: rgba(5, 255, 161, 0.1);
+  --status-error: #ff2a6d;
+  --status-error-text: #ff2a6d;
+  --status-error-bg: rgba(255, 42, 109, 0.1);
+  --status-warning: #fcee0a;
+  --status-warning-text: #fcee0a;
+  --status-warning-bg: rgba(252, 238, 10, 0.08);
+  --status-info: #00f0ff;
+  --status-running: #b967ff;
+  --status-running-bg: rgba(185, 103, 255, 0.1);
+  --btn-primary-bg: linear-gradient(135deg, #00f0ff, #05ffa1);
+  --btn-primary-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+  --btn-secondary-bg: rgba(0, 240, 255, 0.04);
+  --btn-secondary-border: rgba(0, 240, 255, 0.12);
+  --btn-secondary-text: rgba(0, 240, 255, 0.65);
+  --btn-danger-hover-bg: rgba(255, 42, 109, 0.08);
+  --btn-danger-hover-border: rgba(255, 42, 109, 0.35);
+  --btn-danger-text: #ff2a6d;
+  --toggle-on-bg: linear-gradient(135deg, #00f0ff, #05ffa1);
+  --toggle-off-bg: rgba(0, 240, 255, 0.08);
+  --toggle-knob-on: #0d0e14;
+  --toggle-knob-off: rgba(0, 240, 255, 0.3);
+  --checkbox-checked: linear-gradient(135deg, #00f0ff, #05ffa1);
+  --checkbox-border: rgba(0, 240, 255, 0.2);
+  --glass-bg: rgba(13, 14, 20, 0.9);
+  --glass-border: rgba(0, 240, 255, 0.08);
+  --glass-blur: blur(8px);
+  --scrollbar-thumb: rgba(0, 240, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(0, 240, 255, 0.2);
+  --shadow-sm: 0 0 8px rgba(0, 240, 255, 0.08);
+  --shadow-md: 0 0 16px rgba(0, 240, 255, 0.12);
+  --shadow-glow: 0 0 24px rgba(0, 240, 255, 0.2);
+  --radius-sm: 0 8px 0 8px;
+  --radius-md: 0 8px 0 8px;
+  --radius-lg: 0 12px 0 12px;
+  --font-ui: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
+  --font-mono: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
+  --log-bg: rgba(0, 240, 255, 0.02);
+  --log-debug: rgba(0, 240, 255, 0.25);
+  --log-info: rgba(0, 240, 255, 0.55);
+  --log-warning: #fcee0a;
+  --log-error: #ff2a6d;
+  --log-success: #05ffa1;
+  --sidebar-tab-active-bg: rgba(0, 240, 255, 0.08);
+  --sidebar-tab-active-text: #00f0ff;
+  --sidebar-tab-text: rgba(0, 240, 255, 0.3);
+  --sidebar-logo-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+  --tips-bg: rgba(252, 238, 10, 0.06);
+  --tips-border: rgba(252, 238, 10, 0.2);
+  --tips-text: rgba(252, 238, 10, 0.7);
+  --conn-dot-connected: #05ffa1;
+  --conn-dot-glow: 0 0 10px rgba(5, 255, 161, 0.5);
+  --conn-dot-working: #b967ff;
+  --progress-bg: rgba(0, 240, 255, 0.04);
+  --progress-fill: linear-gradient(90deg, #00f0ff, #ff2a6d);
+  --autobattle-active-bg: rgba(252, 238, 10, 0.06);
+  --autobattle-active-border: rgba(252, 238, 10, 0.3);
+  --autobattle-active-text: #fcee0a;
+  --autobattle-active-glow: 0 0 16px rgba(252, 238, 10, 0.2);
+  --chip-active-bg: rgba(0, 240, 255, 0.1);
+  --chip-active-border: rgba(0, 240, 255, 0.4);
+  --chip-active-text: #00f0ff;
+  --chip-inactive-bg: rgba(0, 240, 255, 0.02);
+  --chip-inactive-border: rgba(0, 240, 255, 0.06);
+  --chip-inactive-text: rgba(0, 240, 255, 0.3);
+  --select-bg: rgba(13, 14, 20, 0.95);
+  --select-border: rgba(0, 240, 255, 0.1);
+  --select-text: rgba(0, 240, 255, 0.7);
+  --select-arrow: rgba(0, 240, 255, 0.4);
+  --select-option-bg: #12141c;
+  --select-item-hover: rgba(0, 240, 255, 0.06);
+  --select-item-active: rgba(0, 240, 255, 0.12);
+  --section-header: #00f0ff;
+  --section-header-alt: #ff2a6d;
+}
+
+/* Scanline overlay */
+[data-theme="neon-city"] .app-bg::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
+  pointer-events: none;
+}
+
+/* Neon flow border on top */
+[data-theme="neon-city"] .app-bg::before {
+  content: '';
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 1;
+  background: linear-gradient(90deg, #00f0ff, #ff2a6d, #fcee0a, #05ffa1, #00f0ff);
+  background-size: 400% 100%;
+  animation: neonFlow 3s linear infinite;
+}
+
+@keyframes neonFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}

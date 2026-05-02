@@ -77,7 +77,12 @@ async function loadScripts() {
 }
 
 async function onScriptChange() {
+  // Save to config for future sessions
   await api.setCombatScript(selectedScript.value)
+  // If auto-battle is running, hot-swap immediately
+  if (autoBattleOn.value) {
+    await api.swapAutoBattleScript(selectedScript.value)
+  }
 }
 
 async function toggleAutoBattle() {

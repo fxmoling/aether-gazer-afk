@@ -1,0 +1,75 @@
+/* base.css — Shared styles for ALL themes.
+ * New components: use var(--token) for ALL colors → auto-support all themes.
+ * NEVER hardcode colors here. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.app-bg {
+  position: fixed; inset: 0;
+  background: var(--bg-gradient);
+  background-size: var(--bg-gradient-size, 100% 100%);
+  animation: var(--bg-gradient-animation, none);
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
+.app-body { display: flex; flex: 1; overflow: hidden; }
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.page-enter-active, .page-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.page-enter-from { opacity: 0; transform: translateY(8px); }
+.page-leave-to { opacity: 0; transform: translateY(-4px); }
+
+.btn {
+  padding: 6px 16px; border: none; border-radius: var(--radius-md);
+  font-size: 13px; cursor: pointer; transition: all 0.15s; font-family: var(--font-ui);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--btn-primary-bg); color: var(--text-on-accent); }
+.btn-primary:hover:not(:disabled) { box-shadow: var(--btn-primary-shadow); }
+.btn-secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); border: 1px solid var(--btn-secondary-border); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-surface-hover); }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+select {
+  appearance: none; -webkit-appearance: none;
+  background-color: var(--select-bg); color: var(--select-text);
+  border: 1px solid var(--select-border); border-radius: var(--radius-md);
+  padding: 6px 28px 6px 10px; font-size: 12px; font-family: inherit; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; background-size: 10px 6px;
+  transition: border-color 0.15s;
+}
+select:hover { border-color: var(--border-hover); }
+select:focus { outline: none; border-color: var(--border-focus); }
+select:disabled { opacity: 0.45; cursor: not-allowed; }
+select option { background: var(--select-option-bg); color: var(--select-text); }
+
+.update-bar {
+  display: flex; align-items: center; gap: 12px; padding: 6px 16px;
+  background: linear-gradient(90deg, rgba(27,94,32,0.6), rgba(46,125,50,0.6));
+  backdrop-filter: blur(10px); color: #e8f5e9; font-size: 12px; flex-shrink: 0;
+}
+.update-link { color: #fff; background: rgba(255,255,255,0.15); padding: 2px 10px; border-radius: 4px; text-decoration: none; font-size: 11px; }
+.update-link:hover { background: rgba(255,255,255,0.25); }
+.update-dismiss { margin-left: auto; background: none; border: none; color: #a5d6a7; cursor: pointer; font-size: 13px; padding: 2px 6px; }
+.update-dismiss:hover { color: white; }
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

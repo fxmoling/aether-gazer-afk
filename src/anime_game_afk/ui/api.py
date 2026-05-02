@@ -89,6 +89,10 @@ class Api:
         """Stop the auto-battle toggle."""
         return self._tm.stop_auto_battle()
 
+    def swap_auto_battle_script(self, script_name: str) -> dict[str, Any]:
+        """Hot-swap combat script while auto-battle is running."""
+        return self._tm.swap_auto_battle_script(script_name)
+
     def get_auto_battle_status(self) -> dict[str, Any]:
         """Get auto-battle status."""
         return {"enabled": self._tm._auto_battle_enabled}
