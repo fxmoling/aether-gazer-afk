@@ -546,8 +546,9 @@ class TaskManager:
                     )
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
-            # Scheduled mode: apply post-action after run completes
+            # Apply post-action (scheduled or manual)
             self._handle_scheduled_post_action(proc)
+            self._handle_manual_post_action()
 
     def _read_worker_stderr(self) -> None:
         """Stderr reader thread: forward worker log lines to host logger."""
@@ -642,3 +643,50 @@ class TaskManager:
                     except Exception:
                         pass
             threading.Thread(target=_delayed_exit, daemon=True).start()
+
+    def _handle_manual_post_action(self) -> None:
+        """Apply post-action configured in manual mode (non-scheduled)."""
+        import builtins
+        if getattr(builtins, '_SCHEDULED_MODE', False):
+            return  # scheduled mode has its own handler
+
+        from anime_game_afk.config.user_config import UserConfig
+        cfg = UserConfig.load()
+        action = cfg.post_run_action()
+        if action == "nothing":
+            return
+
+        self._logger.info("[post-action] Manual run post-action: {}", action)
+
+        if action in ("kill_game", "exit_app_and_game"):
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "AetherGazer.exe"],
+                    capture_output=True, timeout=10,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                self._logger.info("[post-action] Game process killed")
+            except Exception as e:
+                self._logger.warning("[post-action] Failed to kill game: {}", e)
+
+        if action in ("exit_app", "exit_app_and_game"):
+            def _delayed_exit():
+                time.sleep(3)
+                window = self._window
+                if window:
+                    try:
+                        window.destroy()
+                    except Exception:
+                        pass
+            threading.Thread(target=_delayed_exit, daemon=True).start()
+
+        if action == "shutdown_pc":
+            self._logger.info("[post-action] Shutting down PC in 60 seconds")
+            try:
+                subprocess.run(
+                    ["shutdown", "/s", "/t", "60", "/c", "AetherGazer AFK 任务完成，即将关机"],
+                    capture_output=True, timeout=10,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+            except Exception as e:
+                self._logger.warning("[post-action] Shutdown command failed: {}", e)

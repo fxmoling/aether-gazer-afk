@@ -197,6 +197,7 @@ class Api:
             "combat_script": cfg.combat_script(),
             "duowei_swipe_multiplier": cfg.duowei_swipe_multiplier(),
             "theme": cfg.theme(),
+            "post_run_action": cfg.post_run_action(),
         }
 
     def save_settings(
@@ -288,6 +289,18 @@ class Api:
             cfg.set_theme(theme_id)
             cfg.save()
             return {"ok": True, "theme": theme_id}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def set_post_run_action(self, action: str) -> dict[str, Any]:
+        """Save post-run action preference."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            cfg.set_post_run_action(action)
+            cfg.save()
+            return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

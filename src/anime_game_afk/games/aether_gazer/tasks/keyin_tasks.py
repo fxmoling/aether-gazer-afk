@@ -318,6 +318,10 @@ class JointSpecialOpsSweep:
     _MAX_MULTI_X = 0.97     # >> button
     _MAX_MULTI_Y = 0.791
 
+    # Refresh button — fixed position at bottom right of 联合特勤 interior
+    _REFRESH_X = 0.92
+    _REFRESH_Y = 0.92
+
     _MAX_REFRESH = 3
 
     async def can_run(self, ctx: TaskContext) -> bool:
@@ -488,24 +492,12 @@ class JointSpecialOpsSweep:
             if attempt >= self._MAX_REFRESH:
                 break
 
-            # Click refresh button (bottom right)
-            ctx.logger.info("[joint_ops] Clicking 刷新 (refresh)")
-            refresh = ocr.find("刷新")
-            if refresh:
-                r = refresh.region
-                fx = (r.x + r.w / 2) / iw
-                fy = (r.y + r.h / 2) / ih
-                ctx.logger.info(
-                    f"[joint_ops] 刷新 found at ({fx:.3f}, {fy:.3f})"
-                )
-                await ClickOp(fx, fy, wait=1.5).run(ctx)
-            else:
-                # Fallback: bottom-right area
-                ctx.logger.info(
-                    "[joint_ops] 刷新 not found via OCR, "
-                    "using fallback coord (0.92, 0.92)"
-                )
-                await ClickOp(0.92, 0.92, wait=1.5).run(ctx)
+            # Click refresh button (fixed position, bottom right)
+            ctx.logger.info(
+                f"[joint_ops] Clicking 刷新 at fixed coord "
+                f"({self._REFRESH_X}, {self._REFRESH_Y})"
+            )
+            await ClickOp(self._REFRESH_X, self._REFRESH_Y, wait=1.5).run(ctx)
 
             # Handle possible confirmation popup
             await SleepOp(0.5).run(ctx)

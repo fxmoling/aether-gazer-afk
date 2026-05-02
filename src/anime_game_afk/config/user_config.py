@@ -264,6 +264,18 @@ class UserConfig:
         self._settings()["theme"] = theme_id
 
     # ------------------------------------------------------------------
+    # Post-run action (manual mode)
+    # ------------------------------------------------------------------
+
+    def post_run_action(self) -> str:
+        """What to do after manual run completes."""
+        return self._settings().get("post_run_action", "nothing")
+
+    def set_post_run_action(self, action: str) -> None:
+        """Set post-run action."""
+        self._settings()["post_run_action"] = action
+
+    # ------------------------------------------------------------------
     # Combat keybinds
     # ------------------------------------------------------------------
 
