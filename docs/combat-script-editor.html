@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深空之眼 — 连招编辑器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#1a1a2e;--surface:#16213e;--card:#0f3460;--accent:#e94560;
+  --text:#eee;--muted:#8899aa;--blue:#4ea8de;--orange:#f4a261;
+  --gray:#6c757d;--green:#52b788;--border:#2a3a5e;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+h1{text-align:center;padding:24px 0 8px;font-size:1.6rem;background:linear-gradient(135deg,#0f3460,#1a1a2e);border-bottom:2px solid var(--accent)}
+h1 span{color:var(--accent)}
+.subtitle{text-align:center;color:var(--muted);font-size:.85rem;padding-bottom:16px}
+.container{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.container{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.panel h2{font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.full-width{grid-column:1/-1}
+label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px;margin-top:10px}
+label:first-child{margin-top:0}
+input[type=text],input[type=number],textarea,select{
+  width:100%;padding:8px 10px;background:#0d1b30;border:1px solid var(--border);
+  border-radius:4px;color:var(--text);font-size:.9rem;outline:none
+}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{font-family:'Consolas','Courier New',monospace;resize:vertical}
+button{
+  padding:6px 14px;border:none;border-radius:4px;cursor:pointer;
+  font-size:.82rem;font-weight:600;transition:all .15s
+}
+button:hover{filter:brightness(1.15)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-small{padding:4px 8px;font-size:.75rem}
+.btn-danger{background:#d32f2f;color:#fff}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+/* Steps */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.section-title{font-size:.95rem;font-weight:600}
+.step-list{display:flex;flex-direction:column;gap:4px;min-height:40px}
+.step-item{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  border-radius:4px;font-size:.85rem;border:1px solid transparent
+}
+.step-item.press{background:rgba(78,168,222,.12);border-color:rgba(78,168,222,.3)}
+.step-item.hold{background:rgba(244,162,97,.12);border-color:rgba(244,162,97,.3)}
+.step-item.wait{background:rgba(108,117,125,.12);border-color:rgba(108,117,125,.3)}
+.step-icon{font-size:1rem;width:22px;text-align:center;flex-shrink:0}
+.step-label{flex:1;font-weight:500}
+.step-detail{color:var(--muted);font-size:.78rem}
+.step-controls{display:flex;gap:3px;flex-shrink:0}
+.step-controls button{padding:2px 6px;font-size:.7rem;background:transparent;color:var(--muted);border:1px solid var(--border)}
+.step-controls button:hover{color:var(--text);border-color:var(--muted)}
+.empty-hint{color:var(--muted);font-size:.8rem;font-style:italic;padding:12px;text-align:center}
+
+/* Add step dialog */
+.add-row{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.add-row select,.add-row input{width:auto;flex:0 0 auto}
+.add-row select{min-width:90px}
+.add-row input[type=number]{width:80px}
+.interval-row{display:flex;gap:6px;align-items:center;margin-top:4px}
+.interval-row label{margin:0;font-size:.75rem}
+.interval-row input{width:70px}
+
+/* YAML area */
+#yamlOutput{height:360px;white-space:pre;tab-size:2}
+#yamlImport{height:160px;white-space:pre}
+
+/* Templates */
+.template-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.template-btns button{font-size:.78rem}
+
+/* Tag colors */
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;margin-right:4px}
+.tag-press{background:var(--blue);color:#000}
+.tag-hold{background:var(--orange);color:#000}
+.tag-wait{background:var(--gray);color:#fff}
+</style>
+</head>
+<body>
+
+<h1>⚔️ 深空之眼 — <span>连招编辑器</span></h1>
+<p class="subtitle">可视化创建和编辑战斗连招脚本 · 生成 YAML 配置文件</p>
+
+<div class="container">
+
+  <!-- Metadata -->
+  <div class="panel">
+    <h2>📝 基本信息</h2>
+    <label>连招名称</label>
+    <input type="text" id="scriptName" placeholder="例：梵天连招" value="我的连招">
+    <label>连招描述</label>
+    <input type="text" id="scriptDesc" placeholder="例：开场闪避蓄力 → 攻击技能循环">
+    <label>全局按键间隔（秒）</label>
+    <input type="number" id="globalInterval" value="0.12" min="0" max="5" step="0.01">
+    <label style="margin-top:14px;font-size:.85rem;color:var(--text)">⚡ 快速模板</label>
+    <div class="template-btns">
+      <button class="btn-secondary btn-small" onclick="loadTemplate('default')">默认连招</button>
+      <button class="btn-secondary btn-small" onclick="loadTemplate('fantian')">梵天</button>
+      <button class="btn-secondary btn-small" onclick="loadTemplate('shikoudi')">诗寇蒂</button>
+    </div>
+  </div>
+
+  <!-- Global interval legend -->
+  <div class="panel">
+    <h2>🎮 按键说明</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:.82rem;margin-top:4px">
+      <div><span class="tag tag-press">J</span> 普通攻击</div>
+      <div><span class="tag tag-press">U</span> 技能 1</div>
+      <div><span class="tag tag-press">I</span> 技能 2</div>
+      <div><span class="tag tag-press">O</span> 技能 3</div>
+      <div><span class="tag tag-press">R</span> 大招（终结技）</div>
+      <div><span class="tag tag-press">Space</span> 闪避</div>
+      <div><span class="tag tag-press">1</span> 连携 1 (QTE)</div>
+      <div><span class="tag tag-press">2</span> 连携 2 (QTE)</div>
+      <div><span class="tag tag-press">W</span> 前进</div>
+      <div><span class="tag tag-press">A</span> 左移</div>
+      <div><span class="tag tag-press">S</span> 后退</div>
+      <div><span class="tag tag-press">D</span> 右移</div>
+    </div>
+    <div style="margin-top:12px;font-size:.78rem;color:var(--muted)">
+      <span class="tag tag-press">按键</span> 点按一次
+      <span class="tag tag-hold">长按</span> 按住一段时间
+      <span class="tag tag-wait">等待</span> 暂停
+    </div>
+  </div>
+
+  <!-- Startup section -->
+  <div class="panel">
+    <div class="section-header">
+      <span class="section-title">🚀 启动连招（执行一次）</span>
+    </div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">战斗开始时只执行一次，可选</p>
+    <div class="step-list" id="startupSteps"></div>
+    <div class="add-row">
+      <select id="startupType">
+        <option value="press">⚔️ 按键</option>
+        <option value="hold">✊ 长按</option>
+        <option value="wait">⏱️ 等待</option>
+      </select>
+      <select id="startupKey"></select>
+      <input type="number" id="startupDuration" placeholder="秒" min="0.01" max="10" step="0.01" value="0.3" style="display:none">
+      <input type="number" id="startupInterval" placeholder="间隔(可选)" min="0" max="5" step="0.01" title="覆盖全局间隔" style="width:90px">
+      <button class="btn-primary btn-small" onclick="addStep('startup')">＋ 添加</button>
+    </div>
+  </div>
+
+  <!-- Loop section -->
+  <div class="panel">
+    <div class="section-header">
+      <span class="section-title">🔄 循环连招（反复执行）</span>
+    </div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">战斗中反复循环，至少需要一个步骤</p>
+    <div class="step-list" id="loopSteps"></div>
+    <div class="add-row">
+      <select id="loopType">
+        <option value="press">⚔️ 按键</option>
+        <option value="hold">✊ 长按</option>
+        <option value="wait">⏱️ 等待</option>
+      </select>
+      <select id="loopKey"></select>
+      <input type="number" id="loopDuration" placeholder="秒" min="0.01" max="10" step="0.01" value="0.3" style="display:none">
+      <input type="number" id="loopInterval" placeholder="间隔(可选)" min="0" max="5" step="0.01" title="覆盖全局间隔" style="width:90px">
+      <button class="btn-primary btn-small" onclick="addStep('loop')">＋ 添加</button>
+    </div>
+  </div>
+
+  <!-- YAML Output -->
+  <div class="panel">
+    <h2>📄 YAML 预览</h2>
+    <textarea id="yamlOutput" readonly></textarea>
+    <div class="btn-group">
+      <button class="btn-primary" onclick="copyYaml()">📋 复制 YAML</button>
+    </div>
+  </div>
+
+  <!-- Import -->
+  <div class="panel">
+    <h2>📥 导入 YAML</h2>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">粘贴已有的 YAML 内容，点击导入按钮加载到编辑器</p>
+    <textarea id="yamlImport" placeholder="在此粘贴 YAML 内容..."></textarea>
+    <div class="btn-group">
+      <button class="btn-primary" onclick="importYaml()">📥 导入</button>
+      <button class="btn-secondary" onclick="clearAll()">🗑️ 清空编辑器</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Key definitions
+const KEYS = [
+  {value:'j', label:'J — 攻击 ⚔️'},
+  {value:'u', label:'U — 技能1 🔥'},
+  {value:'i', label:'I — 技能2 💎'},
+  {value:'o', label:'O — 技能3 ⚡'},
+  {value:'r', label:'R — 大招 💥'},
+  {value:'1', label:'1 — 连携1 🤝'},
+  {value:'2', label:'2 — 连携2 🤝'},
+  {value:'space', label:'Space — 闪避 🛡️'},
+  {value:'w', label:'W — 前进 ⬆️'},
+  {value:'a', label:'A — 左移 ⬅️'},
+  {value:'s', label:'S — 后退 ⬇️'},
+  {value:'d', label:'D — 右移 ➡️'},
+];
+
+const KEY_LABELS = {};
+KEYS.forEach(k => { KEY_LABELS[k.value] = k.label; });
+
+const EMOJI = {press:'⚔️', hold:'✊', wait:'⏱️'};
+const TYPE_LABELS = {press:'按键', hold:'长按', wait:'等待'};
+
+// State
+let startupSteps = [];
+let loopSteps = [];
+
+// Initialize key dropdowns
+function populateKeySelect(id) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '';
+  KEYS.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k.value;
+    opt.textContent = k.label;
+    sel.appendChild(opt);
+  });
+}
+
+populateKeySelect('startupKey');
+populateKeySelect('loopKey');
+
+// Show/hide fields based on type selection
+function setupTypeToggle(section) {
+  const typeEl = document.getElementById(section + 'Type');
+  const keyEl = document.getElementById(section + 'Key');
+  const durEl = document.getElementById(section + 'Duration');
+  const intEl = document.getElementById(section + 'Interval');
+
+  typeEl.addEventListener('change', () => {
+    const t = typeEl.value;
+    keyEl.style.display = t === 'wait' ? 'none' : '';
+    durEl.style.display = (t === 'hold' || t === 'wait') ? '' : 'none';
+    intEl.style.display = t === 'wait' ? 'none' : '';
+    if (t === 'wait') durEl.value = '0.5';
+    if (t === 'hold') durEl.value = '0.3';
+  });
+}
+setupTypeToggle('startup');
+setupTypeToggle('loop');
+
+// Add step
+function addStep(section) {
+  const type = document.getElementById(section + 'Type').value;
+  const key = document.getElementById(section + 'Key').value;
+  const dur = parseFloat(document.getElementById(section + 'Duration').value) || 0.3;
+  const intVal = document.getElementById(section + 'Interval').value;
+  const interval = intVal !== '' ? parseFloat(intVal) : null;
+
+  const step = { action: type };
+  if (type === 'press') {
+    step.key = key;
+  } else if (type === 'hold') {
+    step.key = key;
+    step.duration = dur;
+  } else {
+    step.duration = dur;
+  }
+  if (interval !== null && !isNaN(interval) && type !== 'wait') {
+    step.interval = interval;
+  }
+
+  const list = section === 'startup' ? startupSteps : loopSteps;
+  list.push(step);
+  renderSteps(section);
+  updateYaml();
+}
+
+// Render steps
+function renderSteps(section) {
+  const list = section === 'startup' ? startupSteps : loopSteps;
+  const container = document.getElementById(section + 'Steps');
+  container.innerHTML = '';
+
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty-hint">' +
+      (section === 'startup' ? '（无启动步骤 — 可选）' : '（请添加至少一个步骤）') + '</div>';
+    return;
+  }
+
+  list.forEach((step, i) => {
+    const div = document.createElement('div');
+    div.className = 'step-item ' + step.action;
+
+    const icon = document.createElement('span');
+    icon.className = 'step-icon';
+    icon.textContent = EMOJI[step.action];
+
+    const label = document.createElement('span');
+    label.className = 'step-label';
+    if (step.action === 'press') {
+      label.innerHTML = '<span class="tag tag-press">' + TYPE_LABELS.press + '</span> ' + keyDisplay(step.key);
+    } else if (step.action === 'hold') {
+      label.innerHTML = '<span class="tag tag-hold">' + TYPE_LABELS.hold + '</span> ' + keyDisplay(step.key);
+    } else {
+      label.innerHTML = '<span class="tag tag-wait">' + TYPE_LABELS.wait + '</span>';
+    }
+
+    const detail = document.createElement('span');
+    detail.className = 'step-detail';
+    const parts = [];
+    if (step.duration !== undefined) parts.push(step.duration + '秒');
+    if (step.interval !== undefined && step.interval !== null) parts.push('间隔:' + step.interval + 's');
+    detail.textContent = parts.join(' · ');
+
+    const controls = document.createElement('span');
+    controls.className = 'step-controls';
+    controls.innerHTML =
+      '<button title="上移" onclick="moveStep(\'' + section + '\',' + i + ',-1)">▲</button>' +
+      '<button title="下移" onclick="moveStep(\'' + section + '\',' + i + ',1)">▼</button>' +
+      '<button title="删除" onclick="removeStep(\'' + section + '\',' + i + ')" style="color:var(--accent)">✕</button>';
+
+    div.appendChild(icon);
+    div.appendChild(label);
+    div.appendChild(detail);
+    div.appendChild(controls);
+    container.appendChild(div);
+  });
+}
+
+function keyDisplay(key) {
+  if (!key) return '';
+  const entry = KEYS.find(k => k.value === key);
+  return entry ? entry.label : key.toUpperCase();
+}
+
+function moveStep(section, index, dir) {
+  const list = section === 'startup' ? startupSteps : loopSteps;
+  const newIdx = index + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  [list[index], list[newIdx]] = [list[newIdx], list[index]];
+  renderSteps(section);
+  updateYaml();
+}
+
+function removeStep(section, index) {
+  const list = section === 'startup' ? startupSteps : loopSteps;
+  list.splice(index, 1);
+  renderSteps(section);
+  updateYaml();
+}
+
+// YAML generation
+function updateYaml() {
+  const name = document.getElementById('scriptName').value || '未命名';
+  const desc = document.getElementById('scriptDesc').value || '';
+  const interval = parseFloat(document.getElementById('globalInterval').value) || 0.12;
+
+  let yaml = 'name: ' + yamlStr(name) + '\n';
+  if (desc) yaml += 'description: ' + yamlStr(desc) + '\n';
+  yaml += 'interval: ' + interval + '\n';
+
+  if (startupSteps.length > 0) {
+    yaml += 'startup:\n';
+    startupSteps.forEach(s => { yaml += stepToYaml(s, interval); });
+  }
+
+  if (loopSteps.length > 0) {
+    yaml += 'loop:\n';
+    loopSteps.forEach(s => { yaml += stepToYaml(s, interval); });
+  } else {
+    yaml += 'loop:\n  - press: j\n';
+  }
+
+  document.getElementById('yamlOutput').value = yaml;
+}
+
+function stepToYaml(step, globalInterval) {
+  if (step.action === 'wait') {
+    return '  - wait: ' + step.duration + '\n';
+  }
+  const keyVal = needsQuote(step.key) ? '"' + step.key + '"' : step.key;
+  let line = '  - ' + step.action + ': ' + keyVal + '\n';
+  if (step.action === 'hold') {
+    line += '    duration: ' + step.duration + '\n';
+  }
+  if (step.interval !== undefined && step.interval !== null && step.interval !== globalInterval) {
+    line += '    interval: ' + step.interval + '\n';
+  }
+  return line;
+}
+
+function needsQuote(key) {
+  return /^\d+$/.test(key);
+}
+
+function yamlStr(s) {
+  if (/[:#\[\]{}&*!|>'"%@`,\n]/.test(s) || s.trim() !== s) {
+    return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  }
+  return s;
+}
+
+// Copy
+function copyYaml() {
+  const text = document.getElementById('yamlOutput').value;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('✅ 已复制到剪贴板');
+  }).catch(() => {
+    document.getElementById('yamlOutput').select();
+    document.execCommand('copy');
+    showToast('✅ 已复制');
+  });
+}
+
+// Toast notification
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+      'background:var(--green);color:#000;padding:10px 24px;border-radius:6px;font-weight:600;' +
+      'font-size:.9rem;z-index:999;transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 1800);
+}
+
+// Import YAML
+function importYaml() {
+  const raw = document.getElementById('yamlImport').value.trim();
+  if (!raw) { showToast('⚠️ 请先粘贴 YAML 内容'); return; }
+
+  try {
+    const data = parseSimpleYaml(raw);
+    if (data.name) document.getElementById('scriptName').value = data.name;
+    if (data.description) document.getElementById('scriptDesc').value = data.description;
+    if (data.interval !== undefined) document.getElementById('globalInterval').value = data.interval;
+
+    startupSteps = [];
+    loopSteps = [];
+
+    const rawStartup = data.startup || [];
+    const rawLoop = data.loop || data.steps || [];
+
+    rawStartup.forEach(s => { startupSteps.push(parseStepData(s)); });
+    rawLoop.forEach(s => { loopSteps.push(parseStepData(s)); });
+
+    renderSteps('startup');
+    renderSteps('loop');
+    updateYaml();
+    showToast('✅ 导入成功');
+  } catch (e) {
+    showToast('❌ 导入失败: ' + e.message);
+  }
+}
+
+function parseStepData(entry) {
+  if (typeof entry === 'number') return { action: 'wait', duration: entry };
+  if (entry.wait !== undefined) return { action: 'wait', duration: parseFloat(entry.wait) };
+  if (entry.press !== undefined) {
+    const s = { action: 'press', key: String(entry.press).toLowerCase() };
+    if (entry.interval !== undefined) s.interval = parseFloat(entry.interval);
+    return s;
+  }
+  if (entry.hold !== undefined) {
+    const s = { action: 'hold', key: String(entry.hold).toLowerCase(), duration: parseFloat(entry.duration) || 0.3 };
+    if (entry.interval !== undefined) s.interval = parseFloat(entry.interval);
+    return s;
+  }
+  throw new Error('无法识别的步骤: ' + JSON.stringify(entry));
+}
+
+// Simple YAML parser (handles the subset used by combat scripts)
+function parseSimpleYaml(text) {
+  const result = {};
+  const lines = text.split('\n');
+  let currentKey = null;
+  let currentList = null;
+  let currentItem = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.replace(/#.*$/, '').trimEnd();
+    if (trimmed === '' || trimmed.match(/^\s*$/)) continue;
+
+    const indent = line.match(/^(\s*)/)[1].length;
+
+    // Top-level key
+    if (indent === 0 && trimmed.includes(':')) {
+      if (currentItem && currentKey) {
+        if (!result[currentKey]) result[currentKey] = [];
+        result[currentKey].push(currentItem);
+        currentItem = null;
+      }
+      const colonIdx = trimmed.indexOf(':');
+      const key = trimmed.substring(0, colonIdx).trim();
+      let val = trimmed.substring(colonIdx + 1).trim();
+      if (val === '' || val === '|' || val === '>') {
+        currentKey = key;
+        currentList = true;
+        continue;
+      }
+      currentKey = null;
+      currentList = false;
+      // Unquote
+      val = unquoteYaml(val);
+      if (val === 'true') result[key] = true;
+      else if (val === 'false') result[key] = false;
+      else if (!isNaN(Number(val)) && val !== '') result[key] = Number(val);
+      else result[key] = val;
+      continue;
+    }
+
+    // List item
+    if (indent >= 2 && currentKey) {
+      const content = trimmed.trim();
+      if (content.startsWith('- ')) {
+        // Save previous item
+        if (currentItem) {
+          if (!result[currentKey]) result[currentKey] = [];
+          result[currentKey].push(currentItem);
+        }
+        const itemContent = content.substring(2).trim();
+        // Plain number shorthand
+        if (!isNaN(Number(itemContent)) && itemContent !== '') {
+          currentItem = Number(itemContent);
+          continue;
+        }
+        // key: value
+        if (itemContent.includes(':')) {
+          currentItem = {};
+          const cIdx = itemContent.indexOf(':');
+          const k = itemContent.substring(0, cIdx).trim();
+          let v = itemContent.substring(cIdx + 1).trim();
+          v = unquoteYaml(v);
+          if (!isNaN(Number(v)) && v !== '') currentItem[k] = Number(v);
+          else currentItem[k] = v;
+        } else {
+          currentItem = itemContent;
+        }
+      } else if (content.includes(':') && currentItem && typeof currentItem === 'object') {
+        // Continuation of current item (e.g. duration: 0.3)
+        const cIdx = content.indexOf(':');
+        const k = content.substring(0, cIdx).trim();
+        let v = content.substring(cIdx + 1).trim();
+        v = unquoteYaml(v);
+        if (!isNaN(Number(v)) && v !== '') currentItem[k] = Number(v);
+        else currentItem[k] = v;
+      }
+    }
+  }
+
+  // Flush last item
+  if (currentItem && currentKey) {
+    if (!result[currentKey]) result[currentKey] = [];
+    result[currentKey].push(currentItem);
+  }
+
+  return result;
+}
+
+function unquoteYaml(s) {
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    return s.slice(1, -1);
+  }
+  return s;
+}
+
+// Clear all
+function clearAll() {
+  startupSteps = [];
+  loopSteps = [];
+  document.getElementById('scriptName').value = '我的连招';
+  document.getElementById('scriptDesc').value = '';
+  document.getElementById('globalInterval').value = '0.12';
+  renderSteps('startup');
+  renderSteps('loop');
+  updateYaml();
+  showToast('🗑️ 已清空');
+}
+
+// Templates
+const TEMPLATES = {
+  default: {
+    name: '默认连招',
+    description: '通用攻击循环 — Attack×2 Skill1 Attack Skill2 Attack Skill3 Ultimate QTE1 QTE2',
+    interval: 0.12,
+    startup: [],
+    loop: [
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'u'},{action:'press',key:'j'},
+      {action:'press',key:'i'},{action:'press',key:'j'},
+      {action:'press',key:'o'},{action:'press',key:'r'},
+      {action:'press',key:'1'},{action:'press',key:'2'},
+    ]
+  },
+  fantian: {
+    name: '梵天',
+    description: '开场闪避蓄力 → 攻击技能循环连招',
+    interval: 0.12,
+    startup: [{action:'hold',key:'space',duration:0.3}],
+    loop: [
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'u'},{action:'press',key:'u'},
+      {action:'press',key:'o'},{action:'press',key:'o'},
+      {action:'press',key:'1'},{action:'press',key:'j'},
+      {action:'press',key:'2'},{action:'press',key:'i'},
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'j'},{action:'press',key:'j'},
+      {action:'press',key:'j'},{action:'press',key:'u'},
+      {action:'press',key:'u'},{action:'press',key:'o'},
+      {action:'press',key:'o'},{action:'press',key:'r'},
+    ]
+  },
+  shikoudi: {
+    name: '诗寇蒂',
+    description: 'Skill2 → Attack → Skill3 → Ultimate → QTE1 → Attack → QTE2',
+    interval: 0.12,
+    startup: [],
+    loop: [
+      {action:'press',key:'i'},{action:'press',key:'j'},
+      {action:'press',key:'o'},{action:'press',key:'r'},
+      {action:'press',key:'1'},{action:'press',key:'j'},
+      {action:'press',key:'2'},
+    ]
+  }
+};
+
+function loadTemplate(id) {
+  const t = TEMPLATES[id];
+  if (!t) return;
+  document.getElementById('scriptName').value = t.name;
+  document.getElementById('scriptDesc').value = t.description;
+  document.getElementById('globalInterval').value = t.interval;
+  startupSteps = JSON.parse(JSON.stringify(t.startup));
+  loopSteps = JSON.parse(JSON.stringify(t.loop));
+  renderSteps('startup');
+  renderSteps('loop');
+  updateYaml();
+  showToast('✅ 已加载模板: ' + t.name);
+}
+
+// Live update on metadata changes
+document.getElementById('scriptName').addEventListener('input', updateYaml);
+document.getElementById('scriptDesc').addEventListener('input', updateYaml);
+document.getElementById('globalInterval').addEventListener('input', updateYaml);
+
+// Initial render
+renderSteps('startup');
+renderSteps('loop');
+updateYaml();
+</script>
+</body>
+</html>
