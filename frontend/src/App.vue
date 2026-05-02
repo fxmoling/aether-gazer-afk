@@ -14,6 +14,7 @@
           <TasksView v-if="currentPage === 'tasks'" key="tasks" />
           <ScheduleView v-else-if="currentPage === 'schedule'" key="schedule" />
           <LogsView v-else-if="currentPage === 'logs'" key="logs" />
+          <CombatView v-else-if="currentPage === 'combat'" key="combat" />
           <SettingsView v-else-if="currentPage === 'settings'" key="settings" />
         </Transition>
       </main>
@@ -28,6 +29,7 @@ import TasksView from './views/TasksView.vue'
 import LogsView from './views/LogsView.vue'
 import SettingsView from './views/SettingsView.vue'
 import ScheduleView from './views/ScheduleView.vue'
+import CombatView from './views/CombatView.vue'
 import { api } from './composables/useApi'
 import {
   loadPipelines,

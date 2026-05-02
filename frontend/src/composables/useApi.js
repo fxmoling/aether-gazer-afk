@@ -50,6 +50,11 @@ export const api = {
   stopAutoBattle: () => apiCall('stop_auto_battle'),
   getAutoBattleStatus: () => apiCall('get_auto_battle_status'),
   listCombatScripts: () => apiCall('list_combat_scripts'),
+  getCombatScript: (scriptId) => apiCall('get_combat_script', scriptId),
+  saveCombatScript: (scriptId, content) => apiCall('save_combat_script', scriptId, content),
+  deleteCombatScript: (scriptId) => apiCall('delete_combat_script', scriptId),
+  validateCombatScript: (content) => apiCall('validate_combat_script', content),
+  setCombatScript: (scriptName) => apiCall('set_combat_script', scriptName),
   // Schedule
   getSchedule: () => apiCall('get_schedule'),
   saveSchedule: (config) => apiCall('save_schedule', config),
