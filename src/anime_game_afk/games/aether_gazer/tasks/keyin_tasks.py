@@ -453,40 +453,79 @@ class JointSpecialOpsSweep:
     # ------------------------------------------------------------------
 
     async def _find_and_select_s_rank(self, ctx: TaskContext) -> bool:
-        """OCR scan for S级 challenge. Refresh up to 3 times if not found."""
+        """Find S-rank card by color detection. Refresh up to 3 times if not found.
+
+        The grade letters (S/B/A) are stylized graphics that OCR can't read.
+        Strategy: find all OCR "级" text positions, then check the color
+        region to the LEFT of each — S-rank has a distinctive red/orange hue.
+        """
+        import cv2
+        import numpy as np
+
         for attempt in range(1, self._MAX_REFRESH + 1):
             ctx.logger.info(
                 f"[joint_ops] Attempt {attempt}/{self._MAX_REFRESH}: "
-                f"scanning for S级"
+                f"scanning for S级 (color detection)"
             )
             img = ctx.device.screenshot()
             ocr = ocr_once(img)
             ih, iw = img.shape[:2]
 
-            # Try "S级" first (most reliable)
-            s_match = ocr.find("S级")
+            # Find all "级" text positions — each marks a grade card
+            grade_items = [item for item in ocr.items if "级" in item.text]
+            ctx.logger.info(
+                f"[joint_ops] Found {len(grade_items)} grade markers"
+            )
 
-            # Fallback: look for standalone "S" near grade-related text
-            if s_match is None:
-                for item in ocr.items:
-                    text = item.text.strip()
-                    if text == "S" or text == "S级":
-                        s_match = item
-                        break
+            # Check color to the left of each "级" to identify S-rank
+            s_card = None
+            for item in grade_items:
+                r = item.region
+                # Sample a region to the LEFT of the "级" character
+                # That's where the stylized S/B/A letter sits
+                x1 = max(0, r.x - 80)
+                y1 = max(0, r.y - 10)
+                x2 = r.x
+                y2 = min(ih, r.y + r.h + 10)
 
-            if s_match is not None:
-                r = s_match.region
-                fx = (r.x + r.w / 2) / iw
-                fy = (r.y + r.h / 2) / ih
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                roi = img[y1:y2, x1:x2]
+                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+
+                # S-rank = red/orange: H in [0,15] or [165,180], S>80, V>100
+                mask1 = cv2.inRange(hsv, np.array([0, 80, 100]), np.array([15, 255, 255]))
+                mask2 = cv2.inRange(hsv, np.array([165, 80, 100]), np.array([180, 255, 255]))
+                red_pixels = cv2.countNonZero(mask1) + cv2.countNonZero(mask2)
+                total_pixels = roi.shape[0] * roi.shape[1]
+                red_pct = red_pixels / total_pixels * 100 if total_pixels > 0 else 0
+
                 ctx.logger.info(
-                    f"[joint_ops] S级 found: '{s_match.text}' "
-                    f"at ({fx:.3f}, {fy:.3f})"
+                    f"[joint_ops] Grade '{item.text}' at ({r.x},{r.y}): "
+                    f"red={red_pct:.1f}%"
                 )
-                await ClickOp(fx, fy, wait=1.5).run(ctx)
+
+                if red_pct > 15:  # S-rank threshold
+                    s_card = item
+                    break
+
+            if s_card is not None:
+                # Click the CENTER of the card (the "级" text is top-left corner,
+                # card extends rightward and downward)
+                r = s_card.region
+                # Card center is roughly 150px right and 100px below the grade label
+                card_cx = (r.x + r.w / 2 + 100) / iw
+                card_cy = (r.y + r.h / 2 + 80) / ih
+                ctx.logger.info(
+                    f"[joint_ops] S级 card found! Clicking card center "
+                    f"at ({card_cx:.3f}, {card_cy:.3f})"
+                )
+                await ClickOp(card_cx, card_cy, wait=1.5).run(ctx)
                 return True
 
             ctx.logger.info(
-                f"[joint_ops] S级 not found (attempt {attempt})"
+                f"[joint_ops] S级 not found by color (attempt {attempt})"
             )
 
             # Don't refresh on the last attempt
