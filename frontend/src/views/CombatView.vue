@@ -62,14 +62,14 @@
           <!-- Startup section -->
           <div class="steps-section">
             <h3>启动连招 <span class="section-hint">(执行一次)</span></h3>
-            <StepList :steps="form.startup" @update="form.startup = $event" :keys="keyOptions" />
+            <StepList :steps="form.startup" @update="form.startup = $event" :keys="keyOptions" :globalInterval="form.interval" />
             <AddStepBtn @add="addStep('startup', $event)" />
           </div>
 
           <!-- Loop section -->
           <div class="steps-section">
             <h3>循环连招 <span class="section-hint">(反复执行)</span></h3>
-            <StepList :steps="form.loop" @update="form.loop = $event" :keys="keyOptions" />
+            <StepList :steps="form.loop" @update="form.loop = $event" :keys="keyOptions" :globalInterval="form.interval" />
             <AddStepBtn @add="addStep('loop', $event)" />
           </div>
 
@@ -270,6 +270,7 @@ const StepList = defineComponent({
   props: {
     steps: Array,
     keys: Array,
+    globalInterval: { type: Number, default: 0.12 },
   },
   emits: ['update'],
   setup(props, { emit }) {
@@ -293,14 +294,17 @@ const StepList = defineComponent({
 
     return () => {
       if (!props.steps.length) {
-        return h('div', { class: 'empty-steps' }, '暂无步骤')
+        return h('div', { class: 'empty-steps' }, '暂无步骤，点击下方添加')
       }
 
       return h('div', { class: 'step-list' }, props.steps.map((step, idx) => {
         const typeColor = step.type === 'press' ? '#4ea8de' : step.type === 'hold' ? '#f4a261' : '#6c757d'
-        const typeLabel = step.type === 'press' ? '按键' : step.type === 'hold' ? '长按' : '等待'
+        const typeLabel = step.type === 'press' ? '⚡ 按键' : step.type === 'hold' ? '⏳ 长按' : '💤 等待'
 
         const children = [
+          // Step number
+          h('span', { class: 'step-num' }, `${idx + 1}`),
+          // Type badge
           h('span', {
             class: 'step-badge',
             style: `background: ${typeColor}`,
@@ -321,52 +325,76 @@ const StepList = defineComponent({
 
         if (step.type === 'hold') {
           children.push(
-            h('label', { class: 'step-label' }, '时长'),
-            h('input', {
-              type: 'number',
-              class: 'step-input',
-              value: step.duration,
-              step: '0.1',
-              min: '0.1',
-              onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.3),
-            }),
+            h('span', { class: 'step-field' }, [
+              h('span', { class: 'step-label' }, '时长'),
+              h('input', {
+                type: 'number',
+                class: 'step-input',
+                value: step.duration,
+                step: '0.1',
+                min: '0.1',
+                onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.3),
+              }),
+              h('span', { class: 'step-unit' }, 's'),
+            ]),
           )
         }
 
         if (step.type === 'wait') {
           children.push(
-            h('label', { class: 'step-label' }, '等待(秒)'),
-            h('input', {
-              type: 'number',
-              class: 'step-input',
-              value: step.duration,
-              step: '0.1',
-              min: '0.1',
-              onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.5),
-            }),
+            h('span', { class: 'step-field' }, [
+              h('span', { class: 'step-label' }, '等待'),
+              h('input', {
+                type: 'number',
+                class: 'step-input',
+                value: step.duration,
+                step: '0.1',
+                min: '0.1',
+                onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.5),
+              }),
+              h('span', { class: 'step-unit' }, 's'),
+            ]),
           )
         }
 
         if (step.type !== 'wait') {
+          const displayInterval = step.interval != null ? step.interval : props.globalInterval
           children.push(
-            h('label', { class: 'step-label step-label-opt' }, '间隔'),
-            h('input', {
-              type: 'number',
-              class: 'step-input step-input-opt',
-              value: step.interval ?? '',
-              placeholder: '默认',
-              step: '0.01',
-              min: '0',
-              onInput: (e) => updateField(idx, 'interval', e.target.value === '' ? null : parseFloat(e.target.value)),
-            }),
+            h('span', { class: 'step-field' }, [
+              h('span', { class: 'step-label' }, '间隔'),
+              h('input', {
+                type: 'number',
+                class: 'step-input',
+                value: displayInterval,
+                step: '0.01',
+                min: '0',
+                onInput: (e) => updateField(idx, 'interval', e.target.value === '' ? null : parseFloat(e.target.value)),
+              }),
+              h('span', { class: 'step-unit' }, 's'),
+            ]),
           )
         }
 
+        // Move up / Move down / Delete
         children.push(
           h('div', { class: 'step-btns' }, [
-            h('button', { class: 'btn-icon', onClick: () => move(idx, -1), disabled: idx === 0 }, '↑'),
-            h('button', { class: 'btn-icon', onClick: () => move(idx, 1), disabled: idx === props.steps.length - 1 }, '↓'),
-            h('button', { class: 'btn-icon btn-icon-danger', onClick: () => remove(idx) }, '✕'),
+            h('button', {
+              class: 'step-btn step-btn-move',
+              onClick: () => move(idx, -1),
+              disabled: idx === 0,
+              title: '上移',
+            }, '▲'),
+            h('button', {
+              class: 'step-btn step-btn-move',
+              onClick: () => move(idx, 1),
+              disabled: idx === props.steps.length - 1,
+              title: '下移',
+            }, '▼'),
+            h('button', {
+              class: 'step-btn step-btn-del',
+              onClick: () => remove(idx),
+              title: '删除此步骤',
+            }, '🗑'),
           ])
         )
 
@@ -382,13 +410,22 @@ const AddStepBtn = defineComponent({
     const open = ref(false)
     return () => h('div', { class: 'add-step-wrap' }, [
       h('button', {
-        class: 'btn btn-secondary btn-sm',
+        class: 'btn btn-secondary btn-sm add-trigger',
         onClick: () => { open.value = !open.value },
-      }, '＋ 添加步骤'),
+      }, open.value ? '— 收起' : '＋ 添加步骤'),
       open.value ? h('div', { class: 'add-menu' }, [
-        h('button', { class: 'add-menu-item press-item', onClick: () => { emit('add', 'press'); open.value = false } }, '按键'),
-        h('button', { class: 'add-menu-item hold-item', onClick: () => { emit('add', 'hold'); open.value = false } }, '长按'),
-        h('button', { class: 'add-menu-item wait-item', onClick: () => { emit('add', 'wait'); open.value = false } }, '等待'),
+        h('button', {
+          class: 'add-menu-item',
+          onClick: () => { emit('add', 'press'); open.value = false },
+        }, [h('span', { class: 'add-dot', style: 'background:#4ea8de' }), ' ⚡ 按键']),
+        h('button', {
+          class: 'add-menu-item',
+          onClick: () => { emit('add', 'hold'); open.value = false },
+        }, [h('span', { class: 'add-dot', style: 'background:#f4a261' }), ' ⏳ 长按']),
+        h('button', {
+          class: 'add-menu-item',
+          onClick: () => { emit('add', 'wait'); open.value = false },
+        }, [h('span', { class: 'add-dot', style: 'background:#6c757d' }), ' 💤 等待']),
       ]) : null,
     ])
   },
@@ -567,8 +604,8 @@ const AddStepBtn = defineComponent({
 .step-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 280px;
+  gap: 8px;
+  max-height: 300px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -576,23 +613,38 @@ const AddStepBtn = defineComponent({
 .step-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 10px;
+  padding: 8px 12px;
   background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
-  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+.step-row:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.step-num {
+  color: rgba(255,255,255,0.2);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .step-badge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
   font-size: 11px;
   color: white;
   font-weight: 600;
   flex-shrink: 0;
-  min-width: 36px;
+  min-width: 56px;
   text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .step-select {
@@ -600,14 +652,21 @@ const AddStepBtn = defineComponent({
   flex-shrink: 0;
 }
 
+.step-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .step-label {
-  color: rgba(255,255,255,0.4);
-  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
   flex-shrink: 0;
 }
 
 .step-input {
-  width: 65px;
+  width: 60px;
   padding: 4px 6px;
   background: rgba(15,12,35,0.95);
   color: #c8c8d0;
@@ -615,6 +674,7 @@ const AddStepBtn = defineComponent({
   border-radius: 6px;
   font-size: 12px;
   flex-shrink: 0;
+  text-align: center;
 }
 
 .step-input:focus {
@@ -622,21 +682,65 @@ const AddStepBtn = defineComponent({
   border-color: rgba(102,126,234,0.5);
 }
 
-.step-input-opt {
-  width: 55px;
+.step-unit {
+  color: rgba(255,255,255,0.25);
+  font-size: 11px;
 }
 
 .step-btns {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   margin-left: auto;
   flex-shrink: 0;
 }
 
-.empty-steps {
+.step-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.step-btn-move {
+  color: rgba(255,255,255,0.3);
+}
+
+.step-btn-move:hover:not(:disabled) {
+  background: rgba(102,126,234,0.15);
+  border-color: rgba(102,126,234,0.3);
+  color: #b8c4ff;
+}
+
+.step-btn-move:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.step-btn-del {
   color: rgba(255,255,255,0.25);
+}
+
+.step-btn-del:hover {
+  background: rgba(244,67,54,0.15);
+  border-color: rgba(244,67,54,0.3);
+  color: #ef5350;
+}
+
+.empty-steps {
+  color: rgba(255,255,255,0.2);
   font-size: 12px;
-  padding: 8px;
+  padding: 12px;
+  text-align: center;
+  border: 1px dashed rgba(255,255,255,0.08);
+  border-radius: 8px;
 }
 
 /* Buttons */
@@ -644,15 +748,15 @@ const AddStepBtn = defineComponent({
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.4);
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s;
+  transition: all 0.15s;
   padding: 0;
 }
 
@@ -680,7 +784,11 @@ const AddStepBtn = defineComponent({
 .add-step-wrap {
   position: relative;
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 10px;
+}
+
+.add-trigger {
+  border-style: dashed;
 }
 
 .add-menu {
@@ -689,20 +797,22 @@ const AddStepBtn = defineComponent({
   left: 0;
   margin-top: 4px;
   background: rgba(15,12,35,0.98);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
   overflow: hidden;
   z-index: 10;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
 
 .add-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  padding: 8px 20px;
+  padding: 10px 20px;
   background: none;
   border: none;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.7);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
@@ -710,7 +820,16 @@ const AddStepBtn = defineComponent({
 }
 
 .add-menu-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+.add-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .press-item:hover { color: #4ea8de; }
