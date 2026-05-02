@@ -124,10 +124,13 @@ onMounted(async () => {
 })
 
 async function refreshList() {
-  const result = await api.listCombatScripts()
-  if (result && result.ok) {
-    scripts.value = result.scripts || []
-    activeScript.value = result.active || ''
+  const list = await api.listCombatScripts()
+  if (list && list.length > 0) {
+    scripts.value = list
+  }
+  const settings = await api.getSettings()
+  if (settings && settings.combat_script) {
+    activeScript.value = settings.combat_script
   }
 }
 
@@ -223,8 +226,8 @@ async function save() {
 async function validate() {
   const yaml = buildYaml()
   const result = await api.validateCombatScript(yaml)
-  if (result && result.ok && result.valid) {
-    statusMsg.value = '✔ 脚本格式正确'
+  if (result && result.ok) {
+    statusMsg.value = `✔ 格式正确 (启动${result.startup_count}步 + 循环${result.loop_count}步)`
     statusClass.value = 'ok'
   } else {
     statusMsg.value = '✘ ' + (result?.error || '验证失败')
@@ -412,9 +415,9 @@ const AddStepBtn = defineComponent({
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
   padding: 14px;
 }
 
@@ -427,7 +430,7 @@ const AddStepBtn = defineComponent({
 
 .panel-header h3 {
   font-size: 15px;
-  color: var(--section-header);
+  color: #b8c4ff;
   margin: 0;
 }
 
@@ -441,20 +444,20 @@ const AddStepBtn = defineComponent({
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   cursor: pointer;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.5);
   font-size: 13px;
   transition: background 0.1s;
 }
 
 .script-item:hover {
-  background: var(--bg-surface-hover);
+  background: rgba(255,255,255,0.05);
 }
 
 .script-item.active {
-  background: var(--accent-tint-hover);
-  color: var(--accent-text);
+  background: rgba(102,126,234,0.1);
+  color: #b8c4ff;
 }
 
 .script-name {
@@ -473,7 +476,7 @@ const AddStepBtn = defineComponent({
 }
 
 .empty-hint {
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.25);
   font-size: 12px;
   text-align: center;
   padding: 20px 0;
@@ -485,9 +488,9 @@ const AddStepBtn = defineComponent({
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
   padding: 18px;
   overflow-y: auto;
 }
@@ -497,14 +500,14 @@ const AddStepBtn = defineComponent({
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.25);
   font-size: 14px;
 }
 
 .editor-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-separator);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .field-row {
@@ -516,7 +519,7 @@ const AddStepBtn = defineComponent({
 
 .field-row label {
   width: 100px;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.5);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -525,16 +528,16 @@ const AddStepBtn = defineComponent({
   flex: 1;
   max-width: 300px;
   padding: 6px 10px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  background: rgba(15,12,35,0.95);
+  color: #c8c8d0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
   font-size: 13px;
 }
 
 .field-row .setting-input:focus {
   outline: none;
-  border-color: var(--status-info);
+  border-color: rgba(102,126,234,0.5);
 }
 
 .field-row .narrow {
@@ -548,15 +551,15 @@ const AddStepBtn = defineComponent({
 
 .steps-section h3 {
   font-size: 14px;
-  color: var(--section-header);
+  color: #b8c4ff;
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-separator);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .section-hint {
   font-size: 11px;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.35);
   font-weight: normal;
 }
 
@@ -565,7 +568,7 @@ const AddStepBtn = defineComponent({
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 240px;
+  max-height: 280px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -575,9 +578,9 @@ const AddStepBtn = defineComponent({
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 8px;
 }
 
 .step-badge {
@@ -585,7 +588,7 @@ const AddStepBtn = defineComponent({
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
-  color: var(--text-on-accent);
+  color: white;
   font-weight: 600;
   flex-shrink: 0;
   min-width: 36px;
@@ -598,29 +601,25 @@ const AddStepBtn = defineComponent({
 }
 
 .step-label {
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.4);
   font-size: 12px;
   flex-shrink: 0;
-}
-
-.step-label-opt {
-  color: var(--text-muted);
 }
 
 .step-input {
   width: 65px;
   padding: 4px 6px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  background: rgba(15,12,35,0.95);
+  color: #c8c8d0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
   font-size: 12px;
   flex-shrink: 0;
 }
 
 .step-input:focus {
   outline: none;
-  border-color: var(--status-info);
+  border-color: rgba(102,126,234,0.5);
 }
 
 .step-input-opt {
@@ -635,19 +634,19 @@ const AddStepBtn = defineComponent({
 }
 
 .empty-steps {
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.25);
   font-size: 12px;
   padding: 8px;
 }
 
 /* Buttons */
 .btn-icon {
-  background: var(--bg-surface-hover);
-  border: 1px solid var(--border-default);
-  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   display: flex;
@@ -658,8 +657,8 @@ const AddStepBtn = defineComponent({
 }
 
 .btn-icon:hover:not(:disabled) {
-  background: var(--border-default);
-  color: var(--text-on-accent);
+  background: rgba(255,255,255,0.1);
+  color: white;
 }
 
 .btn-icon:disabled {
@@ -668,8 +667,8 @@ const AddStepBtn = defineComponent({
 }
 
 .btn-icon-danger:hover:not(:disabled) {
-  background: var(--btn-danger-hover-bg);
-  color: var(--status-error);
+  background: rgba(244,67,54,0.15);
+  color: #ef5350;
 }
 
 .btn-sm {
@@ -689,12 +688,12 @@ const AddStepBtn = defineComponent({
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  background: rgba(15,12,35,0.98);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
   overflow: hidden;
   z-index: 10;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 
 .add-menu-item {
@@ -703,7 +702,7 @@ const AddStepBtn = defineComponent({
   padding: 8px 20px;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.6);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
@@ -711,7 +710,7 @@ const AddStepBtn = defineComponent({
 }
 
 .add-menu-item:hover {
-  background: var(--bg-surface-hover);
+  background: rgba(255,255,255,0.06);
 }
 
 .press-item:hover { color: #4ea8de; }
@@ -725,13 +724,13 @@ const AddStepBtn = defineComponent({
   gap: 12px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-separator);
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 .status-msg {
   font-size: 13px;
 }
 
-.status-msg.ok { color: var(--status-success); }
-.status-msg.err { color: var(--status-error); }
+.status-msg.ok { color: #52b788; }
+.status-msg.err { color: #ef5350; }
 </style>
