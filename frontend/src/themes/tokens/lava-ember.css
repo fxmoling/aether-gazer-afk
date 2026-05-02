@@ -1,0 +1,123 @@
+[data-theme="lava-ember"] {
+  --bg-body: #0f0806;
+  --bg-gradient: linear-gradient(135deg, #0f0806, #1a0c08, #120806);
+  --bg-gradient-size: 100% 100%;
+  --bg-gradient-animation: none;
+  --bg-sidebar: rgba(15, 8, 6, 0.9);
+  --bg-surface: rgba(239, 68, 68, 0.03);
+  --bg-surface-hover: rgba(239, 68, 68, 0.06);
+  --bg-surface-active: rgba(239, 68, 68, 0.08);
+  --bg-input: rgba(15, 8, 6, 0.95);
+  --bg-dropdown: linear-gradient(180deg, rgba(15, 8, 6, 0.98), rgba(26, 12, 8, 0.98));
+  --text-primary: rgba(254, 202, 202, 0.85);
+  --text-secondary: rgba(254, 202, 202, 0.6);
+  --text-muted: rgba(254, 202, 202, 0.35);
+  --text-on-accent: #ffffff;
+  --text-link: #fca5a5;
+  --accent-1: #ef4444;
+  --accent-2: #dc2626;
+  --accent-gradient: linear-gradient(135deg, #ef4444, #fb923c);
+  --accent-tint: rgba(239, 68, 68, 0.08);
+  --accent-tint-hover: rgba(239, 68, 68, 0.12);
+  --accent-border: rgba(239, 68, 68, 0.2);
+  --accent-border-strong: rgba(239, 68, 68, 0.35);
+  --accent-glow: rgba(239, 68, 68, 0.35);
+  --accent-text: #fca5a5;
+  --border-subtle: rgba(239, 68, 68, 0.04);
+  --border-default: rgba(239, 68, 68, 0.08);
+  --border-hover: rgba(239, 68, 68, 0.18);
+  --border-focus: rgba(239, 68, 68, 0.5);
+  --border-separator: rgba(239, 68, 68, 0.06);
+  --status-success: #4ade80;
+  --status-success-text: #86efac;
+  --status-success-bg: rgba(74, 222, 128, 0.1);
+  --status-error: #ef4444;
+  --status-error-text: #fca5a5;
+  --status-error-bg: rgba(239, 68, 68, 0.12);
+  --status-warning: #fb923c;
+  --status-warning-text: #fdba74;
+  --status-warning-bg: rgba(251, 146, 60, 0.1);
+  --status-info: #fbbf24;
+  --status-running: #ef4444;
+  --status-running-bg: rgba(239, 68, 68, 0.1);
+  --btn-primary-bg: linear-gradient(135deg, #ef4444, #fb923c);
+  --btn-primary-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+  --btn-secondary-bg: rgba(239, 68, 68, 0.04);
+  --btn-secondary-border: rgba(239, 68, 68, 0.1);
+  --btn-secondary-text: rgba(254, 202, 202, 0.6);
+  --btn-danger-hover-bg: rgba(239, 68, 68, 0.12);
+  --btn-danger-hover-border: rgba(239, 68, 68, 0.35);
+  --btn-danger-text: #fca5a5;
+  --toggle-on-bg: linear-gradient(135deg, #ef4444, #fb923c);
+  --toggle-off-bg: rgba(239, 68, 68, 0.08);
+  --toggle-knob-on: #ffffff;
+  --toggle-knob-off: rgba(254, 202, 202, 0.3);
+  --checkbox-checked: linear-gradient(135deg, #ef4444, #fb923c);
+  --checkbox-border: rgba(239, 68, 68, 0.2);
+  --glass-bg: rgba(15, 8, 6, 0.88);
+  --glass-border: rgba(239, 68, 68, 0.08);
+  --glass-blur: blur(10px);
+  --scrollbar-thumb: rgba(239, 68, 68, 0.08);
+  --scrollbar-thumb-hover: rgba(239, 68, 68, 0.15);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(239, 68, 68, 0.12);
+  --shadow-inset: inset 1px 1px 2px rgba(0, 0, 0, 0.25), inset -1px -1px 2px rgba(239, 68, 68, 0.02);
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  --log-bg: rgba(239, 68, 68, 0.02);
+  --log-debug: rgba(254, 202, 202, 0.25);
+  --log-info: rgba(254, 202, 202, 0.55);
+  --log-warning: #fb923c;
+  --log-error: #ef4444;
+  --log-success: #4ade80;
+  --sidebar-tab-active-bg: rgba(239, 68, 68, 0.1);
+  --sidebar-tab-active-text: #fca5a5;
+  --sidebar-tab-text: rgba(254, 202, 202, 0.3);
+  --sidebar-logo-shadow: 0 2px 12px rgba(239, 68, 68, 0.3);
+  --tips-bg: rgba(251, 146, 60, 0.08);
+  --tips-border: rgba(251, 146, 60, 0.2);
+  --tips-text: rgba(251, 146, 60, 0.7);
+  --conn-dot-connected: #4ade80;
+  --conn-dot-glow: 0 0 8px rgba(74, 222, 128, 0.4);
+  --conn-dot-working: #ef4444;
+  --progress-bg: rgba(239, 68, 68, 0.04);
+  --progress-fill: linear-gradient(90deg, #ef4444, #fb923c);
+  --autobattle-active-bg: rgba(251, 146, 60, 0.08);
+  --autobattle-active-border: rgba(251, 146, 60, 0.3);
+  --autobattle-active-text: #fdba74;
+  --autobattle-active-glow: 0 0 16px rgba(251, 146, 60, 0.15);
+  --chip-active-bg: rgba(239, 68, 68, 0.12);
+  --chip-active-border: rgba(239, 68, 68, 0.4);
+  --chip-active-text: #fca5a5;
+  --chip-inactive-bg: rgba(239, 68, 68, 0.02);
+  --chip-inactive-border: rgba(239, 68, 68, 0.06);
+  --chip-inactive-text: rgba(254, 202, 202, 0.3);
+  --select-bg: rgba(15, 8, 6, 0.95);
+  --select-border: rgba(239, 68, 68, 0.08);
+  --select-text: rgba(254, 202, 202, 0.7);
+  --select-arrow: rgba(254, 202, 202, 0.35);
+  --select-option-bg: #1a0c08;
+  --select-item-hover: rgba(239, 68, 68, 0.06);
+  --select-item-active: rgba(239, 68, 68, 0.12);
+  --section-header: #fb923c;
+  --section-header-alt: #ef4444;
+}
+
+/* Bottom ember glow */
+[data-theme="lava-ember"] .app-bg::after {
+  content: '';
+  position: fixed; bottom: -20px; left: 5%; width: 90%; height: 50px; z-index: 0;
+  background: linear-gradient(90deg, rgba(239,68,68,.06), rgba(249,115,22,.1), rgba(239,68,68,.04));
+  filter: blur(18px);
+  animation: emberPulse 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes emberPulse {
+  0%, 100% { opacity: .4; }
+  50% { opacity: 1; }
+}
