@@ -471,7 +471,7 @@ class JointSpecialOpsSweep:
         import cv2
         import numpy as np
 
-        _SAMPLE_RADIUS = 30  # pixels at screenshot resolution
+        _SAMPLE_HW = (10, 5)  # half-width, half-height → 20x10 pixel region
         _RED_THRESHOLD = 15  # percent
 
         for attempt in range(1, self._MAX_REFRESH + 1):
@@ -485,10 +485,10 @@ class JointSpecialOpsSweep:
             for i, (fx, fy) in enumerate(self._CARD_GRADE_POSITIONS):
                 px = int(fx * iw)
                 py = int(fy * ih)
-                r = _SAMPLE_RADIUS
+                rw, rh = _SAMPLE_HW
 
-                x1, y1 = max(0, px - r), max(0, py - r)
-                x2, y2 = min(iw, px + r), min(ih, py + r)
+                x1, y1 = max(0, px - rw), max(0, py - rh)
+                x2, y2 = min(iw, px + rw), min(ih, py + rh)
                 roi = img[y1:y2, x1:x2]
                 hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
