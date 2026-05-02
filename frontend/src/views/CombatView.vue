@@ -412,9 +412,9 @@ const AddStepBtn = defineComponent({
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
   padding: 14px;
 }
 
@@ -427,7 +427,7 @@ const AddStepBtn = defineComponent({
 
 .panel-header h3 {
   font-size: 15px;
-  color: #4fc3f7;
+  color: var(--section-header);
   margin: 0;
 }
 
@@ -441,20 +441,20 @@ const AddStepBtn = defineComponent({
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
   transition: background 0.1s;
 }
 
 .script-item:hover {
-  background: rgba(255,255,255,0.05);
+  background: var(--bg-surface-hover);
 }
 
 .script-item.active {
-  background: rgba(102,126,234,0.12);
-  color: #b8c4ff;
+  background: var(--accent-tint-hover);
+  color: var(--accent-text);
 }
 
 .script-name {
@@ -473,7 +473,7 @@ const AddStepBtn = defineComponent({
 }
 
 .empty-hint {
-  color: #555;
+  color: var(--text-secondary);
   font-size: 12px;
   text-align: center;
   padding: 20px 0;
@@ -485,9 +485,9 @@ const AddStepBtn = defineComponent({
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
   padding: 18px;
   overflow-y: auto;
 }
@@ -497,14 +497,14 @@ const AddStepBtn = defineComponent({
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: #555;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .editor-header {
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #252550;
+  border-bottom: 1px solid var(--border-separator);
 }
 
 .field-row {
@@ -516,7 +516,7 @@ const AddStepBtn = defineComponent({
 
 .field-row label {
   width: 100px;
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -525,16 +525,16 @@ const AddStepBtn = defineComponent({
   flex: 1;
   max-width: 300px;
   padding: 6px 10px;
-  background: #0f1129;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
 .field-row .setting-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--status-info);
 }
 
 .field-row .narrow {
@@ -548,15 +548,15 @@ const AddStepBtn = defineComponent({
 
 .steps-section h3 {
   font-size: 14px;
-  color: #4fc3f7;
+  color: var(--section-header);
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #252550;
+  border-bottom: 1px solid var(--border-separator);
 }
 
 .section-hint {
   font-size: 11px;
-  color: #666;
+  color: var(--text-muted);
   font-weight: normal;
 }
 
@@ -575,9 +575,9 @@ const AddStepBtn = defineComponent({
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
-  border-radius: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
 }
 
 .step-badge {
@@ -585,7 +585,7 @@ const AddStepBtn = defineComponent({
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
-  color: #fff;
+  color: var(--text-on-accent);
   font-weight: 600;
   flex-shrink: 0;
   min-width: 36px;
@@ -598,29 +598,29 @@ const AddStepBtn = defineComponent({
 }
 
 .step-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 12px;
   flex-shrink: 0;
 }
 
 .step-label-opt {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .step-input {
   width: 65px;
   padding: 4px 6px;
-  background: #0f1129;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 5px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   font-size: 12px;
   flex-shrink: 0;
 }
 
 .step-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--status-info);
 }
 
 .step-input-opt {
@@ -635,19 +635,19 @@ const AddStepBtn = defineComponent({
 }
 
 .empty-steps {
-  color: #555;
+  color: var(--text-secondary);
   font-size: 12px;
   padding: 8px;
 }
 
 /* Buttons */
 .btn-icon {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #aaa;
+  background: var(--bg-surface-hover);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
   width: 24px;
   height: 24px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 12px;
   display: flex;
@@ -658,8 +658,8 @@ const AddStepBtn = defineComponent({
 }
 
 .btn-icon:hover:not(:disabled) {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
+  background: var(--border-default);
+  color: var(--text-on-accent);
 }
 
 .btn-icon:disabled {
@@ -668,8 +668,8 @@ const AddStepBtn = defineComponent({
 }
 
 .btn-icon-danger:hover:not(:disabled) {
-  background: rgba(244,67,54,0.2);
-  color: #f44336;
+  background: var(--btn-danger-hover-bg);
+  color: var(--status-error);
 }
 
 .btn-sm {
@@ -689,12 +689,12 @@ const AddStepBtn = defineComponent({
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: rgba(15, 12, 35, 0.95);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   overflow: hidden;
   z-index: 10;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-md);
 }
 
 .add-menu-item {
@@ -703,7 +703,7 @@ const AddStepBtn = defineComponent({
   padding: 8px 20px;
   background: none;
   border: none;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
@@ -711,7 +711,7 @@ const AddStepBtn = defineComponent({
 }
 
 .add-menu-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bg-surface-hover);
 }
 
 .press-item:hover { color: #4ea8de; }
@@ -725,13 +725,13 @@ const AddStepBtn = defineComponent({
   gap: 12px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #252550;
+  border-top: 1px solid var(--border-separator);
 }
 
 .status-msg {
   font-size: 13px;
 }
 
-.status-msg.ok { color: #4caf50; }
-.status-msg.err { color: #f44336; }
+.status-msg.ok { color: var(--status-success); }
+.status-msg.err { color: var(--status-error); }
 </style>

@@ -188,9 +188,9 @@ const progressPct = computed(() =>
 .tips-banner {
   margin: 8px 12px 0;
   padding: 12px 14px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 10px;
+  background: var(--tips-bg);
+  border: 1px solid var(--tips-border);
+  border-radius: var(--radius-lg);
 }
 
 .tips-header {
@@ -213,20 +213,20 @@ const progressPct = computed(() =>
 .tips-title {
   font-size: 12px;
   font-weight: 600;
-  color: #f5a623;
+  color: var(--status-warning-text);
 }
 
 .tips-close {
   background: none;
   border: none;
-  color: rgba(245, 158, 11, 0.5);
+  color: var(--tips-text);
   font-size: 10px;
   cursor: pointer;
   padding: 2px 4px;
 }
 
 .tips-close:hover {
-  color: #f5a623;
+  color: var(--status-warning-text);
 }
 
 .tips-items {
@@ -250,26 +250,26 @@ const progressPct = computed(() =>
 
 .tips-text {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .tips-text :deep(b) {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .tips-collapsed {
   padding: 6px 16px;
   font-size: 11px;
-  color: rgba(245, 158, 11, 0.5);
+  color: var(--tips-text);
   cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .tips-collapsed:hover {
-  color: #f5a623;
-  background: rgba(245, 158, 11, 0.05);
+  color: var(--status-warning-text);
+  background: var(--tips-bg);
 }
 
 .pipeline-bar {
@@ -277,11 +277,11 @@ const progressPct = computed(() =>
   align-items: center;
   gap: 12px;
   padding: 10px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .pipeline-bar label {
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -295,8 +295,8 @@ const progressPct = computed(() =>
 .pipeline-desc {
   padding: 4px 20px 8px;
   font-size: 11px;
-  color: rgba(255,255,255,0.3);
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .progress-section {
@@ -313,24 +313,24 @@ const progressPct = computed(() =>
 .progress-title {
   font-size: 13px;
   font-weight: 600;
-  color: #e0e0e8;
+  color: var(--text-primary);
 }
 
 .progress-count {
   font-size: 12px;
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
 }
 
 .progress-track {
   height: 4px;
-  background: rgba(255,255,255,0.05);
+  background: var(--progress-bg);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: var(--progress-fill);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -338,7 +338,7 @@ const progressPct = computed(() =>
 /* Duowei settings */
 .duowei-settings {
   padding: 12px 20px;
-  border-top: 1px solid rgba(255,255,255,0.03);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .duowei-setting-row {
@@ -348,7 +348,7 @@ const progressPct = computed(() =>
 }
 
 .duowei-setting-row label {
-  color: rgba(255,255,255,0.5);
+  color: var(--text-secondary);
   font-size: 12px;
   flex-shrink: 0;
   width: 90px;
@@ -357,21 +357,21 @@ const progressPct = computed(() =>
 .duowei-setting-row input[type="range"] {
   flex: 1;
   max-width: 180px;
-  accent-color: #667eea;
+  accent-color: var(--accent-1);
   height: 4px;
 }
 
 .multiplier-value {
   font-size: 13px;
   font-weight: 600;
-  color: #b8c4ff;
+  color: var(--accent-text);
   min-width: 36px;
   text-align: right;
 }
 
 .duowei-hint {
   font-size: 11px;
-  color: rgba(255,255,255,0.25);
+  color: var(--text-muted);
   margin-top: 4px;
   margin-left: 102px;
 }
@@ -384,24 +384,24 @@ const progressPct = computed(() =>
 
 .fps-chip {
   padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--chip-inactive-border);
+  background: var(--chip-inactive-bg);
+  color: var(--chip-inactive-text);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .fps-chip:hover {
-  border-color: rgba(102,126,234,0.3);
-  color: rgba(255,255,255,0.7);
+  border-color: var(--accent-border-strong);
+  color: var(--text-secondary);
 }
 
 .fps-chip.active {
-  background: rgba(102,126,234,0.15);
-  border-color: rgba(102,126,234,0.5);
-  color: #b8c4ff;
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
+  color: var(--chip-active-text);
   font-weight: 600;
 }
 </style>

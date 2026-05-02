@@ -256,13 +256,13 @@ onMounted(async () => {
 .schedule-section h3 {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255,255,255,0.7);
+  color: var(--text-secondary);
   margin-bottom: 16px;
 }
 
 .section-desc {
   font-size: 12px;
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
   margin: -8px 0 16px;
 }
 
@@ -271,12 +271,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .setting-row label {
   font-size: 13px;
-  color: rgba(255,255,255,0.6);
+  color: var(--text-secondary);
 }
 
 /* Time picker */
@@ -289,10 +289,10 @@ onMounted(async () => {
 .time-input {
   width: 48px;
   padding: 6px 8px;
-  background: rgba(15, 12, 35, 0.95);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  color: #c8c8d0;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
   font-size: 14px;
   text-align: center;
   font-family: inherit;
@@ -306,11 +306,11 @@ onMounted(async () => {
 
 .time-input:focus {
   outline: none;
-  border-color: rgba(102,126,234,0.5);
+  border-color: var(--border-focus);
 }
 
 .time-sep {
-  color: rgba(255,255,255,0.4);
+  color: var(--text-muted);
   font-size: 16px;
   font-weight: 700;
 }
@@ -326,10 +326,10 @@ onMounted(async () => {
 .day-chip {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--chip-inactive-border);
+  background: var(--chip-inactive-bg);
+  color: var(--chip-inactive-text);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
@@ -339,19 +339,19 @@ onMounted(async () => {
 }
 
 .day-chip:hover {
-  border-color: rgba(102,126,234,0.3);
-  color: rgba(255,255,255,0.7);
+  border-color: var(--accent-border-strong);
+  color: var(--text-secondary);
 }
 
 .day-chip.active {
-  background: rgba(102,126,234,0.15);
-  border-color: rgba(102,126,234,0.5);
-  color: #b8c4ff;
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
+  color: var(--chip-active-text);
 }
 
 .day-hint {
   font-size: 11px;
-  color: rgba(255,255,255,0.2);
+  color: var(--text-muted);
   margin-left: 4px;
 }
 
@@ -373,7 +373,7 @@ onMounted(async () => {
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background: rgba(255,255,255,0.08);
+  background: var(--toggle-off-bg);
   border-radius: 22px;
   transition: 0.2s;
 }
@@ -385,18 +385,18 @@ onMounted(async () => {
   width: 16px;
   left: 3px;
   bottom: 3px;
-  background: rgba(255,255,255,0.4);
+  background: var(--toggle-knob-off);
   border-radius: 50%;
   transition: 0.2s;
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--toggle-on-bg);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(18px);
-  background: white;
+  background: var(--toggle-knob-on);
 }
 
 /* Info rows */
@@ -404,36 +404,36 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .info-label {
   font-size: 12px;
-  color: rgba(255,255,255,0.4);
+  color: var(--text-muted);
 }
 
 .info-value {
   font-size: 12px;
-  color: rgba(255,255,255,0.7);
+  color: var(--text-secondary);
 }
 
-.status-ready { color: #66bb6a; }
-.status-running { color: #42a5f5; }
-.status-disabled { color: rgba(255,255,255,0.3); }
+.status-ready { color: var(--status-success-text); }
+.status-running { color: var(--status-info); }
+.status-disabled { color: var(--text-muted); }
 
 /* Save message */
 .save-msg {
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 12px;
-  background: rgba(102,126,234,0.1);
-  color: #b8c4ff;
+  background: var(--accent-tint);
+  color: var(--accent-text);
   margin-bottom: 20px;
 }
 
 .save-msg.error {
-  background: rgba(244,67,54,0.1);
-  color: #ef5350;
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 /* History */
@@ -448,28 +448,28 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.02);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   font-size: 12px;
 }
 
 .history-item.success {
-  border-left: 3px solid rgba(102,187,106,0.5);
+  border-left: 3px solid var(--status-success);
 }
 
 .history-item.failed {
-  border-left: 3px solid rgba(239,83,80,0.5);
+  border-left: 3px solid var(--status-error);
 }
 
 .h-icon { font-size: 14px; }
-.h-time { color: rgba(255,255,255,0.4); min-width: 72px; }
-.h-msg { color: rgba(255,255,255,0.6); flex: 1; }
-.h-dur { color: rgba(255,255,255,0.3); }
+.h-time { color: var(--text-muted); min-width: 72px; }
+.h-msg { color: var(--text-secondary); flex: 1; }
+.h-dur { color: var(--text-muted); }
 .h-retry {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(245,158,11,0.15);
-  color: #f5a623;
+  background: var(--tips-bg);
+  color: var(--status-warning-text);
 }
 </style>

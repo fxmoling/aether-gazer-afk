@@ -268,10 +268,10 @@ function openRelease() {
 
 .settings-section h3 {
   font-size: 15px;
-  color: #4fc3f7;
+  color: var(--section-header);
   margin-bottom: 12px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #252550;
+  border-bottom: 1px solid var(--border-separator);
 }
 
 .info-row {
@@ -282,12 +282,12 @@ function openRelease() {
 
 .info-label {
   width: 100px;
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .info-value {
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -300,7 +300,7 @@ function openRelease() {
 
 .setting-row label {
   width: 120px;
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -309,10 +309,10 @@ function openRelease() {
   flex: 1;
   max-width: 250px;
   padding: 6px 10px;
-  background: #0f1129;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -322,7 +322,7 @@ function openRelease() {
 
 .setting-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--status-info);
 }
 
 .keybind-grid {
@@ -339,7 +339,7 @@ function openRelease() {
 
 .keybind-row label {
   width: 50px;
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
   text-align: right;
 }
@@ -361,18 +361,18 @@ function openRelease() {
 
 .path-input {
   max-width: 400px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .setting-hint {
-  color: #555;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-top: 4px;
   margin-left: 132px;
 }
 
 .save-hint {
-  color: #4caf50;
+  color: var(--status-success);
   font-size: 13px;
   animation: fade-out 2s forwards;
 }
@@ -401,7 +401,7 @@ function openRelease() {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: #333;
+  background: var(--toggle-off-bg);
   border-radius: 22px;
   transition: 0.2s;
 }
@@ -413,18 +413,18 @@ function openRelease() {
   width: 16px;
   left: 3px;
   bottom: 3px;
-  background: #999;
+  background: var(--toggle-knob-off);
   border-radius: 50%;
   transition: 0.2s;
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: #2196f3;
+  background: var(--toggle-on-bg);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(18px);
-  background: white;
+  background: var(--toggle-knob-on);
 }
 
 /* Update banner */
@@ -434,11 +434,11 @@ function openRelease() {
   gap: 16px;
   margin-top: 10px;
   padding: 10px 14px;
-  background: #1a2a1a;
-  border: 1px solid #2e7d32;
-  border-radius: 8px;
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success);
+  border-radius: var(--radius-md);
   font-size: 13px;
-  color: #c8e6c9;
+  color: var(--status-success-text);
 }
 
 .update-banner a {
@@ -452,8 +452,8 @@ function openRelease() {
   font-size: 13px;
 }
 
-.update-msg.ok { color: #4caf50; }
-.update-msg.err { color: #f44336; }
+.update-msg.ok { color: var(--status-success); }
+.update-msg.err { color: var(--status-error); }
 
 .btn-sm {
   padding: 4px 12px;
@@ -463,17 +463,17 @@ function openRelease() {
 .settings-footer {
   margin-top: 40px;
   padding-top: 16px;
-  border-top: 1px solid #252550;
+  border-top: 1px solid var(--border-separator);
   text-align: center;
 }
 
 .footer-text {
-  color: #444;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .footer-link {
-  color: #4fc3f7;
+  color: var(--text-link);
   text-decoration: none;
 }
 
