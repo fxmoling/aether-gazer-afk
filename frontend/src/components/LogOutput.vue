@@ -12,6 +12,9 @@
       <span>自动滚动</span>
     </label>
     <button class="btn btn-secondary" @click="clearLogs()">清空</button>
+    <button class="btn btn-secondary" @click="copyAllLogs" title="复制所有日志">📋 复制</button>
+    <button class="btn btn-secondary" @click="openLogFolder" title="打开日志文件夹">📂 日志文件夹</button>
+    <span v-if="copyHint" class="copy-hint">{{ copyHint }}</span>
   </div>
   <div ref="logOutputRef" class="log-output">
     <div
@@ -28,12 +31,31 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { filteredLogs, clearLogs, setLogFilter, state } from '../composables/useStore'
+import { api } from '../composables/useApi'
 
 const logFilter = ref('ALL')
 const autoScroll = ref(true)
 const logOutputRef = ref(null)
+const copyHint = ref('')
 
 const displayLogs = filteredLogs
+
+async function copyAllLogs() {
+  const text = displayLogs.value
+    .map(e => `[${e.time}] ${e.level.padEnd(7)} ${e.message}`)
+    .join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    copyHint.value = '✔ 已复制'
+  } catch {
+    copyHint.value = '✘ 复制失败'
+  }
+  setTimeout(() => { copyHint.value = '' }, 2000)
+}
+
+async function openLogFolder() {
+  try { await api.openLogFolder() } catch { /* ignore */ }
+}
 
 watch(displayLogs, async () => {
   if (autoScroll.value) {
@@ -98,5 +120,11 @@ watch(displayLogs, async () => {
   width: 16px;
   height: 16px;
   cursor: pointer;
+}
+
+.copy-hint {
+  font-size: 11px;
+  color: var(--status-success-text);
+  margin-left: auto;
 }
 </style>

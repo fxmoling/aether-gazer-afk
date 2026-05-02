@@ -291,6 +291,19 @@ class Api:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def open_log_folder(self) -> dict[str, Any]:
+        """Open the logs directory in the system file explorer."""
+        import os
+        import subprocess
+        from pathlib import Path
+
+        # Prefer run-log directory (logs/), fall back to app logs
+        logs_dir = Path(__file__).resolve().parent.parent.parent.parent / "logs"
+        if not logs_dir.exists():
+            logs_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(["explorer", str(logs_dir)])
+        return {"ok": True, "path": str(logs_dir)}
+
     # ------------------------------------------------------------------
     # Schedule (lightweight scheduler)
     # ------------------------------------------------------------------
