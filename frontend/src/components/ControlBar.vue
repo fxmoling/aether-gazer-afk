@@ -51,16 +51,6 @@
       <span v-if="state.running" class="run-time">{{ runTimeText }}</span>
     </div>
     </div>
-    <div class="post-action-row">
-      <label>完成后</label>
-      <select v-model="postRunAction" @change="savePostRunAction">
-        <option value="nothing">什么都不做</option>
-        <option value="kill_game">退出游戏</option>
-        <option value="exit_app">关闭工具</option>
-        <option value="exit_app_and_game">关闭工具并退出游戏</option>
-        <option value="shutdown_pc">关闭电脑（60秒后）</option>
-      </select>
-    </div>
   </div>
 </template>
 
@@ -73,7 +63,6 @@ const autoBattleOn = ref(false)
 const selectedScript = ref('default')
 const activeScriptName = ref('')
 const scripts = ref([{ id: 'default', name: '默认连招' }])
-const postRunAction = ref('nothing')
 let pollTimer = null
 
 async function loadScripts() {
@@ -152,20 +141,10 @@ async function pollStatus() {
   }
 }
 
-async function loadPostRunAction() {
-  const data = await api.getSettings()
-  if (data && data.post_run_action) {
-    postRunAction.value = data.post_run_action
-  }
-}
-
-async function savePostRunAction() {
-  await api.setPostRunAction(postRunAction.value)
-}
+async function loadPostRunAction() {}
 
 onMounted(() => {
   loadScripts()
-  loadPostRunAction()
   pollTimer = setInterval(pollStatus, 3000)
 })
 
@@ -217,22 +196,6 @@ async function handleStop() {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.post-action-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.post-action-row label {
-  color: var(--text-muted);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.post-action-row select {
-  font-size: 12px;
 }
 
 .btn-start {

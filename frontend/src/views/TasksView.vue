@@ -88,6 +88,18 @@
       <p class="duowei-hint">基于帧率自动设置，也可手动微调。120帧=1.0x，帧率越低需要值越小。</p>
     </div>
 
+    <!-- Post-run action -->
+    <div class="post-action-bar">
+      <label>完成后</label>
+      <select v-model="postRunAction" @change="savePostRunAction">
+        <option value="nothing">什么都不做</option>
+        <option value="kill_game">退出游戏</option>
+        <option value="exit_app">关闭工具</option>
+        <option value="exit_app_and_game">关闭工具并退出游戏</option>
+        <option value="shutdown_pc">关闭电脑（60秒后）</option>
+      </select>
+    </div>
+
     <ControlBar />
   </div>
 </template>
@@ -103,6 +115,7 @@ import { api } from '../composables/useApi'
 const showTips = ref(true)
 const swipeMultiplier = ref(1.0)
 const selectedFps = ref(120)
+const postRunAction = ref('nothing')
 
 const fpsPresets = [
   { fps: 120, label: '120帧', multiplier: 1.0 },
@@ -115,6 +128,7 @@ onMounted(() => {
   const saved = localStorage.getItem('tips_dismissed')
   if (saved === 'true') showTips.value = false
   loadSwipeMultiplier()
+  loadPostRunAction()
 })
 
 async function loadSwipeMultiplier() {
@@ -139,6 +153,17 @@ async function saveSwipeMultiplier() {
   // Update FPS highlight
   const preset = fpsPresets.find(p => Math.abs(p.multiplier - swipeMultiplier.value) < 0.05)
   selectedFps.value = preset ? preset.fps : 0
+}
+
+async function loadPostRunAction() {
+  const data = await api.getSettings()
+  if (data && data.post_run_action) {
+    postRunAction.value = data.post_run_action
+  }
+}
+
+async function savePostRunAction() {
+  await api.setPostRunAction(postRunAction.value)
 }
 
 function dismissTips() {
