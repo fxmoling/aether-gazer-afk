@@ -76,7 +76,13 @@ async function loadScripts() {
   // Load saved script selection from user config
   const settings = await api.getSettings()
   if (settings && settings.combat_script) {
-    selectedScript.value = settings.combat_script
+    // Verify the saved script exists in the list
+    const exists = scripts.value.some(s => s.id === settings.combat_script)
+    selectedScript.value = exists ? settings.combat_script : 'default'
+  }
+  // Persist default if user never picked one
+  if (!settings?.combat_script || selectedScript.value === 'default') {
+    await api.setCombatScript(selectedScript.value)
   }
 }
 
