@@ -319,9 +319,9 @@ class JointSpecialOpsSweep:
     _MAX_MULTI_Y = 0.791
 
     # Refresh button — circular icon at bottom-right of 联合特勤 interior
-    # Verified from 1920x1080 screenshot: px=(1585, 925), frac=(0.826, 0.856)
-    _REFRESH_X = 0.826
-    _REFRESH_Y = 0.856
+    # Verified via coord-picker: user clicked px=(1555, 998) in 1920x1080
+    _REFRESH_X = 0.810
+    _REFRESH_Y = 0.924
 
     _MAX_REFRESH = 3
 

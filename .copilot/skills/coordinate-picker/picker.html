@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>坐标拾取器 — Coordinate Picker</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+.toolbar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  background: #16213e; border-bottom: 1px solid #0f3460; flex-shrink: 0; z-index: 100;
+}
+.toolbar label { font-size: 13px; color: #a0a0c0; }
+.toolbar input[type="file"] { display: none; }
+.btn {
+  padding: 6px 14px; border: 1px solid #0f3460; border-radius: 6px;
+  background: #1a1a4e; color: #e0e0ff; font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: #2a2a6e; border-color: #5050ff; }
+.btn-primary { background: #3a3af0; border-color: #5050ff; }
+.btn-primary:hover { background: #4a4aff; }
+.btn-danger { background: #6e1a1a; border-color: #a03030; }
+.btn-danger:hover { background: #8e2a2a; }
+
+.info-bar {
+  display: flex; align-items: center; gap: 16px; padding: 6px 16px;
+  background: #0f1a30; border-bottom: 1px solid #0f3460; font-size: 12px; flex-shrink: 0;
+}
+.info-bar .coord { font-family: 'Consolas', monospace; color: #80ff80; font-size: 13px; }
+.info-bar .dim { color: #8888aa; }
+
+.canvas-wrap {
+  flex: 1; overflow: auto; position: relative; cursor: crosshair;
+}
+canvas { display: block; image-rendering: pixelated; }
+
+.zoom-lens {
+  position: fixed; width: 200px; height: 200px; border: 2px solid #5050ff;
+  border-radius: 8px; pointer-events: none; z-index: 50;
+  image-rendering: pixelated; background: #000; display: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+.zoom-crosshair {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 100%; height: 100%; pointer-events: none;
+}
+.zoom-crosshair::before, .zoom-crosshair::after {
+  content: ''; position: absolute; background: rgba(255,80,80,0.7);
+}
+.zoom-crosshair::before { width: 1px; height: 100%; left: 50%; }
+.zoom-crosshair::after { height: 1px; width: 100%; top: 50%; }
+
+.points-panel {
+  position: fixed; right: 12px; top: 80px; width: 320px;
+  background: rgba(15,26,48,0.95); border: 1px solid #0f3460;
+  border-radius: 8px; max-height: calc(100vh - 100px); overflow-y: auto;
+  z-index: 60; font-size: 12px; display: none;
+}
+.points-panel.visible { display: block; }
+.points-panel h3 {
+  padding: 10px 14px; border-bottom: 1px solid #0f3460;
+  font-size: 13px; color: #a0a0ff;
+}
+.point-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+  border-bottom: 1px solid rgba(15,52,96,0.5); font-family: 'Consolas', monospace;
+}
+.point-row:hover { background: rgba(50,50,120,0.3); }
+.point-color {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.point-label { color: #c0c0e0; min-width: 30px; }
+.point-coords { color: #80ff80; flex: 1; }
+.point-frac { color: #ffcc50; }
+.point-copy {
+  padding: 2px 8px; border: 1px solid #333; border-radius: 4px;
+  background: transparent; color: #80ff80; cursor: pointer; font-size: 11px;
+}
+.point-copy:hover { background: #2a2a4e; }
+.point-del {
+  padding: 2px 6px; border: none; background: transparent;
+  color: #ff6060; cursor: pointer; font-size: 14px;
+}
+
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #2a6a2a; color: #fff; padding: 8px 20px; border-radius: 6px;
+  font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <label class="btn btn-primary" id="loadBtn">
+    📂 加载截图
+    <input type="file" id="fileInput" accept="image/*">
+  </label>
+  <button class="btn" id="zoomToggle">🔍 放大镜: ON</button>
+  <span class="dim" style="margin-left:auto">点击图片拾取坐标 | 右键取消上一个点</span>
+</div>
+
+<div class="info-bar">
+  <span>鼠标: <span class="coord" id="mouseCoord">—</span></span>
+  <span>归一化: <span class="coord" id="mouseFrac">—</span></span>
+  <span class="dim" id="imgDim">未加载图片</span>
+  <span style="margin-left:auto">
+    <button class="btn" id="showPoints">📍 已拾取 (<span id="pointCount">0</span>)</button>
+    <button class="btn btn-danger" id="clearAll">🗑 清空</button>
+  </span>
+</div>
+
+<div class="canvas-wrap" id="canvasWrap">
+  <canvas id="mainCanvas"></canvas>
+</div>
+
+<div class="zoom-lens" id="zoomLens">
+  <canvas id="zoomCanvas" width="200" height="200"></canvas>
+  <div class="zoom-crosshair"></div>
+</div>
+
+<div class="points-panel" id="pointsPanel">
+  <h3>已拾取坐标</h3>
+  <div id="pointsList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = ['#ff4444','#44ff44','#4488ff','#ffaa00','#ff44ff','#44ffff','#ff8844','#88ff44','#4444ff','#ffff44'];
+const ZOOM_FACTOR = 8;
+let img = null, imgW = 0, imgH = 0;
+let points = [];
+let zoomOn = true;
+
+const fileInput = document.getElementById('fileInput');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const canvasWrap = document.getElementById('canvasWrap');
+const zoomLens = document.getElementById('zoomLens');
+const zoomCanvas = document.getElementById('zoomCanvas');
+const zoomCtx = zoomCanvas.getContext('2d');
+const mouseCoordEl = document.getElementById('mouseCoord');
+const mouseFracEl = document.getElementById('mouseFrac');
+const imgDimEl = document.getElementById('imgDim');
+const pointCountEl = document.getElementById('pointCount');
+const pointsPanel = document.getElementById('pointsPanel');
+const pointsList = document.getElementById('pointsList');
+const toastEl = document.getElementById('toast');
+
+// Load image from file
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadImage(ev.target.result);
+  reader.readAsDataURL(file);
+});
+
+// Also support drag & drop
+canvasWrap.addEventListener('dragover', (e) => { e.preventDefault(); });
+canvasWrap.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = (ev) => loadImage(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+});
+
+// Load from URL param
+const urlParams = new URLSearchParams(window.location.search);
+const imgSrc = urlParams.get('img');
+if (imgSrc) loadImage(imgSrc);
+
+function loadImage(src) {
+  const i = new Image();
+  i.onload = () => {
+    img = i;
+    imgW = i.width;
+    imgH = i.height;
+    mainCanvas.width = imgW;
+    mainCanvas.height = imgH;
+    imgDimEl.textContent = `${imgW} × ${imgH}`;
+    redraw();
+    toast(`已加载 ${imgW}×${imgH}`);
+  };
+  i.src = src;
+}
+
+function redraw() {
+  if (!img) return;
+  mainCtx.drawImage(img, 0, 0);
+  // Draw picked points
+  points.forEach((p, i) => {
+    const color = COLORS[i % COLORS.length];
+    // Crosshair
+    mainCtx.strokeStyle = color;
+    mainCtx.lineWidth = 2;
+    mainCtx.beginPath();
+    mainCtx.moveTo(p.x - 15, p.y); mainCtx.lineTo(p.x + 15, p.y);
+    mainCtx.moveTo(p.x, p.y - 15); mainCtx.lineTo(p.x, p.y + 15);
+    mainCtx.stroke();
+    // Circle
+    mainCtx.beginPath();
+    mainCtx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+    mainCtx.stroke();
+    // Label
+    mainCtx.fillStyle = color;
+    mainCtx.font = 'bold 14px Consolas';
+    mainCtx.fillText(`#${i+1}`, p.x + 12, p.y - 12);
+  });
+}
+
+// Mouse tracking
+canvasWrap.addEventListener('mousemove', (e) => {
+  if (!img) return;
+  const rect = mainCanvas.getBoundingClientRect();
+  const scaleX = imgW / rect.width;
+  const scaleY = imgH / rect.height;
+  const px = Math.round((e.clientX - rect.left) * scaleX);
+  const py = Math.round((e.clientY - rect.top) * scaleY);
+
+  if (px >= 0 && px < imgW && py >= 0 && py < imgH) {
+    mouseCoordEl.textContent = `(${px}, ${py})`;
+    mouseFracEl.textContent = `(${(px/imgW).toFixed(3)}, ${(py/imgH).toFixed(3)})`;
+
+    // Zoom lens
+    if (zoomOn) {
+      zoomLens.style.display = 'block';
+      // Position lens near cursor but avoid going off screen
+      let lx = e.clientX + 20, ly = e.clientY - 110;
+      if (lx + 210 > window.innerWidth) lx = e.clientX - 220;
+      if (ly < 5) ly = e.clientY + 20;
+      zoomLens.style.left = lx + 'px';
+      zoomLens.style.top = ly + 'px';
+
+      // Draw zoomed region
+      const zw = 200, zh = 200;
+      const srcW = zw / ZOOM_FACTOR;
+      const srcH = zh / ZOOM_FACTOR;
+      zoomCtx.imageSmoothingEnabled = false;
+      zoomCtx.clearRect(0, 0, zw, zh);
+      zoomCtx.drawImage(img,
+        px - srcW/2, py - srcH/2, srcW, srcH,
+        0, 0, zw, zh
+      );
+      // Draw picked points in zoom
+      points.forEach((p, i) => {
+        const dx = (p.x - (px - srcW/2)) * ZOOM_FACTOR;
+        const dy = (p.y - (py - srcH/2)) * ZOOM_FACTOR;
+        if (dx > -20 && dx < zw+20 && dy > -20 && dy < zh+20) {
+          zoomCtx.strokeStyle = COLORS[i % COLORS.length];
+          zoomCtx.lineWidth = 2;
+          zoomCtx.beginPath();
+          zoomCtx.arc(dx, dy, 6, 0, Math.PI * 2);
+          zoomCtx.stroke();
+        }
+      });
+    }
+  }
+});
+
+canvasWrap.addEventListener('mouseleave', () => {
+  zoomLens.style.display = 'none';
+});
+
+// Click to pick
+canvasWrap.addEventListener('click', (e) => {
+  if (!img) return;
+  const rect = mainCanvas.getBoundingClientRect();
+  const scaleX = imgW / rect.width;
+  const scaleY = imgH / rect.height;
+  const px = Math.round((e.clientX - rect.left) * scaleX);
+  const py = Math.round((e.clientY - rect.top) * scaleY);
+
+  if (px >= 0 && px < imgW && py >= 0 && py < imgH) {
+    const fx = (px / imgW).toFixed(3);
+    const fy = (py / imgH).toFixed(3);
+    points.push({ x: px, y: py, fx, fy });
+    redraw();
+    updatePointsList();
+    toast(`#${points.length}: (${px}, ${py}) → (${fx}, ${fy})`);
+  }
+});
+
+// Right click to undo
+canvasWrap.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (points.length > 0) {
+    points.pop();
+    redraw();
+    updatePointsList();
+    toast('已撤销上一个点');
+  }
+});
+
+// Toggle zoom
+document.getElementById('zoomToggle').addEventListener('click', () => {
+  zoomOn = !zoomOn;
+  document.getElementById('zoomToggle').textContent = `🔍 放大镜: ${zoomOn ? 'ON' : 'OFF'}`;
+  if (!zoomOn) zoomLens.style.display = 'none';
+});
+
+// Show/hide points panel
+document.getElementById('showPoints').addEventListener('click', () => {
+  pointsPanel.classList.toggle('visible');
+});
+
+// Clear all
+document.getElementById('clearAll').addEventListener('click', () => {
+  points = [];
+  redraw();
+  updatePointsList();
+  toast('已清空所有坐标');
+});
+
+function updatePointsList() {
+  pointCountEl.textContent = points.length;
+  pointsList.innerHTML = points.map((p, i) => {
+    const color = COLORS[i % COLORS.length];
+    return `<div class="point-row">
+      <span class="point-color" style="background:${color}"></span>
+      <span class="point-label">#${i+1}</span>
+      <span class="point-coords">(${p.x}, ${p.y})</span>
+      <span class="point-frac">(${p.fx}, ${p.fy})</span>
+      <button class="point-copy" onclick="copyCoord(${i},'frac')" title="复制归一化坐标">复制</button>
+      <button class="point-del" onclick="delPoint(${i})" title="删除">×</button>
+    </div>`;
+  }).join('');
+
+  // Also show a summary for easy copy
+  if (points.length > 0) {
+    const summary = points.map((p, i) =>
+      `#${i+1}: px=(${p.x}, ${p.y})  frac=(${p.fx}, ${p.fy})`
+    ).join('\n');
+    pointsList.innerHTML += `<div style="padding:10px 14px;border-top:1px solid #0f3460">
+      <button class="btn" onclick="copyAll()" style="width:100%">📋 复制全部坐标</button>
+    </div>`;
+  }
+}
+
+function copyCoord(idx, type) {
+  const p = points[idx];
+  const text = `(${p.fx}, ${p.fy})`;
+  navigator.clipboard.writeText(text).then(() => toast(`已复制: ${text}`));
+}
+
+function delPoint(idx) {
+  points.splice(idx, 1);
+  redraw();
+  updatePointsList();
+}
+
+function copyAll() {
+  const text = points.map((p, i) =>
+    `#${i+1}: px=(${p.x}, ${p.y})  frac=(${p.fx}, ${p.fy})`
+  ).join('\n');
+  navigator.clipboard.writeText(text).then(() => toast('已复制全部坐标'));
+}
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 2000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'z' && e.ctrlKey && points.length > 0) {
+    points.pop(); redraw(); updatePointsList(); toast('撤销');
+  }
+});
+
+// Auto-save coordinates to server (if running via server.py)
+function saveToServer() {
+  const data = {
+    image_size: { width: imgW, height: imgH },
+    points: points.map((p, i) => ({
+      index: i + 1,
+      pixel: { x: p.x, y: p.y },
+      normalized: { x: parseFloat(p.fx), y: parseFloat(p.fy) }
+    }))
+  };
+  fetch('/save-coords', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).catch(() => {}); // Silently fail if not using server
+}
+
+// Hook into point changes
+const _origClick = canvasWrap.onclick;
+canvasWrap.addEventListener('click', () => setTimeout(saveToServer, 100));
+canvasWrap.addEventListener('contextmenu', () => setTimeout(saveToServer, 100));
+
+// Auto-load screenshot from server if ?autoload=1
+if (urlParams.get('autoload') === '1') {
+  fetch('/screenshot.png').then(r => {
+    if (r.ok) return r.blob();
+    throw new Error('no screenshot');
+  }).then(blob => {
+    loadImage(URL.createObjectURL(blob));
+  }).catch(() => {
+    console.log('No auto-load screenshot available');
+  });
+}
+</script>
+</body>
+</html>
