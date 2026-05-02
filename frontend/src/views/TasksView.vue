@@ -5,11 +5,15 @@
     <!-- Pipeline selector -->
     <div class="pipeline-bar">
       <label>流程</label>
-      <select v-model="state.selectedPipelineId" @change="selectPipeline(state.selectedPipelineId)">
-        <option v-for="p in state.pipelines" :key="p.id" :value="p.id">
-          {{ p.name }}
-        </option>
-      </select>
+      <div class="pipeline-chips">
+        <button
+          v-for="p in state.pipelines"
+          :key="p.id"
+          class="pipeline-chip"
+          :class="{ active: state.selectedPipelineId === p.id }"
+          @click="selectPipeline(p.id)"
+        >{{ p.name }}</button>
+      </div>
     </div>
 
     <!-- Pipeline description -->
@@ -286,10 +290,33 @@ const progressPct = computed(() =>
   flex-shrink: 0;
 }
 
-.pipeline-bar select {
-  flex: 1;
-  max-width: 400px;
-  font-size: 13px;
+.pipeline-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pipeline-chip {
+  padding: 5px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--chip-inactive-border);
+  background: var(--chip-inactive-bg);
+  color: var(--chip-inactive-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-ui);
+}
+
+.pipeline-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.pipeline-chip.active {
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-border);
+  color: var(--chip-active-text);
 }
 
 .pipeline-desc {
