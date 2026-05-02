@@ -323,6 +323,16 @@ class JointSpecialOpsSweep:
     _REFRESH_X = 0.810
     _REFRESH_Y = 0.924
 
+    # Card grade icon positions — verified via coord-picker (1920x1080)
+    # #1 (left):  px=(161, 448), frac=(0.084, 0.415)
+    # #2 (mid):   px=(755, 355), frac=(0.393, 0.329)
+    # #3 (right): px=(1367, 469), frac=(0.712, 0.434)
+    _CARD_GRADE_POSITIONS = [
+        (0.084, 0.415),
+        (0.393, 0.329),
+        (0.712, 0.434),
+    ]
+
     _MAX_REFRESH = 3
 
     async def can_run(self, ctx: TaskContext) -> bool:
@@ -453,94 +463,65 @@ class JointSpecialOpsSweep:
     # ------------------------------------------------------------------
 
     async def _find_and_select_s_rank(self, ctx: TaskContext) -> bool:
-        """Find S-rank card by red color detection. Refresh up to 3 times.
+        """Find S-rank card by checking color at 3 fixed grade icon positions.
 
-        S-rank cards have a large red/orange border that is visually distinct.
-        Strategy: scan the card zone for the largest red contiguous region.
-        If area > threshold, that's the S-rank card — click its center.
-        No OCR dependency — pure color + contour detection.
+        Each card's grade icon (S/B/A) is at a known position. Sample a 60x60
+        region around each, check HSV red percentage — red > 15% means S-rank.
         """
         import cv2
         import numpy as np
 
-        # Card zone: top portion of the screen where cards appear
-        # Normalized: y=0.19~0.74, x=0~0.89
-        _CARD_Y1_FRAC = 0.19
-        _CARD_Y2_FRAC = 0.74
-        _CARD_X2_FRAC = 0.89
-        _MIN_S_AREA = 20000  # Minimum red contour area to qualify as S-rank
+        _SAMPLE_RADIUS = 30  # pixels at screenshot resolution
+        _RED_THRESHOLD = 15  # percent
 
         for attempt in range(1, self._MAX_REFRESH + 1):
             ctx.logger.info(
                 f"[joint_ops] Attempt {attempt}/{self._MAX_REFRESH}: "
-                f"scanning for S级 (red contour detection)"
+                f"checking 3 card positions for S级"
             )
             img = ctx.device.screenshot()
             ih, iw = img.shape[:2]
 
-            # Crop card zone
-            y1 = int(ih * _CARD_Y1_FRAC)
-            y2 = int(ih * _CARD_Y2_FRAC)
-            x2 = int(iw * _CARD_X2_FRAC)
-            card_zone = img[y1:y2, 0:x2]
+            for i, (fx, fy) in enumerate(self._CARD_GRADE_POSITIONS):
+                px = int(fx * iw)
+                py = int(fy * ih)
+                r = _SAMPLE_RADIUS
 
-            # Detect red pixels (HSV)
-            hsv = cv2.cvtColor(card_zone, cv2.COLOR_BGR2HSV)
-            mask1 = cv2.inRange(hsv, np.array([0, 100, 120]), np.array([12, 255, 255]))
-            mask2 = cv2.inRange(hsv, np.array([168, 100, 120]), np.array([180, 255, 255]))
-            red_mask = cv2.bitwise_or(mask1, mask2)
+                x1, y1 = max(0, px - r), max(0, py - r)
+                x2, y2 = min(iw, px + r), min(ih, py + r)
+                roi = img[y1:y2, x1:x2]
+                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-            # Dilate to merge nearby red pixels into solid regions
-            kernel = np.ones((15, 15), np.uint8)
-            dilated = cv2.dilate(red_mask, kernel, iterations=2)
+                m1 = cv2.inRange(hsv, np.array([0, 80, 100]), np.array([15, 255, 255]))
+                m2 = cv2.inRange(hsv, np.array([165, 80, 100]), np.array([180, 255, 255]))
+                red_pct = (cv2.countNonZero(m1) + cv2.countNonZero(m2)) / roi.size * 300
 
-            contours, _ = cv2.findContours(
-                dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-
-            # Find the largest red contour
-            best = None
-            best_area = 0
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area > best_area:
-                    best_area = area
-                    best = cnt
-
-            ctx.logger.info(
-                f"[joint_ops] Largest red contour area: {best_area:.0f} "
-                f"(threshold: {_MIN_S_AREA})"
-            )
-
-            if best is not None and best_area >= _MIN_S_AREA:
-                x, y, w, h = cv2.boundingRect(best)
-                # Convert back to full image normalized coordinates
-                card_cx = (x + w / 2) / iw
-                card_cy = (y1 + y + h / 2) / ih
                 ctx.logger.info(
-                    f"[joint_ops] S级 card detected! "
-                    f"bbox=({x},{y1+y},{w},{h}) "
-                    f"center=({card_cx:.3f}, {card_cy:.3f})"
+                    f"[joint_ops] Card {i+1} at ({fx:.3f},{fy:.3f}): "
+                    f"red={red_pct:.1f}%"
                 )
-                await ClickOp(card_cx, card_cy, wait=1.5).run(ctx)
-                return True
+
+                if red_pct > _RED_THRESHOLD:
+                    ctx.logger.info(
+                        f"[joint_ops] S级 found at card {i+1}! "
+                        f"Clicking ({fx:.3f}, {fy:.3f})"
+                    )
+                    await ClickOp(fx, fy, wait=1.5).run(ctx)
+                    return True
 
             ctx.logger.info(
-                f"[joint_ops] No S级 card found (attempt {attempt})"
+                f"[joint_ops] No S级 found (attempt {attempt})"
             )
 
-            # Don't refresh on the last attempt
             if attempt >= self._MAX_REFRESH:
                 break
 
-            # Click refresh button
             ctx.logger.info(
                 f"[joint_ops] Clicking 刷新 at "
                 f"({self._REFRESH_X}, {self._REFRESH_Y})"
             )
             await ClickOp(self._REFRESH_X, self._REFRESH_Y, wait=1.5).run(ctx)
 
-            # Handle possible confirmation popup
             await SleepOp(0.5).run(ctx)
             img2 = ctx.device.screenshot()
             ocr2 = ocr_once(img2)
