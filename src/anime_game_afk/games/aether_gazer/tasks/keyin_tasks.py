@@ -1,10 +1,10 @@
-"""介质攫取 (Medium Seizure) — combat activity under 刻印 tab.
+"""刻印 tab tasks — activities under the 刻印 (Keyin) tab.
 
-Navigation: hub → 前往作战 → 刻印 tab → 介质攫取 node → interior page
-Actions:    start challenge → passive battle wait → claim rewards → return
+Contains:
+- MediumSeizureCombat: 介质攫取 — combat + reward claim
+- JointSpecialOpsSweep: 联合特勤 — find S-rank and sweep
 
-This is a COMBAT activity (no sweep/扫荡). The task enters battle,
-waits passively for timeout/completion, then claims score-threshold rewards.
+Shared navigation: hub → 前往作战 → 刻印 tab → node
 
 OCR-verified coordinates (2026-04-19, 1280×720):
     前往作战:   (0.912, 0.936)
@@ -282,3 +282,304 @@ class MediumSeizureCombat:
 
         # ESC back to interior
         await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+
+
+class JointSpecialOpsSweep:
+    """联合特勤 (Joint Special Ops) — find S-rank challenge and sweep.
+
+    Navigation: hub → 前往作战 → 刻印 tab → 联合特勤 node → interior page
+    Flow:
+        1. Navigate to 联合特勤 interior page
+        2. OCR for S级 challenge card
+        3. If not found → click 刷新 (bottom right), retry up to 3 times
+        4. If S级 still not found after all attempts → return to hub (skip)
+        5. If S级 found → click it → min multiplier (<<) → max multiplier (>>)
+           → 扫荡 → confirm → dismiss result
+        6. Return to hub
+
+    Sweep multiplier strategy same as JointDefenseSweep:
+        click << (reset to min) → >> (raise to max available) → 扫荡
+    """
+
+    name = "joint_special_ops_sweep"
+    description = "联合特勤: 寻找S级并扫荡"
+    category = "daily_activity"
+    requires_pages = ("main_hub", "battle_select")
+    requires_ocr = True
+    safe = False  # Consumes sweep resources
+
+    # Navigation (shared with MediumSeizureCombat — same tab)
+    _GOTO_BATTLE = (0.912, 0.936)    # "前往作战" on hub
+    _KEYIN_TAB = (0.669, 0.919)      # "刻印" tab
+
+    # Multiplier buttons (same layout as JointDefenseSweep)
+    _MIN_MULTI_X = 0.738    # << button
+    _MIN_MULTI_Y = 0.791
+    _MAX_MULTI_X = 0.97     # >> button
+    _MAX_MULTI_Y = 0.791
+
+    _MAX_REFRESH = 3
+
+    async def can_run(self, ctx: TaskContext) -> bool:
+        return True
+
+    async def execute(self, ctx: TaskContext) -> TaskResult:
+        ctx.logger.info("=== JointSpecialOpsSweep: starting ===")
+        try:
+            # Step 1: Ensure at hub
+            ctx.logger.info("[Step 1] Ensure at hub")
+            await WakeHubUiAction().run(ctx)
+            await ReturnToHubAction().run(ctx)
+            await SleepOp(0.5).run(ctx)
+
+            # Step 2: Navigate to 联合特勤 interior
+            ctx.logger.info("[Step 2] Navigate to 联合特勤")
+            nav_ok = await self._navigate_to_special_ops(ctx)
+            if not nav_ok:
+                ctx.logger.error("[Step 2] FAILED: could not enter 联合特勤")
+                await ReturnToHubAction().run(ctx)
+                return TaskResult(
+                    status="failed", message="Navigation to 联合特勤 failed"
+                )
+
+            # Step 3: Find S级 (with refresh retries)
+            ctx.logger.info("[Step 3] Search for S级 challenge")
+            s_found = await self._find_and_select_s_rank(ctx)
+            if not s_found:
+                ctx.logger.info(
+                    "[Step 3] S级 not found after all attempts, returning to hub"
+                )
+                await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+                await ReturnToHubAction().run(ctx)
+                ctx.logger.info("=== JointSpecialOpsSweep: skipped (no S级) ===")
+                return TaskResult(
+                    status="skipped", message="S级未找到，已返回大厅"
+                )
+
+            # Step 4: Min → Max multiplier → Sweep
+            ctx.logger.info("[Step 4] Set multiplier (min→max) and sweep")
+            sweep_ok = await self._min_max_sweep(ctx)
+            if not sweep_ok:
+                ctx.logger.error("[Step 4] FAILED: sweep failed")
+                await PressKeyOp(VK_ESCAPE, wait=0.5).run(ctx)
+                await ReturnToHubAction().run(ctx)
+                return TaskResult(status="failed", message="扫荡 failed")
+
+            # Step 5: Confirm and dismiss
+            ctx.logger.info("[Step 5] Confirm sweep and dismiss result")
+            await self._confirm_and_dismiss(ctx)
+
+            # Step 6: Return to hub
+            ctx.logger.info("[Step 6] Return to hub")
+            await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
+            await ReturnToHubAction().run(ctx)
+
+            ctx.logger.info("=== JointSpecialOpsSweep: completed ===")
+            return TaskResult(
+                status="success", message="联合特勤 S级扫荡完成"
+            )
+        except Exception as exc:
+            ctx.logger.error(f"=== JointSpecialOpsSweep: failed — {exc} ===")
+            raise
+
+    # ------------------------------------------------------------------
+    # Navigation: hub → 刻印 tab → 联合特勤
+    # ------------------------------------------------------------------
+
+    async def _navigate_to_special_ops(self, ctx: TaskContext) -> bool:
+        """Hub → 前往作战 → 刻印 tab → find and click 联合特勤."""
+        ctx.logger.info("[joint_ops] Navigating: hub → 前往作战")
+        await ClickOp(*self._GOTO_BATTLE, wait=1.5).run(ctx)
+
+        ctx.logger.info("[joint_ops] Clicking 刻印 tab")
+        await ClickOp(*self._KEYIN_TAB, wait=1.5).run(ctx)
+
+        # OCR to find 联合特勤 / 特勤 on the tab
+        ctx.logger.info("[joint_ops] OCR locating 联合特勤 node")
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+
+        match = ocr.find("联合特勤") or ocr.find("特勤") or ocr.find("联合")
+
+        if match is None:
+            ctx.logger.warning("[joint_ops] 联合特勤 not found on 刻印 tab")
+            return False
+
+        ih, iw = img.shape[:2]
+        r = match.region
+        fx = (r.x + r.w / 2) / iw
+        fy = (r.y + r.h / 2) / ih
+        ctx.logger.info(
+            f"[joint_ops] Found '{match.text}' at ({fx:.3f}, {fy:.3f})"
+        )
+        await ClickOp(fx, fy, wait=1.5).run(ctx)
+
+        # Two-state logic (same pattern as 介质攫取):
+        # First click may show detail, second click enters interior
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+        matches = ocr.find_all("特勤")
+        if len(matches) >= 2:
+            ih, iw = img.shape[:2]
+            best = max(matches, key=lambda m: m.region.y + m.region.h / 2)
+            r = best.region
+            fx = (r.x + r.w / 2) / iw
+            fy = (r.y + r.h / 2) / ih
+            ctx.logger.info(
+                f"[joint_ops] State2: clicking node at ({fx:.3f}, {fy:.3f})"
+            )
+            await ClickOp(fx, fy, wait=1.5).run(ctx)
+
+        # Verify interior page
+        await SleepOp(1.0).run(ctx)
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+        if ocr.has("级") or ocr.has("刷新") or ocr.has("LEVEL") or ocr.has("特勤"):
+            ctx.logger.info("[joint_ops] Interior page verified")
+            return True
+
+        ctx.logger.warning(
+            "[joint_ops] Could not verify interior page, proceeding anyway"
+        )
+        return True
+
+    # ------------------------------------------------------------------
+    # Find S级 with refresh retries
+    # ------------------------------------------------------------------
+
+    async def _find_and_select_s_rank(self, ctx: TaskContext) -> bool:
+        """OCR scan for S级 challenge. Refresh up to 3 times if not found."""
+        for attempt in range(1, self._MAX_REFRESH + 1):
+            ctx.logger.info(
+                f"[joint_ops] Attempt {attempt}/{self._MAX_REFRESH}: "
+                f"scanning for S级"
+            )
+            img = ctx.device.screenshot()
+            ocr = ocr_once(img)
+            ih, iw = img.shape[:2]
+
+            # Try "S级" first (most reliable)
+            s_match = ocr.find("S级")
+
+            # Fallback: look for standalone "S" near grade-related text
+            if s_match is None:
+                for item in ocr.items:
+                    text = item.text.strip()
+                    if text == "S" or text == "S级":
+                        s_match = item
+                        break
+
+            if s_match is not None:
+                r = s_match.region
+                fx = (r.x + r.w / 2) / iw
+                fy = (r.y + r.h / 2) / ih
+                ctx.logger.info(
+                    f"[joint_ops] S级 found: '{s_match.text}' "
+                    f"at ({fx:.3f}, {fy:.3f})"
+                )
+                await ClickOp(fx, fy, wait=1.5).run(ctx)
+                return True
+
+            ctx.logger.info(
+                f"[joint_ops] S级 not found (attempt {attempt})"
+            )
+
+            # Don't refresh on the last attempt
+            if attempt >= self._MAX_REFRESH:
+                break
+
+            # Click refresh button (bottom right)
+            ctx.logger.info("[joint_ops] Clicking 刷新 (refresh)")
+            refresh = ocr.find("刷新")
+            if refresh:
+                r = refresh.region
+                fx = (r.x + r.w / 2) / iw
+                fy = (r.y + r.h / 2) / ih
+                ctx.logger.info(
+                    f"[joint_ops] 刷新 found at ({fx:.3f}, {fy:.3f})"
+                )
+                await ClickOp(fx, fy, wait=1.5).run(ctx)
+            else:
+                # Fallback: bottom-right area
+                ctx.logger.info(
+                    "[joint_ops] 刷新 not found via OCR, "
+                    "using fallback coord (0.92, 0.92)"
+                )
+                await ClickOp(0.92, 0.92, wait=1.5).run(ctx)
+
+            # Handle possible confirmation popup
+            await SleepOp(0.5).run(ctx)
+            img2 = ctx.device.screenshot()
+            ocr2 = ocr_once(img2)
+            if ocr2.has("确定") or ocr2.has("确认"):
+                ctx.logger.info("[joint_ops] Confirm refresh popup")
+                await PressKeyOp(VK_ENTER, wait=1.5).run(ctx)
+
+            await SleepOp(1.0).run(ctx)
+
+        ctx.logger.warning(
+            "[joint_ops] S级 not found after all refresh attempts"
+        )
+        return False
+
+    # ------------------------------------------------------------------
+    # Min → Max multiplier → Sweep
+    # ------------------------------------------------------------------
+
+    async def _min_max_sweep(self, ctx: TaskContext) -> bool:
+        """Click << (min), >> (max), then 扫荡 — same as JointDefenseSweep."""
+        # Click << (min) to reset multiplier
+        ctx.logger.info(
+            f"[joint_ops] Clicking << (min) at "
+            f"({self._MIN_MULTI_X}, {self._MIN_MULTI_Y})"
+        )
+        await ClickOp(self._MIN_MULTI_X, self._MIN_MULTI_Y, wait=0.3).run(ctx)
+
+        # Click >> (max) to set highest affordable multiplier
+        ctx.logger.info(
+            f"[joint_ops] Clicking >> (max) at "
+            f"({self._MAX_MULTI_X}, {self._MAX_MULTI_Y})"
+        )
+        await ClickOp(self._MAX_MULTI_X, self._MAX_MULTI_Y, wait=0.5).run(ctx)
+
+        # Find and click 扫荡
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+        sweep = ocr.find("扫荡")
+
+        if sweep is None:
+            ctx.logger.error("[joint_ops] 扫荡 button not found")
+            return False
+
+        ih, iw = img.shape[:2]
+        r = sweep.region
+        sx = (r.x + r.w / 2) / iw
+        sy = (r.y + r.h / 2) / ih
+        ctx.logger.info(f"[joint_ops] Clicking 扫荡 at ({sx:.3f}, {sy:.3f})")
+        await ClickOp(sx, sy, wait=1.5).run(ctx)
+        return True
+
+    # ------------------------------------------------------------------
+    # Confirm and dismiss
+    # ------------------------------------------------------------------
+
+    async def _confirm_and_dismiss(self, ctx: TaskContext) -> None:
+        """Confirm sweep popup and dismiss result screen."""
+        # Confirm sweep
+        ctx.logger.info("[joint_ops] Pressing Enter to confirm sweep")
+        await PressKeyOp(VK_ENTER, wait=2.0).run(ctx)
+
+        # Check for stamina-insufficient popup
+        img = ctx.device.screenshot()
+        ocr = ocr_once(img)
+        if ocr.has("补充") or ocr.has("冷却剂") or ocr.has("吨吨值"):
+            ctx.logger.info(
+                "[joint_ops] Stamina insufficient, pressing ESC to cancel"
+            )
+            await PressKeyOp(VK_ESCAPE, wait=0.5).run(ctx)
+            return
+
+        # Dismiss result screen
+        await SleepOp(2.0).run(ctx)
+        for _ in range(5):
+            await PressKeyOp(VK_ENTER, wait=0.2).run(ctx)
