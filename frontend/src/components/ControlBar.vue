@@ -25,12 +25,10 @@
       v-model="selectedScript"
       class="script-select"
       @change="onScriptChange"
-      @click.right.prevent="refreshScripts"
-      :title="'右键刷新列表'"
+      @focus="refreshScripts"
     >
       <option v-for="s in scripts" :key="s.id" :value="s.id">{{ s.name }}</option>
     </select>
-    <button class="btn-refresh" @click="refreshScripts" title="刷新连招列表">↻</button>
     <span v-if="autoBattleOn && activeScriptName" class="active-script-hint">
       ▸ {{ activeScriptName }}
     </span>
@@ -272,22 +270,6 @@ async function handleStop() {
 .script-select {
   max-width: 130px;
   font-size: 12px;
-}
-
-.btn-refresh {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  color: rgba(255,255,255,0.3);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: all 0.15s;
-}
-
-.btn-refresh:hover {
-  color: rgba(255,255,255,0.7);
-  border-color: rgba(255,255,255,0.2);
 }
 
 .active-script-hint {
