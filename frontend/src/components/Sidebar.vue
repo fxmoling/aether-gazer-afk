@@ -100,18 +100,6 @@ const items = [
   background: var(--sidebar-tab-active-bg);
 }
 
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -2px;
-  top: 12px;
-  bottom: 12px;
-  width: 3px;
-  background: var(--accent-1);
-  border-radius: 2px;
-  box-shadow: 0 0 8px var(--accent-1);
-}
-
 .nav-icon {
   font-size: 20px;
   margin-bottom: 3px;
