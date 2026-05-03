@@ -21,7 +21,7 @@ from anime_game_afk.games.aether_gazer.checks.ocr import (
 from anime_game_afk.games.aether_gazer.checks.page import AtHubCheck, OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.perception.identify_page import is_on_page
-from anime_game_afk.vision.ocr import ocr_once
+from anime_game_afk.vision.ocr import ocr_full, ocr_once
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
@@ -222,6 +222,7 @@ class BuyIntelShards:
 
         Fast flow per item: click item → 最大 → 购买 → Enter dismiss.
         OCR safety: verify popup contains "情报" before buying.
+        Skips sold-out items and tries remaining ones.
         """
         purchased = 0
 
@@ -231,27 +232,28 @@ class BuyIntelShards:
             if run_log:
                 run_log.save_image(r.data, f"buy_intel_scan_{attempt}")
 
-            # Find first (leftmost) intel item
-            first = await self._find_first_intel(ctx)
-            if first is None:
-                ctx.logger.info(f"  buy[{attempt}]: no intel items found, done")
-                break
-
-            name, cx, cy = first
-            ctx.logger.info(
-                f"  buy[{attempt}]: first intel = '{name}' at ({cx},{cy})"
-            )
-
-            # Check if sold out
-            sold_out = await self._is_sold_out_at(ctx, cx)
-            if sold_out:
+            # Find first available (non-sold-out) intel item
+            target = await self._find_available_intel(ctx)
+            if target is None:
                 ctx.logger.info(
-                    f"  buy[{attempt}]: '{name}' is sold out, all done"
+                    f"  buy[{attempt}]: no available intel items, done"
                 )
                 break
 
-            # Click the item → popup opens
-            await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
+            name, cx, cy = target
+            ctx.logger.info(
+                f"  buy[{attempt}]: targeting '{name}' at ({cx},{cy})"
+            )
+
+            # Click the item → popup opens (1.5s wait for rendering)
+            await ClickPxOp(px=cx, py=cy, wait=1.5).run(ctx)
+
+            # Save popup screenshot for debugging
+            if run_log:
+                popup_snap = await ScreenshotOp().run(ctx)
+                run_log.save_image(
+                    popup_snap.data, f"buy_intel_popup_{attempt}",
+                )
 
             # Safety check: verify popup item name contains "情报".
             # CRITICAL: restrict to _POPUP_REGION so background page text
@@ -261,18 +263,55 @@ class BuyIntelShards:
                 target="情报", region=self._POPUP_REGION,
             ).evaluate(ctx)
             if not has_intel.passed:
+                # Diagnostic: show what OCR actually found in popup region
+                diag_snap = ctx.device.screenshot()
+                diag_items = ocr_full(diag_snap, region=self._POPUP_REGION)
+                diag_texts = [t.text for t in diag_items]
                 ctx.logger.error(
-                    f"  buy[{attempt}]: popup does NOT contain '情报' "
-                    f"— SAFETY STOP (non-intel item?)"
+                    f"  buy[{attempt}]: popup safety FAILED — "
+                    f"'情报' not found in popup region. "
+                    f"OCR found: {diag_texts}"
                 )
+                if run_log:
+                    run_log.save_image(
+                        diag_snap, f"buy_intel_popup_fail_{attempt}",
+                    )
                 await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
                 break
 
-            # Click 最大 (max quantity) → 购买 (buy) → Enter (dismiss)
+            # Click 最大 (max quantity) → wait → 购买 (buy) → wait
             ctx.logger.info(f"  buy[{attempt}]: clicking 最大 → 购买")
-            await ClickOp(x=self._MAX_BTN_X, y=self._MAX_BTN_Y, wait=0.3).run(ctx)
-            await ClickOp(x=self._BUY_BTN_X, y=self._BUY_BTN_Y, wait=0.5).run(ctx)
-            await PressKeyOp(key=VK_ENTER, wait=0.5).run(ctx)
+            await ClickOp(
+                x=self._MAX_BTN_X, y=self._MAX_BTN_Y, wait=0.5,
+            ).run(ctx)
+            await ClickOp(
+                x=self._BUY_BTN_X, y=self._BUY_BTN_Y, wait=1.0,
+            ).run(ctx)
+
+            # Save post-buy screenshot (before dismiss) for debugging
+            if run_log:
+                result_snap = await ScreenshotOp().run(ctx)
+                run_log.save_image(
+                    result_snap.data, f"buy_intel_result_{attempt}",
+                )
+
+            # Dismiss result popup
+            await PressKeyOp(key=VK_ENTER, wait=1.0).run(ctx)
+
+            # Verify purchase: "修正者情报" should be visible again
+            # (popup closed, back on daily page)
+            verify = await FindTextCheck(
+                target="修正者情报",
+            ).evaluate(ctx)
+            if not verify.passed:
+                ctx.logger.warning(
+                    f"  buy[{attempt}]: post-purchase verify — "
+                    f"'修正者情报' not visible, dismissing extra dialogs"
+                )
+                # Try to dismiss any leftover dialog
+                await PressKeyOp(key=VK_ENTER, wait=0.5).run(ctx)
+                await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
+                await SleepOp(seconds=0.5).run(ctx)
 
             purchased += 1
             if run_log:
@@ -287,55 +326,75 @@ class BuyIntelShards:
     # Item detection helpers
     # ------------------------------------------------------------------
 
-    async def _find_first_intel(
+    async def _find_available_intel(
         self, ctx: TaskContext,
     ) -> tuple[str, int, int] | None:
-        """Find the first (leftmost) intel item in the top row.
+        """Find first available (non-sold-out) intel item in the top row.
 
-        Returns (name, center_x, center_y) or None if none found.
-        The click target is the card body area (above the text label)
-        to avoid accidentally clicking the card below.
+        Returns (name, center_x, center_y) or None if all sold out.
+        Scans all intel items and skips those with "售罄" nearby.
         """
         r = await FindAllTextCheck(
             target="情报", region=self._INTEL_REGION,
         ).evaluate(ctx)
         if not r.passed:
+            ctx.logger.debug("  no '情报' text found in intel region")
             return None
 
-        items = r.data  # list[TextResult]
-
-        # Filter out section header "修正者情报"
-        items = [i for i in items if "修正者" not in i.text]
+        items = [i for i in r.data if "修正者" not in i.text]
         if not items:
+            ctx.logger.debug("  all matches are '修正者情报' header")
             return None
 
         # Sort by x position (leftmost first)
         items.sort(key=lambda i: i.region.x)
-        first = items[0]
-        cx = first.region.x + first.region.w // 2
-        # Click the card body, NOT the text label at the card bottom.
-        # "XX情报" text sits at the bottom of the item card; clicking
-        # its center risks landing on the card below (e.g. a 刻印 card).
-        # Move up ~80px to target the card image area.
-        cy = max(first.region.y - 80, self._INTEL_REGION.y + 10)
-        return (first.text, cx, cy)
+        ctx.logger.info(
+            f"  found {len(items)} intel items: "
+            + ", ".join(
+                f"'{i.text}'@x={i.region.x}" for i in items
+            )
+        )
 
-    async def _is_sold_out_at(self, ctx: TaskContext, item_x: int) -> bool:
-        """Check if the item at given x position is sold out.
+        # Find sold-out marker positions in one pass
+        sold_xs = await self._find_sold_out_positions(ctx)
 
-        Searches the intel region for "售" (from "本日售罄") and
-        matches by x-proximity AND y-range within the intel region.
+        for item in items:
+            cx = item.region.x + item.region.w // 2
+            # Click the card body, NOT the text label at the card bottom.
+            # "XX情报" text sits at the bottom of the item card; clicking
+            # its center risks landing on the card below (e.g. a 刻印 card).
+            # Move up ~80px to target the card image area.
+            cy = max(item.region.y - 80, self._INTEL_REGION.y + 10)
+
+            is_sold = any(abs(sx - cx) < 120 for sx in sold_xs)
+            if is_sold:
+                ctx.logger.info(
+                    f"  '{item.text}' at x={cx} is sold out, skipping"
+                )
+                continue
+
+            return (item.text, cx, cy)
+
+        ctx.logger.info("  all intel items are sold out")
+        return None
+
+    async def _find_sold_out_positions(
+        self, ctx: TaskContext,
+    ) -> list[int]:
+        """Find x-center positions of all sold-out markers in intel region.
+
+        Searches for "售" (from "本日售罄") and returns the x-center
+        of each match.
         """
         r = await FindAllTextCheck(
             target="售", region=self._INTEL_REGION,
         ).evaluate(ctx)
         if not r.passed:
-            return False
-        for s in r.data:
-            sx = s.region.x + s.region.w // 2
-            if abs(sx - item_x) < 120:
-                return True
-        return False
+            return []
+        positions = [s.region.x + s.region.w // 2 for s in r.data]
+        if positions:
+            ctx.logger.debug(f"  sold-out markers at x={positions}")
+        return positions
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
