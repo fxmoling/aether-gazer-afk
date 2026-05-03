@@ -82,10 +82,11 @@ class BuyIntelShards:
 
     _MAX_PURCHASES = 10  # Safety cap per run
     _INTEL_REGION = Rect(160, 104, 1040, 280)  # Top row where intel items appear
-    # Purchase popup center region — used to verify the popup item name.
+    # Purchase popup region — used to verify the popup item name.
     # Must be WITHIN the opaque popup dialog so background "情报" text
     # (from the daily shop page behind the popup) is NOT captured by OCR.
-    _POPUP_REGION = Rect(450, 250, 700, 350)
+    # Item name "XX情报" is at y≈180 in 1280x720 screenshot space.
+    _POPUP_REGION = Rect(450, 160, 700, 440)
     # Purchase popup buttons (verified 2026-04-06 via OCR, 1067,624 / 1236,625 @ 1600x900)
     _MAX_BTN_X, _MAX_BTN_Y = 0.667, 0.693    # 最大 button
     _BUY_BTN_X, _BUY_BTN_Y = 0.773, 0.694    # 购买 button
