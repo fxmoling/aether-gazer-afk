@@ -353,22 +353,22 @@ class ComboRecorder:
 # ---------------------------------------------------------------------------
 
 _HOLD_THRESHOLD = 0.25  # seconds: above this = hold, below = press
-_WAIT_THRESHOLD = 0.30  # seconds: gaps smaller than this are ignored
+_LONG_GAP = 1.5         # seconds: gaps above this become explicit wait steps
 
 
 def _compile_events(events: list[_RawEvent]) -> list[CompiledStep]:
-    """Convert raw key events into press/hold/wait steps.
+    """Convert raw key events into press/hold/wait steps with real timing.
 
     Strategy:
     - Pair each key_down with the next key_up for the same key
     - Short press (<250ms) → press step
     - Long press (≥250ms) → hold step with duration
-    - Gaps between actions > 300ms → wait steps
-    - Overlapping keys (e.g. holding W while pressing J) are serialized:
-      only the timing of each key pair matters, not concurrency.
+    - Gap between consecutive actions → stored as ``interval`` on previous step
+    - Very long gaps (>1.5s) → explicit wait step (user paused intentionally)
 
-    Note: v1 does not support concurrent key playback. Overlapping inputs
-    are flattened to sequential steps sorted by press time.
+    The ``interval`` on each step represents the real measured delay from
+    when this action ended to when the next action began, giving faithful
+    playback timing.
     """
     if not events:
         return []
@@ -397,26 +397,36 @@ def _compile_events(events: list[_RawEvent]) -> list[CompiledStep]:
     # Sort by start time
     pairs.sort(key=lambda p: p[1])
 
-    # Build steps
+    # Build steps with real timing
     steps: list[CompiledStep] = []
-    prev_end: float = pairs[0][1]  # start from first event (no initial delay)
 
-    for key_name, start, end in pairs:
+    for i, (key_name, start, end) in enumerate(pairs):
         hold_duration = end - start
-        gap = start - prev_end
-
-        # Insert wait step for significant gaps
-        if gap > _WAIT_THRESHOLD:
-            steps.append(CompiledStep(action="wait", duration=gap))
 
         if hold_duration >= _HOLD_THRESHOLD:
-            steps.append(CompiledStep(
+            step = CompiledStep(
                 action="hold", key=key_name, duration=hold_duration,
-            ))
+            )
         else:
-            steps.append(CompiledStep(action="press", key=key_name))
+            step = CompiledStep(action="press", key=key_name)
 
-        prev_end = end
+        # Compute interval = gap from this action's end to the next action's start
+        if i < len(pairs) - 1:
+            next_start = pairs[i + 1][1]
+            gap = next_start - end
+            if gap > _LONG_GAP:
+                # Large gap: set a small interval on this step, then add explicit wait
+                step.interval = 0.05
+                steps.append(step)
+                steps.append(CompiledStep(action="wait", duration=gap))
+            else:
+                # Normal gap: store as interval (minimum 0.02s for safety)
+                step.interval = max(0.02, gap)
+                steps.append(step)
+        else:
+            # Last step: no interval needed
+            step.interval = 0.05
+            steps.append(step)
 
     # Strip trailing waits
     while steps and steps[-1].action == "wait":
