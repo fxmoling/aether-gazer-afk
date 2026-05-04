@@ -452,6 +452,111 @@ class TaskManager:
                 pass
 
     # ------------------------------------------------------------------
+    # Combo recording
+    # ------------------------------------------------------------------
+
+    def _get_recorder(self):
+        """Lazy-init the combo recorder with hotkey support."""
+        if not hasattr(self, "_combo_recorder") or self._combo_recorder is None:
+            from anime_game_afk.games.aether_gazer.combat.recorder import ComboRecorder
+            self._combo_recorder = ComboRecorder()
+            self._combo_recorder.start()
+        return self._combo_recorder
+
+    def start_combo_recording(
+        self, section: str = "loop", countdown: int = 3,
+    ) -> dict[str, Any]:
+        """Start recording keyboard inputs for a combo section."""
+        try:
+            rec = self._get_recorder()
+            return rec.begin_recording(section=section, countdown=countdown)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def stop_combo_recording(self) -> dict[str, Any]:
+        """Stop recording and return compiled steps as dicts."""
+        try:
+            rec = self._get_recorder()
+            rec.stop_recording()
+            # Consume the buffered result (stop_recording buffers it)
+            result = rec.consume_result()
+            if result:
+                return result
+            return {"ok": True, "steps": [], "count": 0}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def get_combo_recorder_status(self) -> dict[str, Any]:
+        """Get recorder status (includes live feedback)."""
+        if not hasattr(self, "_combo_recorder") or self._combo_recorder is None:
+            return {
+                "state": "idle", "event_count": 0, "section": "loop",
+                "countdown_remaining": 0, "recent_keys": [],
+                "has_result": False,
+            }
+        return self._combo_recorder.get_status()
+
+    def consume_combo_result(self) -> dict[str, Any]:
+        """Consume pending recording result (for hotkey-initiated stops)."""
+        if not hasattr(self, "_combo_recorder") or self._combo_recorder is None:
+            return {"ok": False, "error": "no recorder"}
+        result = self._combo_recorder.consume_result()
+        if result:
+            return result
+        return {"ok": False, "error": "no pending result"}
+
+    def test_combo_playback(self, steps_data: list, loops: int = 1) -> dict[str, Any]:
+        """Replay combo steps in-game via DeviceAdapter for testing.
+
+        Refuses to run if auto-battle or a pipeline is already active.
+        Uses the existing CombatScript runner for faithful playback.
+        """
+        # Exclusivity check
+        if self._auto_battle_enabled:
+            return {"ok": False, "error": "自动战斗运行中，请先停止"}
+        if hasattr(self, '_running') and self._running:
+            return {"ok": False, "error": "任务运行中，请先停止"}
+
+        try:
+            import asyncio
+            from anime_game_afk.core.device import DeviceAdapter
+            from anime_game_afk.games.aether_gazer.config import AETHER_GAZER_CONFIG
+            from anime_game_afk.games.aether_gazer.combat.script import (
+                load_script_from_string,
+            )
+            from anime_game_afk.games.aether_gazer.combat.runner import execute_steps
+            from anime_game_afk.games.aether_gazer.ops.base import OpContext
+
+            # Build a minimal YAML from the steps to parse via existing loader
+            import yaml
+            yaml_data = {
+                "name": "__test__",
+                "loop": steps_data if steps_data else [{"press": "j"}],
+            }
+            yaml_str = yaml.dump(yaml_data, default_flow_style=False, allow_unicode=True)
+            script = load_script_from_string(yaml_str)
+
+            # Connect device and replay
+            device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
+            device.connect()
+            ctx = OpContext(device=device)
+
+            loop = asyncio.new_event_loop()
+            try:
+                for _ in range(max(1, loops)):
+                    loop.run_until_complete(execute_steps(ctx, script.loop_steps))
+            finally:
+                loop.close()
+                try:
+                    device.disconnect()
+                except Exception:
+                    pass
+
+            return {"ok": True, "steps_played": len(script.loop_steps) * loops}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
     # Worker subprocess I/O
     # ------------------------------------------------------------------
 

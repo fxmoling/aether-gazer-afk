@@ -170,6 +170,34 @@ class Api:
             return {"ok": False, "error": str(e)}
 
     # ------------------------------------------------------------------
+    # Combo recording
+    # ------------------------------------------------------------------
+
+    def start_combo_recording(
+        self, section: str = "loop", countdown: int = 3,
+    ) -> dict[str, Any]:
+        """Start recording keyboard inputs for a combo."""
+        return self._tm.start_combo_recording(section, countdown)
+
+    def stop_combo_recording(self) -> dict[str, Any]:
+        """Stop recording and return compiled steps."""
+        return self._tm.stop_combo_recording()
+
+    def get_combo_recorder_status(self) -> dict[str, Any]:
+        """Get recorder state (idle/countdown/recording + event count)."""
+        return self._tm.get_combo_recorder_status()
+
+    def consume_combo_result(self) -> dict[str, Any]:
+        """Consume pending recording result (for hotkey-initiated stops)."""
+        return self._tm.consume_combo_result()
+
+    def test_combo_playback(
+        self, steps_data: list, loops: int = 1,
+    ) -> dict[str, Any]:
+        """Replay combo steps in-game for testing."""
+        return self._tm.test_combo_playback(steps_data, loops)
+
+    # ------------------------------------------------------------------
     # Logs
     # ------------------------------------------------------------------
 

@@ -1,11 +1,45 @@
 <template>
   <div class="combat-view">
+    <!-- Recording Overlay -->
+    <Teleport to="body">
+      <div v-if="recState !== 'idle'" class="rec-overlay">
+        <div class="rec-overlay-content">
+          <div v-if="recState === 'countdown'" class="rec-countdown">
+            <div class="rec-countdown-num">{{ recCountdown }}</div>
+            <div class="rec-countdown-label">{{ recSection === 'startup' ? '启动连招' : '循环连招' }}录制即将开始...</div>
+            <button class="btn btn-secondary" @click="cancelRecord">取消</button>
+          </div>
+          <div v-else class="rec-active">
+            <div class="rec-dot-row">
+              <span class="rec-dot"></span>
+              <span class="rec-label">录制中 · {{ recSection === 'startup' ? '启动连招' : '循环连招' }}</span>
+            </div>
+            <div class="rec-keys-display">
+              <span
+                v-for="k in recRecentKeys"
+                :key="k.seq"
+                class="rec-key-chip"
+                :class="'rec-key-' + k.key"
+              >{{ keyLabel(k.key) }}</span>
+              <span v-if="!recRecentKeys.length" class="rec-hint">在游戏中操作，按键将被自动录制...</span>
+            </div>
+            <div class="rec-stats">
+              <span>{{ recEventCount }} 次按键</span>
+            </div>
+            <div class="rec-controls">
+              <button class="btn btn-danger" @click="stopRecording">⏹ 停止录制 (F11)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <div class="combat-layout">
       <!-- Left panel: script list -->
       <div class="script-list-panel">
         <div class="panel-header">
           <h3>连招脚本</h3>
-          <button class="btn btn-primary btn-sm" @click="createNew">＋ 新建连招</button>
+          <button class="btn btn-primary btn-sm" @click="createNew">＋ 新建</button>
         </div>
         <div class="script-items">
           <div
@@ -61,14 +95,44 @@
 
           <!-- Startup section -->
           <div class="steps-section">
-            <h3>启动连招 <span class="section-hint">(执行一次)</span></h3>
+            <div class="section-header">
+              <h3>启动连招 <span class="section-hint">(执行一次)</span></h3>
+              <div class="section-btns">
+                <button
+                  class="btn btn-sm"
+                  :class="recModeClass('startup')"
+                  @click="startRecording('startup')"
+                  :disabled="recState !== 'idle'"
+                  :title="'录制启动连招 (F9)'"
+                >
+                  ⏺ 录制
+                </button>
+                <select v-model="recMode" class="rec-mode-select" title="录制模式">
+                  <option value="replace">替换</option>
+                  <option value="append">追加</option>
+                </select>
+              </div>
+            </div>
             <StepList :steps="form.startup" @update="form.startup = $event" :keys="keyOptions" :globalInterval="form.interval" />
             <AddStepBtn @add="addStep('startup', $event)" />
           </div>
 
           <!-- Loop section -->
           <div class="steps-section">
-            <h3>循环连招 <span class="section-hint">(反复执行)</span></h3>
+            <div class="section-header">
+              <h3>循环连招 <span class="section-hint">(反复执行)</span></h3>
+              <div class="section-btns">
+                <button
+                  class="btn btn-sm"
+                  :class="recModeClass('loop')"
+                  @click="startRecording('loop')"
+                  :disabled="recState !== 'idle'"
+                  :title="'录制循环连招 (F9)'"
+                >
+                  ⏺ 录制
+                </button>
+              </div>
+            </div>
             <StepList :steps="form.loop" @update="form.loop = $event" :keys="keyOptions" :globalInterval="form.interval" />
             <AddStepBtn @add="addStep('loop', $event)" />
           </div>
@@ -76,6 +140,13 @@
           <div class="editor-footer">
             <button class="btn btn-primary" @click="save">💾 保存</button>
             <button class="btn btn-secondary" @click="validate">✔ 验证</button>
+            <button
+              class="btn btn-secondary"
+              @click="testPlayback"
+              :disabled="testRunning"
+              title="在游戏中测试当前连招"
+            >{{ testRunning ? '▶ 测试中...' : '▶ 测试' }}</button>
+            <span class="hotkey-hint">F9 录制 · F11 停止</span>
             <span v-if="statusMsg" class="status-msg" :class="statusClass">{{ statusMsg }}</span>
           </div>
         </template>
@@ -85,9 +156,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, defineComponent, h } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, defineComponent, h } from 'vue'
 import { api } from '../composables/useApi'
 
+// --- Key options ---
 const keyOptions = [
   { value: 'j', label: 'J - 攻击' },
   { value: 'u', label: 'U - 技能1' },
@@ -103,6 +175,14 @@ const keyOptions = [
   { value: 'd', label: 'D - 右移' },
 ]
 
+const keyLabelMap = {
+  j: 'J', u: 'U', i: 'I', o: 'O', r: 'R',
+  '1': '1', '2': '2', space: '空格',
+  w: 'W', a: 'A', s: 'S', d: 'D',
+}
+function keyLabel(k) { return keyLabelMap[k] || k.toUpperCase() }
+
+// --- State ---
 const scripts = ref([])
 const activeScript = ref('')
 const currentScriptId = ref('')
@@ -110,6 +190,16 @@ const editing = ref(false)
 const isNew = ref(false)
 const statusMsg = ref('')
 const statusClass = ref('')
+const testRunning = ref(false)
+
+// Recording state
+const recState = ref('idle')            // idle | countdown | recording
+const recSection = ref('loop')          // startup | loop
+const recEventCount = ref(0)
+const recCountdown = ref(0)
+const recRecentKeys = ref([])
+const recMode = ref('replace')          // replace | append
+let recPollTimer = null
 
 const form = reactive({
   name: '',
@@ -119,19 +209,23 @@ const form = reactive({
   loop: [],
 })
 
+// Stash old steps for safe replace
+let _stashedSteps = null
+
 onMounted(async () => {
   await refreshList()
 })
 
+onUnmounted(() => {
+  stopRecPoll()
+})
+
+// --- Script list ---
 async function refreshList() {
   const list = await api.listCombatScripts()
-  if (list && list.length > 0) {
-    scripts.value = list
-  }
+  if (list && list.length > 0) scripts.value = list
   const settings = await api.getSettings()
-  if (settings && settings.combat_script) {
-    activeScript.value = settings.combat_script
-  }
+  if (settings && settings.combat_script) activeScript.value = settings.combat_script
 }
 
 async function loadScript(id) {
@@ -173,20 +267,18 @@ function addStep(section, type) {
   form[section].push(step)
 }
 
+// --- YAML build ---
 function buildYaml() {
   const lines = []
   lines.push(`name: ${form.name || '未命名'}`)
   if (form.description) lines.push(`description: ${form.description}`)
   if (form.interval != null && form.interval !== 0.12) lines.push(`interval: ${form.interval}`)
-
   if (form.startup.length) {
     lines.push('startup:')
     form.startup.forEach(s => lines.push(...stepToYaml(s)))
   }
-
   lines.push('loop:')
   form.loop.forEach(s => lines.push(...stepToYaml(s)))
-
   return lines.join('\n') + '\n'
 }
 
@@ -206,6 +298,7 @@ function stepToYaml(s) {
   return lines
 }
 
+// --- Save / Validate ---
 async function save() {
   const yaml = buildYaml()
   const id = isNew.value ? toId(form.name || 'custom') : currentScriptId.value
@@ -264,7 +357,167 @@ function clearStatus() {
   setTimeout(() => { statusMsg.value = '' }, 4000)
 }
 
-// Inline child components
+// --- Recording ---
+
+function recModeClass(section) {
+  return 'btn-accent'
+}
+
+async function startRecording(section) {
+  if (recState.value !== 'idle') return
+  recSection.value = section
+  recRecentKeys.value = []
+  recEventCount.value = 0
+
+  // Stash current steps for safe replace (restore on cancel/empty)
+  if (recMode.value === 'replace') {
+    _stashedSteps = [...form[section]]
+  }
+
+  const result = await api.startComboRecording(section, 3)
+  if (result && result.ok) {
+    recState.value = 'countdown'
+    recCountdown.value = 3
+    startRecPoll()
+  }
+}
+
+async function stopRecording() {
+  if (recState.value === 'idle') return
+  const section = recSection.value
+  const result = await api.stopComboRecording()
+  recState.value = 'idle'
+  stopRecPoll()
+
+  if (result && result.ok && result.steps && result.steps.length) {
+    const parsed = result.steps.map(parseStep)
+    if (recMode.value === 'replace') {
+      form[section] = parsed
+    } else {
+      form[section] = [...form[section], ...parsed]
+    }
+    _stashedSteps = null
+    statusMsg.value = `✔ 录制完成: ${result.count} 步${recMode.value === 'replace' ? '已替换' : '已追加'}到${section === 'startup' ? '启动' : '循环'}连招`
+    statusClass.value = 'ok'
+    clearStatus()
+  } else {
+    // No steps captured — restore stash if in replace mode
+    if (recMode.value === 'replace' && _stashedSteps) {
+      form[section] = _stashedSteps
+    }
+    _stashedSteps = null
+    statusMsg.value = '录制完成但未捕获到按键'
+    statusClass.value = 'warn'
+    clearStatus()
+  }
+}
+
+function cancelRecord() {
+  // Cancel during countdown — restore stash
+  api.stopComboRecording()
+  recState.value = 'idle'
+  stopRecPoll()
+  if (recMode.value === 'replace' && _stashedSteps) {
+    form[recSection.value] = _stashedSteps
+  }
+  _stashedSteps = null
+}
+
+function startRecPoll() {
+  stopRecPoll()
+  recPollTimer = setInterval(async () => {
+    const s = await api.getComboRecorderStatus()
+    if (!s) return
+    recState.value = s.state
+    recEventCount.value = s.event_count
+    recCountdown.value = s.countdown_remaining || 0
+    recRecentKeys.value = s.recent_keys || []
+
+    // Auto-consume hotkey-initiated stop results
+    if (s.state === 'idle' && s.has_result && recState.value !== 'idle') {
+      recState.value = 'idle'
+    }
+    if (s.has_result && s.state === 'idle') {
+      const result = await api.consumeComboResult()
+      if (result && result.ok) {
+        stopRecPoll()
+        const section = result.section || recSection.value
+        const parsed = (result.steps || []).map(parseStep)
+        if (parsed.length) {
+          if (recMode.value === 'replace') {
+            form[section] = parsed
+          } else {
+            form[section] = [...form[section], ...parsed]
+          }
+          _stashedSteps = null
+          statusMsg.value = `✔ 录制完成: ${result.count} 步`
+          statusClass.value = 'ok'
+        } else {
+          if (recMode.value === 'replace' && _stashedSteps) {
+            form[section] = _stashedSteps
+          }
+          _stashedSteps = null
+          statusMsg.value = '录制完成但未捕获到按键'
+          statusClass.value = 'warn'
+        }
+        clearStatus()
+        recState.value = 'idle'
+      }
+    }
+  }, 250)
+}
+
+function stopRecPoll() {
+  if (recPollTimer) {
+    clearInterval(recPollTimer)
+    recPollTimer = null
+  }
+}
+
+// --- Test playback ---
+async function testPlayback() {
+  if (testRunning.value) return
+  const steps = form.loop.map(s => {
+    if (s.type === 'press') {
+      const d = { press: s.key }
+      if (s.interval != null) d.interval = s.interval
+      return d
+    }
+    if (s.type === 'hold') {
+      const d = { hold: s.key, duration: s.duration }
+      if (s.interval != null) d.interval = s.interval
+      return d
+    }
+    return { wait: s.duration }
+  })
+  if (!steps.length) {
+    statusMsg.value = '没有可测试的步骤'
+    statusClass.value = 'warn'
+    clearStatus()
+    return
+  }
+  testRunning.value = true
+  statusMsg.value = '▶ 正在测试连招...'
+  statusClass.value = 'ok'
+  try {
+    const result = await api.testComboPlayback(steps, 1)
+    if (result && result.ok) {
+      statusMsg.value = `✔ 测试完成: 播放了 ${result.steps_played} 步`
+      statusClass.value = 'ok'
+    } else {
+      statusMsg.value = '✘ 测试失败: ' + (result?.error || '未知错误')
+      statusClass.value = 'err'
+    }
+  } catch (e) {
+    statusMsg.value = '✘ 测试异常: ' + e.message
+    statusClass.value = 'err'
+  } finally {
+    testRunning.value = false
+    clearStatus()
+  }
+}
+
+// --- Inline child components ---
 
 const StepList = defineComponent({
   props: {
@@ -294,21 +547,14 @@ const StepList = defineComponent({
 
     return () => {
       if (!props.steps.length) {
-        return h('div', { class: 'empty-steps' }, '暂无步骤，点击下方添加')
+        return h('div', { class: 'empty-steps' }, '暂无步骤，点击下方添加或使用录制功能')
       }
-
       return h('div', { class: 'step-list' }, props.steps.map((step, idx) => {
         const typeLabel = step.type === 'press' ? '⚡ 按键' : step.type === 'hold' ? '⏳ 长按' : '💤 等待'
-
         const children = [
-          // Step number
           h('span', { class: 'step-num' }, `${idx + 1}`),
-          // Type badge — uses CSS class for theme-aware coloring
-          h('span', {
-            class: `step-badge step-badge-${step.type}`,
-          }, typeLabel),
+          h('span', { class: `step-badge step-badge-${step.type}` }, typeLabel),
         ]
-
         if (step.type === 'press' || step.type === 'hold') {
           children.push(
             h('select', {
@@ -320,82 +566,62 @@ const StepList = defineComponent({
             ))
           )
         }
-
         if (step.type === 'hold') {
           children.push(
             h('span', { class: 'step-field' }, [
               h('span', { class: 'step-label' }, '时长'),
               h('input', {
-                type: 'number',
-                class: 'step-input',
-                value: step.duration,
-                step: '0.1',
-                min: '0.1',
+                type: 'number', class: 'step-input', value: step.duration,
+                step: '0.1', min: '0.1',
                 onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.3),
               }),
               h('span', { class: 'step-unit' }, 's'),
             ]),
           )
         }
-
         if (step.type === 'wait') {
           children.push(
             h('span', { class: 'step-field' }, [
               h('span', { class: 'step-label' }, '等待'),
               h('input', {
-                type: 'number',
-                class: 'step-input',
-                value: step.duration,
-                step: '0.1',
-                min: '0.1',
+                type: 'number', class: 'step-input', value: step.duration,
+                step: '0.1', min: '0.1',
                 onInput: (e) => updateField(idx, 'duration', parseFloat(e.target.value) || 0.5),
               }),
               h('span', { class: 'step-unit' }, 's'),
             ]),
           )
         }
-
         if (step.type !== 'wait') {
           const displayInterval = step.interval != null ? step.interval : props.globalInterval
           children.push(
             h('span', { class: 'step-field' }, [
               h('span', { class: 'step-label' }, '间隔'),
               h('input', {
-                type: 'number',
-                class: 'step-input',
-                value: displayInterval,
-                step: '0.01',
-                min: '0',
+                type: 'number', class: 'step-input', value: displayInterval,
+                step: '0.01', min: '0',
                 onInput: (e) => updateField(idx, 'interval', e.target.value === '' ? null : parseFloat(e.target.value)),
               }),
               h('span', { class: 'step-unit' }, 's'),
             ]),
           )
         }
-
-        // Move up / Move down / Delete
         children.push(
           h('div', { class: 'step-btns' }, [
             h('button', {
-              class: 'step-btn step-btn-move',
-              onClick: () => move(idx, -1),
-              disabled: idx === 0,
-              title: '上移',
+              class: 'step-btn step-btn-move', onClick: () => move(idx, -1),
+              disabled: idx === 0, title: '上移',
             }, '▲'),
             h('button', {
-              class: 'step-btn step-btn-move',
-              onClick: () => move(idx, 1),
-              disabled: idx === props.steps.length - 1,
-              title: '下移',
+              class: 'step-btn step-btn-move', onClick: () => move(idx, 1),
+              disabled: idx === props.steps.length - 1, title: '下移',
             }, '▼'),
             h('button', {
-              class: 'step-btn step-btn-del',
-              onClick: () => remove(idx),
+              class: 'step-btn step-btn-del', onClick: () => remove(idx),
               title: '删除此步骤',
             }, '🗑'),
           ])
         )
-
         return h('div', { class: `step-row step-row-${step.type}`, key: idx }, children)
       }))
     }
@@ -571,6 +797,21 @@ const AddStepBtn = defineComponent({
 /* Sections */
 .steps-section {
   margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-separator);
+}
+
+.section-header h3 {
+  font-size: 14px;
+  color: var(--accent-text);
+  margin: 0;
 }
 
 .steps-section h3 {
@@ -881,4 +1122,220 @@ const AddStepBtn = defineComponent({
 
 .status-msg.ok { color: var(--status-success-text); }
 .status-msg.err { color: var(--status-error-text); }
+.status-msg.warn { color: var(--accent-text); }
+
+/* Recording */
+.btn-sm {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-accent {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  border-color: var(--accent-tint-hover);
+}
+
+.btn-accent:hover:not(:disabled) {
+  background: var(--accent-tint-hover);
+}
+
+.btn-accent:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: rgba(239, 83, 80, 0.12);
+  color: #ef5350;
+  border-color: rgba(239, 83, 80, 0.25);
+  animation: rec-pulse 1s infinite;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 83, 80, 0.2);
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.hotkey-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+  font-family: 'Consolas', monospace;
+  opacity: 0.6;
+}
+
+/* Section header buttons */
+.section-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rec-mode-select {
+  font-size: 10px;
+  padding: 3px 6px;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Recording overlay */
+.rec-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rec-overlay-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 32px 40px;
+  min-width: 400px;
+  max-width: 540px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+/* Countdown */
+.rec-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.rec-countdown-num {
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--accent-text);
+  line-height: 1;
+  animation: countPulse 1s ease infinite;
+}
+
+@keyframes countPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.rec-countdown-label {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Active recording */
+.rec-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.rec-dot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rec-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ef5350;
+  animation: dotBlink 1s infinite;
+}
+
+@keyframes dotBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.rec-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rec-keys-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  width: 100%;
+}
+
+.rec-key-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Consolas', monospace;
+  animation: chipPop 0.15s ease;
+}
+
+@keyframes chipPop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.rec-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.rec-stats {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rec-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.rec-controls .btn {
+  padding: 8px 20px;
+  font-size: 13px;
+}
 </style>

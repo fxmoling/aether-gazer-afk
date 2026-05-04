@@ -59,6 +59,12 @@ export const api = {
   deleteCombatScript: (scriptId) => apiCall('delete_combat_script', scriptId),
   validateCombatScript: (content) => apiCall('validate_combat_script', content),
   setCombatScript: (scriptName) => apiCall('set_combat_script', scriptName),
+  // Combo recording
+  startComboRecording: (section, countdown) => apiCall('start_combo_recording', section, countdown),
+  stopComboRecording: () => apiCall('stop_combo_recording'),
+  getComboRecorderStatus: () => apiCall('get_combo_recorder_status'),
+  consumeComboResult: () => apiCall('consume_combo_result'),
+  testComboPlayback: (stepsData, loops) => apiCall('test_combo_playback', stepsData, loops),
   // Schedule
   getSchedule: () => apiCall('get_schedule'),
   saveSchedule: (config) => apiCall('save_schedule', config),
