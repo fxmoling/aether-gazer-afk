@@ -19,8 +19,8 @@
                 v-for="k in recRecentKeys"
                 :key="k.seq"
                 class="rec-key-chip"
-                :class="'rec-key-' + k.key"
-              >{{ keyLabel(k.key) }}</span>
+                :class="[k.holding ? 'rec-key-holding' : '', k.dur >= 0.25 ? 'rec-key-held' : '']"
+              >{{ keyLabel(k.key) }}<span v-if="k.holding" class="rec-key-hold-icon">⏳</span><span v-else-if="k.dur >= 0.25" class="rec-key-dur">{{ k.dur }}s</span></span>
               <span v-if="!recRecentKeys.length" class="rec-hint">在游戏中操作，按键将被自动录制...</span>
             </div>
             <div class="rec-stats">
@@ -1300,6 +1300,7 @@ const AddStepBtn = defineComponent({
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   min-width: 32px;
   height: 28px;
   padding: 0 8px;
@@ -1313,9 +1314,36 @@ const AddStepBtn = defineComponent({
   animation: chipPop 0.15s ease;
 }
 
+.rec-key-holding {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  border-color: rgba(255, 152, 0, 0.4);
+  animation: holdPulse 0.6s ease infinite;
+}
+
+.rec-key-held {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border-color: rgba(255, 152, 0, 0.3);
+}
+
+.rec-key-hold-icon {
+  font-size: 10px;
+}
+
+.rec-key-dur {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
 @keyframes chipPop {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes holdPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .rec-hint {

@@ -98,6 +98,8 @@ class ComboRecorder:
         # Recent key presses for live UI feedback (bounded ring buffer)
         self._recent_keys: deque[dict[str, Any]] = deque(maxlen=_MAX_RECENT_KEYS)
         self._recent_seq: int = 0
+        # Track currently held keys to suppress auto-repeat in UI
+        self._held_keys: set[str] = set()
         # Buffered result: populated after stop_recording, consumed once by frontend
         self._pending_result: dict[str, Any] | None = None
         # Callbacks
@@ -185,6 +187,7 @@ class ComboRecorder:
         self._countdown_remaining = countdown
         self._recent_keys.clear()
         self._recent_seq = 0
+        self._held_keys.clear()
         self._pending_result = None
         self._notify()
 
@@ -299,18 +302,20 @@ class ComboRecorder:
         name = self._resolve_key(key)
         if not name:
             return
-        evt = _RawEvent(
-            key_name=name,
-            pressed=True,
-            timestamp=time.perf_counter() - self._start_time,
-        )
+        now = time.perf_counter() - self._start_time
+        evt = _RawEvent(key_name=name, pressed=True, timestamp=now)
         with self._lock:
             self._events.append(evt)
-        # Track recent keys for live UI
+
+        # Live UI: suppress auto-repeat (key already held down)
+        if name in self._held_keys:
+            return
+        self._held_keys.add(name)
+
         self._recent_seq += 1
         self._recent_keys.append({
             "key": name, "seq": self._recent_seq,
-            "t": round(evt.timestamp, 2),
+            "t": round(now, 2), "holding": True,
         })
         self._notify()
 
@@ -318,13 +323,20 @@ class ComboRecorder:
         name = self._resolve_key(key)
         if not name:
             return
-        evt = _RawEvent(
-            key_name=name,
-            pressed=False,
-            timestamp=time.perf_counter() - self._start_time,
-        )
+        now = time.perf_counter() - self._start_time
+        evt = _RawEvent(key_name=name, pressed=False, timestamp=now)
         with self._lock:
             self._events.append(evt)
+
+        self._held_keys.discard(name)
+
+        # Update the matching recent-key entry: mark as released, compute duration
+        for entry in reversed(self._recent_keys):
+            if entry["key"] == name and entry.get("holding"):
+                entry["holding"] = False
+                entry["dur"] = round(now - entry["t"], 2)
+                break
+        self._notify()
 
     # ------------------------------------------------------------------
     # Notification & status
