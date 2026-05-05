@@ -18,6 +18,7 @@ VK_T = 0x54       # Tactics protocol (对策协议)
 
 # --- Battle attack keys ---
 VK_J = 0x4A       # Normal attack
+VK_K = 0x4B       # Module (模块)
 VK_U = 0x55       # Skill 1
 VK_I = 0x49       # Skill 2
 VK_O = 0x4F       # Skill 3
@@ -38,7 +39,7 @@ VK_E = 0x45       # Camera rotate right
 KEY_NAMES: dict[int, str] = {
     VK_ESCAPE: "ESC", VK_ENTER: "Enter", VK_TAB: "Tab",
     VK_SPACE: "Space", VK_G: "G", VK_H: "H", VK_T: "T",
-    VK_J: "J", VK_U: "U", VK_I: "I", VK_O: "O", VK_R: "R",
+    VK_J: "J", VK_K: "K", VK_U: "U", VK_I: "I", VK_O: "O", VK_R: "R",
     VK_1: "1", VK_2: "2",
     VK_W: "W", VK_A: "A", VK_S: "S", VK_D: "D",
 }

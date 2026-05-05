@@ -162,6 +162,7 @@ import { api } from '../composables/useApi'
 // --- Key options ---
 const keyOptions = [
   { value: 'j', label: 'J - 攻击' },
+  { value: 'k', label: 'K - 模块' },
   { value: 'u', label: 'U - 技能1' },
   { value: 'i', label: 'I - 技能2' },
   { value: 'o', label: 'O - 技能3' },
@@ -176,7 +177,7 @@ const keyOptions = [
 ]
 
 const keyLabelMap = {
-  j: 'J', u: 'U', i: 'I', o: 'O', r: 'R',
+  j: 'J', k: 'K', u: 'U', i: 'I', o: 'O', r: 'R',
   '1': '1', '2': '2', space: '空格',
   w: 'W', a: 'A', s: 'S', d: 'D',
 }

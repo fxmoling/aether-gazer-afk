@@ -24,7 +24,7 @@ from anime_game_afk.games.aether_gazer.knowledge.keys import letter_to_vk
 
 # Keys the game uses (only record these)
 _GAME_KEYS = {
-    "j", "u", "i", "o", "r",    # combat
+    "j", "u", "i", "o", "r", "k",  # combat
     "1", "2",                     # QTE
     "space",                      # dodge
     "w", "a", "s", "d",          # movement
@@ -302,16 +302,18 @@ class ComboRecorder:
         name = self._resolve_key(key)
         if not name:
             return
+
+        # Suppress OS auto-repeat: if key is already held, skip entirely
+        if name in self._held_keys:
+            return
+        self._held_keys.add(name)
+
         now = time.perf_counter() - self._start_time
         evt = _RawEvent(key_name=name, pressed=True, timestamp=now)
         with self._lock:
             self._events.append(evt)
 
-        # Live UI: suppress auto-repeat (key already held down)
-        if name in self._held_keys:
-            return
-        self._held_keys.add(name)
-
+        # Live UI chip
         self._recent_seq += 1
         self._recent_keys.append({
             "key": name, "seq": self._recent_seq,
@@ -323,12 +325,16 @@ class ComboRecorder:
         name = self._resolve_key(key)
         if not name:
             return
+
+        # Only record release if we tracked this key as held
+        if name not in self._held_keys:
+            return
+        self._held_keys.discard(name)
+
         now = time.perf_counter() - self._start_time
         evt = _RawEvent(key_name=name, pressed=False, timestamp=now)
         with self._lock:
             self._events.append(evt)
-
-        self._held_keys.discard(name)
 
         # Update the matching recent-key entry: mark as released, compute duration
         for entry in reversed(self._recent_keys):
