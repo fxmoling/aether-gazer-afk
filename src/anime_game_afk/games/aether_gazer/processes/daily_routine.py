@@ -81,7 +81,7 @@ class DailyRoutine:
     Supports ``ctx.config["enabled_tasks"]`` to filter which tasks run.
     If not set, all tasks run (backward compatible).
     """
-    name = "每日任务"
+    name = "每日一条龙"
     description = "自动完成每日任务：邮件、商店、体力、公会、游园街等"
 
     @classmethod

@@ -24,7 +24,7 @@ class DuoweiProcess:
     Loops indefinitely until user stops or 3 consecutive failures.
     """
 
-    name = "多维变量挑战"
+    name = "多维变量"
     description = "自动重复挑战多维变量，累积积分（无限循环直到手动停止）"
 
     _MAX_CONSECUTIVE_FAILURES = 3

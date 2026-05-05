@@ -23,7 +23,7 @@ class LizhanProcess:
     Loops indefinitely until user stops or 3 consecutive failures.
     """
 
-    name = "历战轮回"
+    name = "历战刷熟练度"
     description = "自动无限刷历战轮回，用于刷熟练度或好感度（需手动导航到作战准备页面）"
 
     _MAX_CONSECUTIVE_FAILURES = 3
