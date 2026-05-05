@@ -314,6 +314,20 @@ class UserConfig:
         self._game(game_id)["duowei_swipe_multiplier"] = max(0.1, min(2.0, float(value)))
 
     # ------------------------------------------------------------------
+    # Lizhan (历战轮回) settings
+    # ------------------------------------------------------------------
+
+    def lizhan_next_key(self, game_id: str = "aether_gazer") -> str:
+        """Key for '挑战下一关' in 历战轮回 (default: 'J')."""
+        return self._game(game_id).get("lizhan_next_key", "J")
+
+    def set_lizhan_next_key(
+        self, key: str, game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the next-challenge key for 历战轮回."""
+        self._game(game_id)["lizhan_next_key"] = key.strip().upper()
+
+    # ------------------------------------------------------------------
     # Combat script selection
     # ------------------------------------------------------------------
 

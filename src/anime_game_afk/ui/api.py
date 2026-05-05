@@ -224,6 +224,7 @@ class Api:
             "combat_keybinds": cfg.combat_keybinds(),
             "combat_script": cfg.combat_script(),
             "duowei_swipe_multiplier": cfg.duowei_swipe_multiplier(),
+            "lizhan_next_key": cfg.lizhan_next_key(),
             "theme": cfg.theme(),
             "post_run_action": cfg.post_run_action(),
         }
@@ -264,6 +265,22 @@ class Api:
             cfg.set_duowei_swipe_multiplier(value)
             cfg.save()
             return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def save_lizhan_next_key(self, key: str) -> dict[str, Any]:
+        """Save 历战轮回 next-challenge key."""
+        from anime_game_afk.config.user_config import UserConfig
+        from anime_game_afk.games.aether_gazer.knowledge.keys import letter_to_vk
+
+        try:
+            letter_to_vk(key)
+            cfg = UserConfig.load()
+            cfg.set_lizhan_next_key(key)
+            cfg.save()
+            return {"ok": True}
+        except ValueError:
+            return {"ok": False, "error": f"不支持的按键: {key}"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

@@ -72,4 +72,6 @@ export const api = {
   getScheduleHistory: () => apiCall('get_schedule_history'),
   // Duowei settings
   saveDuoweiSwipeMultiplier: (value) => apiCall('save_duowei_swipe_multiplier', value),
+  // Lizhan settings
+  saveLizhanNextKey: (key) => apiCall('save_lizhan_next_key', key),
 }

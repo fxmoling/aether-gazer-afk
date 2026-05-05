@@ -88,6 +88,22 @@
       <p class="duowei-hint">基于帧率自动设置，也可手动微调。120帧=1.0x，帧率越低需要值越小。</p>
     </div>
 
+    <!-- Lizhan-specific settings -->
+    <div class="duowei-settings" v-if="state.selectedPipelineId === 'lizhan_loop'">
+      <div class="duowei-setting-row">
+        <label>挑战下一关按键</label>
+        <input
+          type="text"
+          class="key-input"
+          v-model="lizhanNextKey"
+          maxlength="5"
+          placeholder="J"
+          @change="saveLizhanNextKey"
+        >
+      </div>
+      <p class="duowei-hint">游戏中"挑战下一关"的快捷键，默认为 J（普通攻击键）</p>
+    </div>
+
     <!-- Post-run action -->
     <div class="post-action-bar">
       <label>完成后</label>
@@ -116,6 +132,7 @@ const showTips = ref(true)
 const swipeMultiplier = ref(1.0)
 const selectedFps = ref(120)
 const postRunAction = ref('nothing')
+const lizhanNextKey = ref('J')
 
 const fpsPresets = [
   { fps: 120, label: '120帧', multiplier: 1.0 },
@@ -129,6 +146,7 @@ onMounted(() => {
   if (saved === 'true') showTips.value = false
   loadSwipeMultiplier()
   loadPostRunAction()
+  loadLizhanNextKey()
 })
 
 async function loadSwipeMultiplier() {
@@ -166,6 +184,20 @@ async function savePostRunAction() {
   await api.setPostRunAction(postRunAction.value)
 }
 
+async function loadLizhanNextKey() {
+  const data = await api.getSettings()
+  if (data && data.lizhan_next_key) {
+    lizhanNextKey.value = data.lizhan_next_key
+  }
+}
+
+async function saveLizhanNextKey() {
+  const result = await api.saveLizhanNextKey(lizhanNextKey.value)
+  if (result && !result.ok) {
+    lizhanNextKey.value = 'J'
+  }
+}
+
 function dismissTips() {
   showTips.value = false
   saveTips()
@@ -184,6 +216,12 @@ const tipsByPipeline = {
     { icon: '⌨️', text: '操控模式选择「<b>键盘</b>」，不要使用键鼠模式' },
     { icon: '⚙️', text: '如修改了战斗快捷键，请在<b>设置 → 战斗按键</b>中同步配置' },
     { icon: '🔓', text: '确保至少已经解锁难度 <b>Lv16</b>' },
+  ],
+  lizhan_loop: [
+    { icon: '🖥', text: '游戏分辨率须为 <b>16:9</b>（如 1920×1080、2560×1440）' },
+    { icon: '⚔️', text: '必须<b>手动导航</b>到历战轮回作战准备页面再启动' },
+    { icon: '⌨️', text: '操控模式选择「<b>键盘</b>」，确认"挑战下一关"按键与下方设置一致' },
+    { icon: '🔄', text: '将自动无限循环，直到手动停止或连续失败 3 次' },
   ],
 }
 
@@ -426,6 +464,19 @@ const progressPct = computed(() =>
   color: var(--text-muted);
   margin-top: 4px;
   margin-left: 102px;
+}
+
+.key-input {
+  width: 60px;
+  padding: 4px 8px;
+  text-align: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 /* Post-run action */
