@@ -19,6 +19,21 @@
         </Transition>
       </main>
     </div>
+    <!-- Toast notifications -->
+    <Teleport to="body">
+      <TransitionGroup name="toast" tag="div" class="toast-container">
+        <div
+          v-for="t in state.toasts"
+          :key="t.id"
+          class="toast-item"
+          :class="'toast-' + t.type"
+          @click="dismissToast(t.id)"
+        >
+          <span class="toast-icon">{{ t.type === 'error' ? '❌' : t.type === 'warning' ? '⚠️' : 'ℹ️' }}</span>
+          <span class="toast-text">{{ t.text }}</span>
+        </div>
+      </TransitionGroup>
+    </Teleport>
   </div>
 </template>
 
@@ -32,6 +47,7 @@ import ScheduleView from './views/ScheduleView.vue'
 import CombatView from './views/CombatView.vue'
 import { api } from './composables/useApi'
 import {
+  state,
   loadPipelines,
   loadRecentLogs,
   pollStatus,
@@ -39,6 +55,8 @@ import {
   onConnected,
   onStatusMsg,
   onError,
+  onTaskMessage,
+  dismissToast,
   appendLog,
   onRunComplete,
 } from './composables/useStore'
@@ -85,6 +103,7 @@ onMounted(async () => {
   window.onConnected = onConnected
   window.onStatusMsg = onStatusMsg
   window.onError = onError
+  window.onTaskMessage = onTaskMessage
   window.appendLog = appendLog
   window.onRunComplete = onRunComplete
 
@@ -100,4 +119,76 @@ onUnmounted(() => {
 })
 </script>
 
+<style>
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 380px;
+}
 
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  border: 1px solid rgba(255, 100, 100, 0.4);
+}
+
+.toast-warning {
+  background: rgba(245, 158, 11, 0.9);
+  color: #fff;
+  border: 1px solid rgba(255, 200, 50, 0.4);
+}
+
+.toast-info {
+  background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  border: 1px solid rgba(140, 140, 255, 0.4);
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.toast-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.toast-enter-active {
+  transition: all 0.3s ease;
+}
+
+.toast-leave-active {
+  transition: all 0.2s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(40px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(40px);
+}
+</style>

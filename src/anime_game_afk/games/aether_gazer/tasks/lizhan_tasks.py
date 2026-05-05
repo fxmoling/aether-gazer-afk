@@ -136,7 +136,7 @@ class LizhanCombat:
         """Handle the restart sequence after reaching 轮回节点-10."""
         # Press Enter to confirm
         ctx.logger.info("[lizhan] Restart: pressing Enter")
-        await PressKeyOp(VK_ENTER, wait=0.5).run(ctx)
+        await PressKeyOp(VK_ENTER, wait=2.0).run(ctx)
 
         # Click the restart button at fixed position
         ctx.logger.info("[lizhan] Restart: clicking restart button")

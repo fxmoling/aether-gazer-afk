@@ -580,6 +580,7 @@ class TaskManager:
                 if msg_type == "task_status":
                     task_id = msg.get("id", "")
                     status = msg.get("status", "")
+                    message = msg.get("message", "")
                     with self._lock:
                         for p in self._pipelines:
                             for t in p.tasks:
@@ -588,6 +589,13 @@ class TaskManager:
                     self._push_task_status(task_id, status)
                     if status == "success":
                         self._completed_count += 1
+                    if status == "failed" and message:
+                        self._push_js(
+                            f"window.onTaskMessage && window.onTaskMessage("
+                            f"{json.dumps(task_id)}, "
+                            f"{json.dumps(status)}, "
+                            f"{json.dumps(message)})"
+                        )
 
                 elif msg_type == "connected":
                     res_str = msg.get("resolution", "")

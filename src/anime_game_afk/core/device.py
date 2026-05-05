@@ -413,16 +413,11 @@ class DeviceAdapter:
         logger.debug("press_key 0x{:02X}", vk_code)
 
     def hold_key(self, vk_code: int, duration_s: float) -> None:
-        """Simulate holding a key for a given duration.
-
-        MaaFramework does not expose separate key-down / key-up primitives.
-        This method approximates a hold by rapidly pressing the key in a
-        loop for *duration_s* seconds (every ~100ms).  This produces
-        continuous movement for WASD exploration.
+        """Hold a key for a given duration using key_down + sleep + key_up.
 
         Args:
             vk_code: Virtual-key code (Win32 VK_* constant).
-            duration_s: How long to "hold" the key in seconds.
+            duration_s: How long to hold the key in seconds.
 
         Raises:
             DeviceConnectionError: Not connected.
@@ -430,18 +425,12 @@ class DeviceAdapter:
         self._ensure_connected()
         assert self._controller is not None
 
-        interval = 0.1  # press every 100ms
-        end_time = time.monotonic() + duration_s
-        presses = 0
-        while time.monotonic() < end_time:
-            self._controller.post_press_key(vk_code).wait()
-            presses += 1
-            remaining = end_time - time.monotonic()
-            if remaining > 0:
-                time.sleep(min(interval, remaining))
+        self._controller.post_key_down(vk_code).wait()
+        time.sleep(duration_s)
+        self._controller.post_key_up(vk_code).wait()
         logger.debug(
-            "hold_key 0x{:02X} for {:.2f}s ({} presses)",
-            vk_code, duration_s, presses,
+            "hold_key 0x{:02X} for {:.2f}s (key_down/key_up)",
+            vk_code, duration_s,
         )
 
     # ------------------------------------------------------------------

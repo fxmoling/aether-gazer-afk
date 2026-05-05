@@ -25,6 +25,9 @@ const state = reactive({
   // Logs
   logs: [],
   logFilter: 'ALL',
+
+  // Toasts
+  toasts: [],
 })
 
 // --- Computed ---
@@ -148,6 +151,26 @@ export function onStatusMsg(msg) {
 export function onError(msg) {
   state.statusMsg = msg || '出错了'
   state._hasError = true
+  pushToast(msg || '出错了', 'error')
+}
+
+export function onTaskMessage(taskId, status, message) {
+  if (status === 'failed' && message) {
+    pushToast(message, 'warning')
+  }
+}
+
+export function pushToast(text, type = 'info', duration = 6000) {
+  const id = Date.now() + Math.random()
+  state.toasts.push({ id, text, type })
+  if (duration > 0) {
+    setTimeout(() => dismissToast(id), duration)
+  }
+}
+
+export function dismissToast(id) {
+  const idx = state.toasts.findIndex(t => t.id === id)
+  if (idx !== -1) state.toasts.splice(idx, 1)
 }
 
 export function appendLog(entry) {
