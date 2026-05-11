@@ -38,8 +38,9 @@ _ocr_available: bool | None = None
 
 def _get_ocr_engine():
     """Lazy-initialize RapidOCR engine. Returns None if unavailable.
-    
-    Attempts DirectML (GPU) first, falls back to CPU.
+
+    Tries DirectML (GPU) first, falls back to CPU with a clear log
+    line explaining why so users on GPU-less systems aren't confused.
     """
     global _ocr_engine, _ocr_available
     if _ocr_available is not None:
@@ -48,23 +49,42 @@ def _get_ocr_engine():
     try:
         from rapidocr_onnxruntime import RapidOCR
 
-        # Try DirectML (GPU) first
+        # Try DirectML (GPU) first — works on virtually all Win10+
+        # systems with a DirectX 12 capable GPU (NVIDIA / AMD / Intel iGPU
+        # since 2015).  Fails gracefully on RDP / VMs without GPU passthrough.
         try:
             import onnxruntime as ort
-            if "DmlExecutionProvider" in ort.get_available_providers():
+            providers = ort.get_available_providers()
+            if "DmlExecutionProvider" in providers:
                 _ocr_engine = RapidOCR(
                     det_use_dml=True, rec_use_dml=True, cls_use_dml=True,
                 )
                 _ocr_available = True
-                _loguru.info("RapidOCR engine initialized (DirectML GPU)")
+                _loguru.info(
+                    "RapidOCR engine initialized (DirectML GPU) — "
+                    "expect ~200ms per call"
+                )
                 return _ocr_engine
+            else:
+                _loguru.warning(
+                    "DmlExecutionProvider not available (providers={}). "
+                    "Falling back to CPU OCR (~1500ms per call). "
+                    "If you have a DirectX 12 GPU, reinstall onnxruntime: "
+                    "pip uninstall onnxruntime -y && pip install onnxruntime-directml",
+                    providers,
+                )
         except Exception as exc:
-            _loguru.debug("DirectML init failed, falling back to CPU: {}", exc)
+            _loguru.warning(
+                "DirectML init failed, falling back to CPU OCR "
+                "(~1500ms per call): {}", exc,
+            )
 
-        # CPU fallback
+        # CPU fallback — slower but works everywhere
         _ocr_engine = RapidOCR()
         _ocr_available = True
-        _loguru.info("RapidOCR engine initialized (CPU)")
+        _loguru.info(
+            "RapidOCR engine initialized (CPU) — expect ~1500ms per call"
+        )
     except ImportError:
         _ocr_engine = None
         _ocr_available = False

@@ -299,8 +299,67 @@ coll = COLLECT(
     return spec
 
 
+def _ensure_directml_only_ort() -> None:
+    """Ensure onnxruntime-directml is installed and the CPU-only
+    ``onnxruntime`` package is NOT present.
+
+    rapidocr_onnxruntime declares ``onnxruntime>=1.7.0`` as a dependency,
+    so any plain ``pip install -e .`` will pull in the CPU-only build,
+    which lacks ``DmlExecutionProvider`` and overrides any existing
+    onnxruntime-directml install (they share the same module name).
+
+    Without this, OCR silently falls back to CPU at ~1.4s/call instead
+    of ~0.2s/call on GPU — a >6x slowdown on every screenshot.
+    """
+    import importlib.metadata as md
+
+    have_dml = False
+    have_cpu = False
+    for d in md.distributions():
+        name = (d.metadata["Name"] or "").lower()
+        if name == "onnxruntime-directml":
+            have_dml = True
+        elif name == "onnxruntime":
+            have_cpu = True
+
+    if have_dml and not have_cpu:
+        return  # already correct
+
+    print("Fixing onnxruntime install (must be -directml, not CPU)...")
+    if have_cpu:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "-y", "onnxruntime"],
+            check=False,
+        )
+    if not have_dml:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "onnxruntime-directml"],
+            check=True,
+        )
+
+    # Verify DML provider is now reachable
+    try:
+        import importlib
+        import onnxruntime as ort
+        importlib.reload(ort)
+        provs = ort.get_available_providers()
+        if "DmlExecutionProvider" not in provs:
+            print(
+                f"WARNING: DmlExecutionProvider still missing after fix. "
+                f"Providers: {provs}"
+            )
+        else:
+            print(f"OK: ORT providers = {provs}")
+    except Exception as exc:
+        print(f"WARNING: could not verify ORT providers: {exc}")
+
+
 def build(skip_spec: bool = False) -> None:
     """Run the PyInstaller build."""
+    # Step 0: Sanity-check ORT install — must be directml, not CPU.
+    # Without this, the dist will OCR on CPU and be ~6x slower.
+    _ensure_directml_only_ort()
+
     # Step 1: Generate .spec
     if not skip_spec:
         spec_content = generate_spec()
