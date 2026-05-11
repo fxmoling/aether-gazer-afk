@@ -23,10 +23,20 @@ BUILD_DIR = PROJECT_ROOT / "build"
 APP_NAME = "anime-game-afk"
 SPEC_FILE = PROJECT_ROOT / f"{APP_NAME}.spec"
 
-# Site-packages base
-SITE_PACKAGES = Path(sys.executable).parent / "Lib" / "site-packages"
+# Site-packages base — discover via sysconfig so it works for both
+# system Python (Lib/site-packages beside python.exe) and venvs
+# (where python.exe lives in Scripts/ but site-packages is one level
+# up under Lib/).
+import sysconfig
+SITE_PACKAGES = Path(sysconfig.get_paths()["purelib"])
 MAA_PKG = SITE_PACKAGES / "maa"
 MAA_AGENT_BINARY = SITE_PACKAGES / "MaaAgentBinary"
+
+if not MAA_PKG.exists():
+    raise SystemExit(
+        f"FATAL: maa package not found at {MAA_PKG}. "
+        f"Run pip install -e .[dev] in the active environment first."
+    )
 
 
 def clean() -> None:
