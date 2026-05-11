@@ -313,6 +313,111 @@ class UserConfig:
         """Set camera rotation multiplier (clamped to 0.1–2.0)."""
         self._game(game_id)["duowei_swipe_multiplier"] = max(0.1, min(2.0, float(value)))
 
+    # ── Force-select character on duowei character page ──
+    #
+    # The default character chosen by the game may be too weak to clear
+    # 1-2.  We force-select 真红 (a character every player owns and that
+    # matches the 真樱 + 物理 tag combination) by opening the bottom-left
+    # filter, applying the configured tags, then iterating the avatar
+    # grid until OCR confirms the target name in the right-side preview.
+    #
+    # An empty string in ``duowei_force_character`` disables the whole
+    # flow and falls back to the previous "just click 下一步" behavior.
+
+    def duowei_force_character(self, game_id: str = "aether_gazer") -> str:
+        """Character name to force-select on duowei character page.
+
+        Default: ``真红`` — owned by every account and matches the default
+        ``真樱`` + ``物理`` tag filter.  Empty string disables the feature.
+        """
+        val = self._game(game_id).get("duowei_force_character", "真红")
+        return str(val).strip() if val is not None else ""
+
+    def set_duowei_force_character(
+        self, name: str, game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the force-selected character name (empty string disables)."""
+        self._game(game_id)["duowei_force_character"] = (name or "").strip()
+
+    def duowei_filter_tags(self, game_id: str = "aether_gazer") -> list[str]:
+        """Tags to apply in the character filter dialog.
+
+        Default: ``["真樱", "物理"]`` — narrows the roster down to a small
+        set that always contains 真红.
+        """
+        raw = self._game(game_id).get("duowei_filter_tags", ["真樱", "物理"])
+        if not isinstance(raw, list):
+            return ["真樱", "物理"]
+        return [str(t).strip() for t in raw if str(t).strip()]
+
+    def set_duowei_filter_tags(
+        self, tags: list[str], game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the character filter tag list."""
+        self._game(game_id)["duowei_filter_tags"] = [
+            str(t).strip() for t in tags if str(t).strip()
+        ]
+
+    _DUOWEI_AVATAR_GRID_DEFAULT: dict[str, Any] = {
+        # Measured 2026-05-11 from a real character page screenshot:
+        # 等级80 label was at (167, 302) px on a 1600x900 capture, and
+        # the avatar icon sits ~80px above the label center (≈(202, 222)).
+        "x1": 0.126,       # First avatar (top-left, default-selected) center fx
+        "y1": 0.247,       # First avatar center fy (label_y - 80px) / 900
+        # Column spacing measured from secondary OCR landmark at (418, 302):
+        "offset_x": 0.157, # (418 - 167) / 1600 ≈ 0.157
+        # Row spacing measured between adjacent 等级80 labels (302 → 474):
+        "offset_y": 0.191, # (474 - 302) / 900 ≈ 0.191
+        "cols": 2,         # Avatars per row
+        "rows": 4,         # Maximum rows to probe (must avoid 下一步 button area)
+    }
+
+    def duowei_avatar_grid(self, game_id: str = "aether_gazer") -> dict[str, Any]:
+        """Avatar grid layout for force-character iteration.
+
+        All coordinates are fractional [0.0, 1.0].  Returned dict is a
+        merge of the built-in defaults and any user overrides, so missing
+        keys fall back gracefully.
+        """
+        raw = self._game(game_id).get("duowei_avatar_grid", {})
+        if not isinstance(raw, dict):
+            raw = {}
+        return {**self._DUOWEI_AVATAR_GRID_DEFAULT, **raw}
+
+    def set_duowei_avatar_grid(
+        self, grid: dict[str, Any], game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the avatar grid layout (merged with defaults at read time)."""
+        self._game(game_id)["duowei_avatar_grid"] = dict(grid)
+
+    def duowei_filter_button_fallback(
+        self, game_id: str = "aether_gazer",
+    ) -> tuple[float, float]:
+        """Fractional coord to click when OCR cannot locate the 筛选 button.
+
+        Default: ``(0.040, 0.931)`` — bottom-left funnel icon on the
+        AetherGazer duowei character selection screen.  Measured by
+        E2E test 2026-05-11: this exact coord opens the filter dialog.
+        Note: the funnel is an icon-only button (no text), so OCR will
+        never find ``筛选`` and the fallback is the primary code path.
+        """
+        raw = self._game(game_id).get("duowei_filter_button_fallback", [0.040, 0.931])
+        try:
+            fx = float(raw[0])
+            fy = float(raw[1])
+        except (TypeError, ValueError, IndexError):
+            fx, fy = 0.040, 0.931
+        return (max(0.0, min(1.0, fx)), max(0.0, min(1.0, fy)))
+
+    def set_duowei_filter_button_fallback(
+        self, fx: float, fy: float, game_id: str = "aether_gazer",
+    ) -> None:
+        """Set the fallback coord for the filter button."""
+        self._game(game_id)["duowei_filter_button_fallback"] = [
+            max(0.0, min(1.0, float(fx))),
+            max(0.0, min(1.0, float(fy))),
+        ]
+
     # ------------------------------------------------------------------
     # Lizhan (历战轮回) settings
     # ------------------------------------------------------------------

@@ -143,3 +143,108 @@ class TestSettingsAccessors:
         cfg_path = tmp_path / "cfg.yaml"
         cfg = UserConfig.load(cfg_path)
         assert cfg.path == cfg_path
+
+
+class TestDuoweiForceCharacter:
+    """Test the duowei force-character config accessors."""
+
+    def test_force_character_default_zhenhong(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        assert cfg.duowei_force_character() == "真红"
+
+    def test_set_force_character_strips_whitespace(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_force_character("  钦努克  ")
+        assert cfg.duowei_force_character() == "钦努克"
+
+    def test_set_force_character_empty_disables(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_force_character("")
+        assert cfg.duowei_force_character() == ""
+
+    def test_filter_tags_default(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        assert cfg.duowei_filter_tags() == ["真樱", "物理"]
+
+    def test_set_filter_tags(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_filter_tags(["朱雀", "雷电"])
+        assert cfg.duowei_filter_tags() == ["朱雀", "雷电"]
+
+    def test_set_filter_tags_strips_empty_entries(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_filter_tags(["真樱", "  ", "物理", ""])
+        assert cfg.duowei_filter_tags() == ["真樱", "物理"]
+
+    def test_filter_tags_invalid_type_returns_default(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg._game("aether_gazer")["duowei_filter_tags"] = "not a list"
+        assert cfg.duowei_filter_tags() == ["真樱", "物理"]
+
+    def test_avatar_grid_defaults(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        grid = cfg.duowei_avatar_grid()
+        assert grid["cols"] == 2
+        assert grid["rows"] == 4
+        # Measured E2E values (2026-05-11):
+        assert grid["x1"] == 0.126
+        assert grid["y1"] == 0.247
+        assert grid["offset_x"] == 0.157
+        assert grid["offset_y"] == 0.191
+
+    def test_avatar_grid_user_overrides_merge_with_defaults(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_avatar_grid({"x1": 0.20, "rows": 3})
+        grid = cfg.duowei_avatar_grid()
+        assert grid["x1"] == 0.20
+        assert grid["rows"] == 3
+        # Other fields fall back to (measured) defaults
+        assert grid["cols"] == 2
+        assert grid["offset_x"] == 0.157
+
+    def test_avatar_grid_invalid_type_returns_defaults(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg._game("aether_gazer")["duowei_avatar_grid"] = "garbage"
+        grid = cfg.duowei_avatar_grid()
+        assert grid["cols"] == 2
+        assert grid["rows"] == 4
+
+    def test_filter_button_fallback_default(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        fx, fy = cfg.duowei_filter_button_fallback()
+        # Measured E2E (2026-05-11): exact funnel-button center
+        assert fx == 0.040
+        assert fy == 0.931
+
+    def test_set_filter_button_fallback_clamps(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg.set_duowei_filter_button_fallback(1.5, -0.3)
+        fx, fy = cfg.duowei_filter_button_fallback()
+        assert fx == 1.0
+        assert fy == 0.0
+
+    def test_filter_button_fallback_invalid_returns_default(self, tmp_path):
+        cfg = UserConfig.load(tmp_path / "cfg.yaml")
+        cfg._game("aether_gazer")["duowei_filter_button_fallback"] = "broken"
+        fx, fy = cfg.duowei_filter_button_fallback()
+        assert fx == 0.040
+        assert fy == 0.931
+
+    def test_force_character_round_trip_through_yaml(self, tmp_path):
+        cfg_path = tmp_path / "cfg.yaml"
+        cfg = UserConfig.load(cfg_path)
+        cfg.set_duowei_force_character("曙光")
+        cfg.set_duowei_filter_tags(["公会", "光明"])
+        cfg.set_duowei_avatar_grid({"x1": 0.15, "rows": 5})
+        cfg.set_duowei_filter_button_fallback(0.07, 0.88)
+        cfg.save()
+
+        cfg2 = UserConfig.load(cfg_path)
+        assert cfg2.duowei_force_character() == "曙光"
+        assert cfg2.duowei_filter_tags() == ["公会", "光明"]
+        grid = cfg2.duowei_avatar_grid()
+        assert grid["x1"] == 0.15
+        assert grid["rows"] == 5
+        fx, fy = cfg2.duowei_filter_button_fallback()
+        assert fx == 0.07
+        assert fy == 0.88

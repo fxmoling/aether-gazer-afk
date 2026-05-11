@@ -273,7 +273,9 @@ class DuoweiCombat:
             await self._ocr_click(ctx, "下一步", "difficulty fallback")
         await SleepOp(self._SETUP_WAIT).run(ctx)
 
-        # Step 2: Character → 下一步
+        # Step 2: Character → (optional) force-select 真红 → 下一步
+        await self._select_force_character(ctx)
+        await SleepOp(0.5).run(ctx)
         ctx.logger.info("[duowei] Setup: advancing past character page")
         await self._ocr_click(ctx, "下一步", "character")
         await SleepOp(self._SETUP_WAIT).run(ctx)
@@ -343,6 +345,193 @@ class DuoweiCombat:
             ctx.logger.debug(f"[duowei] {label}: clicked {text}")
             return True
         ctx.logger.debug(f"[duowei] {label}: {text} not found")
+        return False
+
+    # ── Force-select character on character page ──
+    #
+    # Defaults to picking 真红 (a character every account owns and that
+    # matches the 真樱 + 物理 tag combo).  Driven by UserConfig values:
+    #   duowei_force_character        — character name (empty = disabled)
+    #   duowei_filter_tags            — tags to apply in filter dialog
+    #   duowei_avatar_grid            — avatar grid layout (fractional)
+    #   duowei_filter_button_fallback — coord for filter button if OCR fails
+    #
+    # All OCR-driven where possible; only the filter button location and
+    # avatar grid are coordinate-based and exposed as user-tunable config.
+
+    async def _select_force_character(self, ctx: TaskContext) -> bool:
+        """Filter the roster, then iterate avatars until target name is selected.
+
+        Returns True if the target was selected (or feature disabled);
+        False if the filter could not be opened.  Either way the caller
+        proceeds to click "下一步" — failure simply means we use whichever
+        character the game has highlighted.
+        """
+        from anime_game_afk.config.user_config import UserConfig
+
+        cfg = UserConfig.load()
+        target = cfg.duowei_force_character()
+        if not target:
+            ctx.logger.info("[duowei] Force-character disabled, using game default")
+            return True
+
+        tags = cfg.duowei_filter_tags()
+        grid = cfg.duowei_avatar_grid()
+        ctx.logger.info(
+            f"[duowei] Force-character: target='{target}', tags={tags}"
+        )
+
+        # Step 1: Open filter dialog
+        if not await self._open_filter_dialog(ctx, tags):
+            ctx.logger.warning(
+                "[duowei] Could not open filter dialog — falling back to game default"
+            )
+            return False
+
+        # Step 2: Click each tag (no-op if tag is missing/already selected)
+        for tag in tags:
+            if not await self._ocr_click(ctx, tag, f"filter tag '{tag}'"):
+                ctx.logger.warning(
+                    f"[duowei] Filter tag '{tag}' not visible — skipping"
+                )
+            await SleepOp(0.4).run(ctx)
+
+        # Step 3: Confirm filter — OCR find 确认/确定, fallback to Enter
+        confirmed = False
+        for label in ("确认", "确定"):
+            if await self._ocr_click(ctx, label, f"filter confirm '{label}'"):
+                confirmed = True
+                break
+        if not confirmed:
+            ctx.logger.warning(
+                "[duowei] Filter confirm button not found, pressing Enter"
+            )
+            ctx.device.press_key(VK_ENTER)
+        await SleepOp(1.5).run(ctx)
+
+        # Defensive cleanup: if the filter dialog is still showing
+        # (e.g. confirm click missed), press ESC so 下一步 is unobscured.
+        # Filter dialog typically shows a 重置 button; character page
+        # always shows 下一步 at the bottom-right.
+        cleanup = ocr_once(ctx.screenshot())
+        if cleanup.has("重置") or not cleanup.has("下一步"):
+            ctx.logger.info(
+                "[duowei] Filter dialog appears still open — sending ESC"
+            )
+            ctx.device.press_key(VK_ESCAPE)
+            await SleepOp(1.0).run(ctx)
+
+        # Step 4: Try to find target in the filtered roster
+        return await self._find_character_in_grid(ctx, target, grid)
+
+    async def _open_filter_dialog(
+        self, ctx: TaskContext, expected_tags: list[str],
+    ) -> bool:
+        """Click the bottom-left 筛选 button to open the tag filter dialog.
+
+        The 筛选 button is an icon-only funnel (no text label) so OCR
+        cannot locate it.  We click the user-configurable fallback
+        coordinate directly.  Verifies success by OCR-checking that at
+        least one expected tag appears on screen.
+        """
+        from anime_game_afk.config.user_config import UserConfig
+
+        fx, fy = UserConfig.load().duowei_filter_button_fallback()
+        ctx.logger.info(
+            f"[duowei] Clicking filter funnel @ ({fx:.3f}, {fy:.3f})"
+        )
+        ctx.device.click(fx, fy)
+        await SleepOp(1.5).run(ctx)
+
+        if self._dialog_has_any_tag(ctx, expected_tags):
+            return True
+
+        # Retry once with a slightly nudged coord — game UI sometimes
+        # shifts by 1-2px depending on resolution rounding.
+        nudged = (fx + 0.005, fy)
+        ctx.logger.warning(
+            f"[duowei] Filter dialog not detected after first click, "
+            f"retrying @ ({nudged[0]:.3f}, {nudged[1]:.3f})"
+        )
+        ctx.device.click(*nudged)
+        await SleepOp(1.5).run(ctx)
+        return self._dialog_has_any_tag(ctx, expected_tags)
+
+    def _dialog_has_any_tag(
+        self, ctx: TaskContext, expected_tags: list[str],
+    ) -> bool:
+        """Verify the filter dialog is open by OCR-checking for any tag."""
+        if not expected_tags:
+            return True
+        img = ctx.screenshot()
+        ocr = ocr_once(img)
+        return any(ocr.has(t) for t in expected_tags)
+
+    async def _find_character_in_grid(
+        self, ctx: TaskContext, target: str, grid: dict[str, object],
+    ) -> bool:
+        """Iterate avatar positions, OCR-checking the right preview for *target*.
+
+        Layout convention: 2 columns per row.  After filter, the first
+        avatar is auto-selected, so we OCR-check the current preview
+        BEFORE clicking anything (saves one click in the common case).
+
+        Returns True on first match; False after exhausting all positions.
+        """
+        # Optimistic check: target may already be selected by the filter
+        img = ctx.screenshot()
+        if ocr_once(img).has(target):
+            ctx.logger.info(
+                f"[duowei] '{target}' already selected after filter (no clicks needed)"
+            )
+            return True
+
+        cols = max(1, int(grid.get("cols", 2)))
+        rows = max(1, int(grid.get("rows", 4)))
+        x1 = float(grid.get("x1", 0.10))
+        y1 = float(grid.get("y1", 0.30))
+        ox = float(grid.get("offset_x", 0.13))
+        oy = float(grid.get("offset_y", 0.22))
+
+        for r in range(rows):
+            for c in range(cols):
+                fx = x1 + c * ox
+                fy = y1 + r * oy
+                # Clamp to safe screen area to avoid clicking 下一步 etc.
+                if not (0.0 < fx < 1.0 and 0.0 < fy < 1.0):
+                    ctx.logger.debug(
+                        f"[duowei] Avatar ({c},{r}) out of bounds ({fx:.3f},{fy:.3f}), skipping"
+                    )
+                    continue
+                ctx.logger.debug(
+                    f"[duowei] Trying avatar ({c},{r}) at ({fx:.3f}, {fy:.3f})"
+                )
+                ctx.device.click(fx, fy)
+                await SleepOp(0.6).run(ctx)
+
+                img = ctx.screenshot()
+                ocr = ocr_once(img)
+                if ocr.has(target):
+                    ctx.logger.info(
+                        f"[duowei] Selected '{target}' at avatar ({c},{r}) "
+                        f"= ({fx:.3f}, {fy:.3f})"
+                    )
+                    return True
+
+                # Safety: if 下一步 is gone we've accidentally left the
+                # character page (likely clicked the next/back button).
+                # Bail out so we don't make things worse.
+                if not ocr.has("下一步"):
+                    ctx.logger.warning(
+                        f"[duowei] '下一步' not visible after clicking ({fx:.3f},{fy:.3f})"
+                        f" — likely off the character page, aborting grid scan"
+                    )
+                    return False
+
+        ctx.logger.warning(
+            f"[duowei] '{target}' not found in {cols}x{rows} grid; "
+            f"proceeding with whichever character is currently selected"
+        )
         return False
 
     async def _select_beacon(self, ctx: TaskContext) -> None:
