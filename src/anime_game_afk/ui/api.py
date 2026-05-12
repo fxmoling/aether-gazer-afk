@@ -77,6 +77,16 @@ class Api:
         """Stop execution after the current task completes."""
         return self._tm.stop()
 
+    def recover_input(self) -> dict[str, Any]:
+        """Emergency: release any stuck keys / BlockInput state.
+
+        Use when keyboard or mouse feels unresponsive after running a task.
+        Connects briefly, sends ``key_up`` for every key the bot may have
+        held, calls ``BlockInput(FALSE)``, then disconnects.  Idempotent
+        and safe to call any time.
+        """
+        return self._tm.recover_input()
+
     # ------------------------------------------------------------------
     # Auto-battle
     # ------------------------------------------------------------------

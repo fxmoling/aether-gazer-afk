@@ -454,30 +454,72 @@ def test_press_key_delegation(connected_adapter: DeviceAdapter) -> None:
     connected_adapter._ctrl_mock.post_press_key.assert_called_once_with(0x0D)  # type: ignore[attr-defined]
 
 
-def test_hold_key_presses_repeatedly(
+def test_hold_key_uses_keydown_keyup(
     connected_adapter: DeviceAdapter,
 ) -> None:
-    """hold_key must press the key multiple times over the duration."""
+    """hold_key sends a single key_down, sleeps, then sends key_up."""
     with patch("anime_game_afk.core.device.time") as mock_time:
-        # Simulate time passing: first call returns 0, then increments
-        call_count = 0
-        def fake_monotonic() -> float:
-            nonlocal call_count
-            call_count += 1
-            # First few calls return 0 (before end_time), then exceed it
-            if call_count <= 3:
-                return 0.0
-            return 1.0  # exceeds any reasonable duration
-
-        mock_time.monotonic = fake_monotonic
         mock_time.sleep = MagicMock()
         connected_adapter.hold_key(0x57, 0.3)  # VK_W, 0.3s
 
-    # Should have pressed the key at least once
-    assert connected_adapter._ctrl_mock.post_press_key.call_count >= 1  # type: ignore[attr-defined]
-    # All presses should be the same key
-    for c in connected_adapter._ctrl_mock.post_press_key.call_args_list:  # type: ignore[attr-defined]
-        assert c == call(0x57)
+    ctrl = connected_adapter._ctrl_mock  # type: ignore[attr-defined]
+    ctrl.post_key_down.assert_called_once_with(0x57)
+    ctrl.post_key_up.assert_called_once_with(0x57)
+    mock_time.sleep.assert_called_once_with(0.3)
+
+
+def test_hold_key_sends_keyup_even_on_sleep_exception(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """If time.sleep raises, key_up must still be sent (try/finally guarantee)."""
+    with patch("anime_game_afk.core.device.time") as mock_time:
+        mock_time.sleep = MagicMock(side_effect=KeyboardInterrupt())
+        with pytest.raises(KeyboardInterrupt):
+            connected_adapter.hold_key(0x57, 0.3)
+
+    ctrl = connected_adapter._ctrl_mock  # type: ignore[attr-defined]
+    ctrl.post_key_down.assert_called_once_with(0x57)
+    ctrl.post_key_up.assert_called_once_with(0x57)
+
+
+def test_release_all_held_keys_sends_keyup_for_recovery_set(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """release_all_held_keys sends key_up for every key in _RECOVERY_VK_CODES."""
+    connected_adapter.release_all_held_keys()
+    ctrl = connected_adapter._ctrl_mock  # type: ignore[attr-defined]
+    actual_keys = [c.args[0] for c in ctrl.post_key_up.call_args_list]
+    assert actual_keys == list(DeviceAdapter._RECOVERY_VK_CODES)
+
+
+def test_release_all_held_keys_no_controller_is_safe() -> None:
+    """release_all_held_keys is a no-op when not connected (no exception)."""
+    from anime_game_afk.config.models import GameConfig
+    from maa.define import (
+        MaaWin32InputMethodEnum,
+        MaaWin32ScreencapMethodEnum,
+    )
+    cfg = GameConfig(
+        name="X",
+        window_title="X",
+        resource_path=__file__,
+        screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
+        mouse_method=MaaWin32InputMethodEnum.SendMessage,
+        keyboard_method=MaaWin32InputMethodEnum.SendMessage,
+    )
+    adapter = DeviceAdapter(cfg.to_device_config())
+    # Should not raise
+    adapter.release_all_held_keys()
+
+
+def test_disconnect_calls_release_all_held_keys(
+    connected_adapter: DeviceAdapter,
+) -> None:
+    """disconnect must release any held keys before tearing down the controller."""
+    ctrl = connected_adapter._ctrl_mock  # type: ignore[attr-defined]
+    connected_adapter.disconnect()
+    # Should have sent at least key_up for every recovery key.
+    assert ctrl.post_key_up.call_count >= len(DeviceAdapter._RECOVERY_VK_CODES)
 
 
 # ---------------------------------------------------------------------------

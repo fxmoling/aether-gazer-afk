@@ -265,8 +265,18 @@ class DeviceAdapter:
         )
 
     def disconnect(self) -> None:
-        """Release the controller and reset all connection state."""
+        """Release the controller and reset all connection state.
+
+        Best-effort releases any keys/input state that may have been left
+        held by an interrupted task before tearing down the controller, so
+        the user's keyboard/mouse return to normal even after abnormal
+        shutdowns.
+        """
         logger.info("Device disconnecting: hwnd={}", self._hwnd)
+        try:
+            self.release_all_held_keys()
+        except Exception as exc:  # noqa: BLE001 — disconnect must not raise
+            logger.warning("disconnect: release_all_held_keys failed: {}", exc)
         self._controller = None
         self._hwnd = None
         self._actual = None
@@ -421,16 +431,86 @@ class DeviceAdapter:
 
         Raises:
             DeviceConnectionError: Not connected.
+
+        Notes:
+            ``key_up`` is sent even if ``time.sleep`` is interrupted (e.g. by
+            ``KeyboardInterrupt``) to avoid leaving the game with a key stuck
+            in the held-down state.  If the entire process is killed mid-sleep,
+            this guard cannot run — :meth:`release_all_held_keys` should be
+            called by the parent process after killing the worker.
         """
         self._ensure_connected()
         assert self._controller is not None
 
         self._controller.post_key_down(vk_code).wait()
-        time.sleep(duration_s)
-        self._controller.post_key_up(vk_code).wait()
+        try:
+            time.sleep(duration_s)
+        finally:
+            try:
+                self._controller.post_key_up(vk_code).wait()
+            except Exception as exc:  # noqa: BLE001 — best-effort release
+                logger.warning(
+                    "hold_key 0x{:02X}: key_up failed during cleanup: {}",
+                    vk_code, exc,
+                )
         logger.debug(
             "hold_key 0x{:02X} for {:.2f}s (key_down/key_up)",
             vk_code, duration_s,
+        )
+
+    # ------------------------------------------------------------------
+    # Recovery / cleanup — release stuck input state
+    # ------------------------------------------------------------------
+
+    # Keys that any task / combat script may have left held in the game
+    # window.  Sending ``key_up`` for each of these is harmless when the key
+    # wasn't held; it costs ~1 SendMessage per key (well under 50ms total).
+    _RECOVERY_VK_CODES: tuple[int, ...] = (
+        # Movement / camera
+        0x57, 0x41, 0x53, 0x44, 0x51, 0x45,            # W A S D Q E
+        # Combat
+        0x4A, 0x4B, 0x55, 0x49, 0x4F, 0x52,            # J K U I O R
+        0x31, 0x32,                                     # 1 2
+        # UI / panels
+        0x47, 0x48, 0x54,                               # G H T
+        # Special
+        0x0D, 0x1B, 0x09, 0x20,                         # Enter Esc Tab Space
+        # Modifiers (extra-stuck-prone)
+        0x10, 0x11, 0x12,                               # Shift Ctrl Alt
+        0xA0, 0xA1, 0xA2, 0xA3,                         # L/R Shift, L/R Ctrl
+        0x5B, 0x5C,                                     # L/R Win
+    )
+
+    def release_all_held_keys(self) -> None:
+        """Send ``key_up`` for every key the bot might have left held.
+
+        Idempotent and safe to call when no keys are stuck.  Used to recover
+        from worker crashes / forced stops where ``hold_key`` did not get
+        a chance to finish its cleanup.
+
+        Sends WM_KEYUP via the MAA controller (window-targeted, harmless to
+        other apps).  Also calls Win32 ``BlockInput(FALSE)`` from the current
+        thread as a safety net in case a previous operation left the system
+        with input blocked.
+        """
+        if self._controller is None:
+            logger.debug("release_all_held_keys: not connected, skipping")
+            return
+
+        for vk in self._RECOVERY_VK_CODES:
+            try:
+                self._controller.post_key_up(vk).wait()
+            except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                logger.debug("release_all_held_keys: 0x{:02X} failed: {}", vk, exc)
+
+        try:
+            ctypes.windll.user32.BlockInput(False)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("release_all_held_keys: BlockInput(FALSE) failed: {}", exc)
+
+        logger.info(
+            "release_all_held_keys: sent key_up for {} keys + BlockInput(FALSE)",
+            len(self._RECOVERY_VK_CODES),
         )
 
     # ------------------------------------------------------------------

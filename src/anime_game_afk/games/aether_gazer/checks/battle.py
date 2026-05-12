@@ -29,13 +29,18 @@ from anime_game_afk.games.aether_gazer.ops.perception.identify_page import (
     is_on_page,
 )
 
-# Fractional region where skill buttons J/Tab/U/I/O appear in battle.
-# Calibrated at 1280×720 (DeviceAdapter always scales to 720p).
-# In explore mode this region is empty dark game world.
-_SKILL_REGION = (0.6875, 0.875, 0.9219, 0.9583)  # x1, y1, x2, y2
+# Two skill-button regions — either passing confirms battle.
+# Region A (new post-2026 UI): right-middle, where J/Tab/U/I/O/Space icons
+#   actually sit after the UI revamp added a keyboard-hint bar at bottom.
+#   Calibrated 2026-05-11: std ~43-55 in battle, <30 in explore.
+# Region B (legacy UI): bottom-right corner where skill buttons used to be
+#   before the revamp.  Kept for compatibility in case the user has the old
+#   UI layout or a different game version.
+#   Legacy calibration: std 52-57+ in battle, 5-32 in explore.
+_SKILL_REGION_A = (0.50, 0.58, 0.80, 0.74)   # new UI
+_SKILL_REGION_B = (0.6875, 0.875, 0.9219, 0.9583)  # legacy UI
 
-# Minimum grayscale std to confirm skill buttons are present.
-# Battle range: 52–57+, Explore range: 5–32 (tested on 20 screenshots).
+# Minimum grayscale std in either region to confirm skill buttons present.
 _SKILL_STD_THRESHOLD = 40.0
 
 
@@ -66,29 +71,30 @@ class InBattleCheck:
                 message="not in battle (template mismatch)",
             )
 
-        # Signal 3: skill-button region must have high contrast
-        skill_std = _skill_region_std(img)
-        in_battle = skill_std >= _SKILL_STD_THRESHOLD
+        # Signal 3: either skill-button region must have high contrast
+        skill_std_a = _skill_region_std(img, _SKILL_REGION_A)
+        skill_std_b = _skill_region_std(img, _SKILL_REGION_B)
+        in_battle = (skill_std_a >= _SKILL_STD_THRESHOLD or
+                     skill_std_b >= _SKILL_STD_THRESHOLD)
         logger.debug(
-            "InBattleCheck: skill_region_std={:.1f} threshold={:.1f} => {}",
-            skill_std,
-            _SKILL_STD_THRESHOLD,
-            in_battle,
+            "InBattleCheck: skill_std A={:.1f} B={:.1f} threshold={:.1f} => {}",
+            skill_std_a, skill_std_b, _SKILL_STD_THRESHOLD, in_battle,
         )
         return CheckResult(
             passed=in_battle,
             data={
                 "method": "triple_signal",
-                "skill_std": round(skill_std, 1),
+                "skill_std_a": round(skill_std_a, 1),
+                "skill_std_b": round(skill_std_b, 1),
             },
             message="in battle" if in_battle else "not in battle (low skill contrast)",
         )
 
 
-def _skill_region_std(img: np.ndarray) -> float:
-    """Compute grayscale std of the skill-button region."""
+def _skill_region_std(img: np.ndarray, region: tuple[float, float, float, float]) -> float:
+    """Compute grayscale std of the given fractional region."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     h, w = gray.shape[:2]
-    x1, y1, x2, y2 = _SKILL_REGION
+    x1, y1, x2, y2 = region
     roi = gray[int(y1 * h) : int(y2 * h), int(x1 * w) : int(x2 * w)]
     return float(roi.std())

@@ -223,6 +223,32 @@ class TaskManager:
         self._resolution = None
         return {"ok": True}
 
+    def recover_input(self) -> dict[str, Any]:
+        """Emergency: release stuck keys / BlockInput state.
+
+        Briefly connects to the game window, sends ``key_up`` for every key
+        the automation might have left held, calls ``BlockInput(FALSE)``,
+        then disconnects.  Returns ``{"ok": True}`` even on partial failure
+        because this is a best-effort recovery.
+        """
+        try:
+            from anime_game_afk.core.device import DeviceAdapter
+            from anime_game_afk.games.aether_gazer.config import (
+                AETHER_GAZER_CONFIG,
+            )
+
+            device = DeviceAdapter(
+                config=AETHER_GAZER_CONFIG.to_device_config(),
+            )
+            device.connect()
+            # disconnect() internally calls release_all_held_keys()
+            device.disconnect()
+            self._logger.info("已手动重置输入状态")
+            return {"ok": True, "msg": "已释放可能残留的按键状态"}
+        except Exception as exc:  # noqa: BLE001 — best-effort
+            self._logger.warning("recover_input 失败: {}", exc)
+            return {"ok": False, "error": str(exc)}
+
     def get_status(self) -> dict[str, Any]:
         """Get current connection and execution status."""
         elapsed = 0.0
@@ -303,7 +329,15 @@ class TaskManager:
         return {"ok": True}
 
     def stop(self) -> dict[str, Any]:
-        """Stop execution."""
+        """Stop execution.
+
+        After killing the worker subprocess we re-connect briefly from the
+        parent and call :meth:`DeviceAdapter.release_all_held_keys` to
+        flush any WM_KEYDOWN that the worker sent without a matching
+        WM_KEYUP (e.g. ``hold_key`` interrupted by ``proc.kill()``).  This
+        prevents the game from thinking W/S/J/etc are still held after
+        a forced stop.
+        """
         # Subprocess mode
         proc = self._process
         if proc and proc.poll() is None:
@@ -312,6 +346,25 @@ class TaskManager:
                 proc.wait(timeout=5)
             except Exception:
                 pass
+
+        # Safety: release any keys the killed worker may have left held.
+        # Best-effort — silently ignored if game window is gone.
+        try:
+            from anime_game_afk.core.device import DeviceAdapter
+            from anime_game_afk.games.aether_gazer.config import (
+                AETHER_GAZER_CONFIG,
+            )
+
+            recovery_device = DeviceAdapter(
+                config=AETHER_GAZER_CONFIG.to_device_config(),
+            )
+            recovery_device.connect()
+            # disconnect() internally calls release_all_held_keys()
+            recovery_device.disconnect()
+            self._logger.info("已释放可能残留的按键状态")
+        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+            self._logger.debug("stop: input recovery skipped: {}", exc)
+
         # Reset any "running" tasks to "stopped"
         with self._lock:
             for p in self._pipelines:

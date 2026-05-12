@@ -35,6 +35,7 @@ export const api = {
     apiCall('set_all_enabled', pipelineId, enabled),
   startRun: (pipelineId) => apiCall('start_run', pipelineId),
   stopRun: () => apiCall('stop_run'),
+  recoverInput: () => apiCall('recover_input'),
   getRecentLogs: (count = 200) => apiCall('get_recent_logs', count),
   getSettings: () => apiCall('get_settings'),
   saveSettings: (windowTitle) =>

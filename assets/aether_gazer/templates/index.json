@@ -81,7 +81,7 @@
       "name": "dodge_button",
       "path": "assets\\\\aether_gazer\\\\templates\\\\battle_hud__dodge_button.png",
       "size": [70, 70],
-      "search": [0.92, 0.83, 1.0, 1.0],
+      "search": [0.75, 0.55, 1.0, 1.0],
       "ref_height": 720,
       "grayscale": true,
       "threshold": 0.40
