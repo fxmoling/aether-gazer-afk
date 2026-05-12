@@ -224,12 +224,24 @@ class TaskManager:
         return {"ok": True}
 
     def recover_input(self) -> dict[str, Any]:
-        """Emergency: release stuck keys / BlockInput state.
+        """Programmatic recovery (kept as a backup API endpoint).
 
-        Briefly connects to the game window, sends ``key_up`` for every key
-        the automation might have left held, calls ``BlockInput(FALSE)``,
-        then disconnects.  Returns ``{"ok": True}`` even on partial failure
-        because this is a best-effort recovery.
+        Normal operation does NOT require this — :meth:`_auto_recover_input`
+        runs automatically on every worker exit (normal, crash, killed).
+        Exposed only for ad-hoc diagnostics.
+        """
+        ok = self._auto_recover_input()
+        return {"ok": ok}
+
+    def _auto_recover_input(self) -> bool:
+        """Release stuck keys + clear BlockInput from the parent process.
+
+        Always called in :meth:`_read_worker_output`'s ``finally`` so it
+        triggers on every worker termination — including ``proc.kill()``
+        where the worker can't run its own cleanup.
+
+        Best-effort: silently swallows all errors (game window may be
+        closed, hwnd invalid, etc.).
         """
         try:
             from anime_game_afk.core.device import DeviceAdapter
@@ -243,11 +255,12 @@ class TaskManager:
             device.connect()
             # disconnect() internally calls release_all_held_keys()
             device.disconnect()
-            self._logger.info("已手动重置输入状态")
-            return {"ok": True, "msg": "已释放可能残留的按键状态"}
-        except Exception as exc:  # noqa: BLE001 — best-effort
-            self._logger.warning("recover_input 失败: {}", exc)
-            return {"ok": False, "error": str(exc)}
+            self._logger.info("自动释放残留按键状态完成")
+            return True
+        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+            # Window-not-found is normal when game is closed; only debug-log.
+            self._logger.debug("auto recover skipped: {}", exc)
+            return False
 
     def get_status(self) -> dict[str, Any]:
         """Get current connection and execution status."""
@@ -331,12 +344,11 @@ class TaskManager:
     def stop(self) -> dict[str, Any]:
         """Stop execution.
 
-        After killing the worker subprocess we re-connect briefly from the
-        parent and call :meth:`DeviceAdapter.release_all_held_keys` to
-        flush any WM_KEYDOWN that the worker sent without a matching
-        WM_KEYUP (e.g. ``hold_key`` interrupted by ``proc.kill()``).  This
-        prevents the game from thinking W/S/J/etc are still held after
-        a forced stop.
+        Kills the worker subprocess.  Stuck-key recovery happens
+        automatically in :meth:`_read_worker_output`'s ``finally`` block
+        once the killed worker's stdout pipe closes — same path used for
+        normal completion / crash, so all termination scenarios are
+        covered uniformly.
         """
         # Subprocess mode
         proc = self._process
@@ -346,24 +358,6 @@ class TaskManager:
                 proc.wait(timeout=5)
             except Exception:
                 pass
-
-        # Safety: release any keys the killed worker may have left held.
-        # Best-effort — silently ignored if game window is gone.
-        try:
-            from anime_game_afk.core.device import DeviceAdapter
-            from anime_game_afk.games.aether_gazer.config import (
-                AETHER_GAZER_CONFIG,
-            )
-
-            recovery_device = DeviceAdapter(
-                config=AETHER_GAZER_CONFIG.to_device_config(),
-            )
-            recovery_device.connect()
-            # disconnect() internally calls release_all_held_keys()
-            recovery_device.disconnect()
-            self._logger.info("已释放可能残留的按键状态")
-        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
-            self._logger.debug("stop: input recovery skipped: {}", exc)
 
         # Reset any "running" tasks to "stopped"
         with self._lock:
@@ -460,6 +454,7 @@ class TaskManager:
         from anime_game_afk.games.aether_gazer.combat.service import AutoBattleService
         from anime_game_afk.games.aether_gazer.ops.base import OpContext
 
+        device: DeviceAdapter | None = None
         try:
             device = DeviceAdapter(config=AETHER_GAZER_CONFIG.to_device_config())
             device.connect()
@@ -499,10 +494,16 @@ class TaskManager:
             self._logger.error("自动战斗异常: {}", e)
         finally:
             self._auto_battle_enabled = False
-            try:
-                device.disconnect()
-            except Exception:
-                pass
+            # device.disconnect() internally releases all held keys; if we
+            # never connected (early exception) fall back to a fresh
+            # short-lived adapter to flush any half-sent input state.
+            if device is not None and device.connected:
+                try:
+                    device.disconnect()
+                except Exception:
+                    pass
+            else:
+                self._auto_recover_input()
 
     # ------------------------------------------------------------------
     # Combo recording
@@ -710,6 +711,14 @@ class TaskManager:
                     self._push_js(
                         f"window.onError && window.onError({json.dumps(err_msg)})"
                     )
+
+            # Universal stuck-input recovery: any worker exit (normal,
+            # crash, killed) reaches this point because TerminateProcess
+            # closes stdout, ending the for-loop above.  Run from the
+            # parent process so it works even when the worker can't run
+            # its own cleanup (kill -9 / TerminateProcess).
+            self._auto_recover_input()
+
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
             # Apply post-action (scheduled or manual)

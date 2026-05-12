@@ -33,13 +33,6 @@
     <span v-if="autoBattleOn && activeScriptName" class="active-script-hint">
       ▸ {{ activeScriptName }}
     </span>
-    <button
-      class="btn-recover"
-      title="键鼠卡顿/无法点击时点击此按钮，会释放残留的按键状态"
-      @click="handleRecover"
-    >
-      🔓 重置输入
-    </button>
     <div class="control-info">
       <svg v-if="state.totalCount > 0" class="progress-ring" width="40" height="40" viewBox="0 0 40 40">
         <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="3"/>
@@ -187,16 +180,6 @@ async function handleStart() {
 async function handleStop() {
   await stopRun()
 }
-
-async function handleRecover() {
-  const r = await api.recoverInput()
-  if (r && r.ok) {
-    // No alert — silent success keeps the recovery click low-friction.
-    console.log('[recover_input]', r.msg || 'ok')
-  } else {
-    alert((r && r.error) || '重置失败：请确认游戏窗口已打开')
-  }
-}
 </script>
 
 <style scoped>
@@ -256,23 +239,6 @@ async function handleRecover() {
   background: var(--btn-danger-hover-bg);
   border-color: var(--btn-danger-hover-border);
   color: var(--btn-danger-text);
-}
-
-.btn-recover {
-  padding: 8px 14px;
-  background: transparent;
-  border: 1px solid var(--btn-secondary-border);
-  border-radius: var(--radius-md, 6px);
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s, border-color 0.1s;
-}
-
-.btn-recover:hover {
-  background: var(--btn-secondary-bg);
-  color: var(--text-primary, #fff);
-  border-color: var(--border-focus, #888);
 }
 
 .btn-stop:disabled {

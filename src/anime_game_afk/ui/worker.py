@@ -170,6 +170,29 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
         _emit({"type": "error", "msg": "无法连接到游戏窗口"})
         return 1
 
+    # Best-effort cleanup hooks: any "soft" interpreter shutdown (atexit,
+    # SIGTERM, SIGINT) tries to release stuck keys before exit.  This does
+    # NOT cover ``proc.kill()`` (TerminateProcess) — the parent runs its
+    # own recovery in that case via ``_auto_recover_input``.
+    import atexit
+    import signal
+
+    def _cleanup_input() -> None:
+        try:
+            if device.connected:
+                device.release_all_held_keys()
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_input)
+    try:
+        signal.signal(signal.SIGTERM, lambda *_: (_cleanup_input(), sys.exit(1)))
+        signal.signal(signal.SIGINT, lambda *_: (_cleanup_input(), sys.exit(1)))
+    except (ValueError, OSError):
+        # signal handlers can't be installed on non-main threads or
+        # certain platforms; atexit alone still gives best-effort coverage.
+        pass
+
     res = device.actual_resolution
     listener.on_connected(f"{res.width}x{res.height}")
 
