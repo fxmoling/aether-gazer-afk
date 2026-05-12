@@ -178,9 +178,13 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     import signal
 
     def _cleanup_input() -> None:
+        """Release stuck keys + unblock input via MaaFw post_inactive."""
         try:
             if device.connected:
-                device.release_all_held_keys()
+                # Full disconnect — also calls post_inactive() which is
+                # the only way to release MaaFw's BlockInput from its
+                # internal worker thread.
+                device.disconnect()
         except Exception:
             pass
 

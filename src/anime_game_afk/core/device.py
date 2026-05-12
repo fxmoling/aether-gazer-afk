@@ -267,16 +267,35 @@ class DeviceAdapter:
     def disconnect(self) -> None:
         """Release the controller and reset all connection state.
 
-        Best-effort releases any keys/input state that may have been left
-        held by an interrupted task before tearing down the controller, so
-        the user's keyboard/mouse return to normal even after abnormal
-        shutdowns.
+        Calls MAA's ``post_inactive()`` first — this is the only API that
+        triggers MaaFw's C++ ``unblock_input()`` (i.e. ``BlockInput(FALSE)``
+        from the same thread that called ``BlockInput(TRUE)``).  Without
+        this the user's keyboard/mouse can stay blocked until Python GC
+        eventually destroys the controller, which can take seconds or
+        require manual intervention (e.g. pressing Ctrl).
+
+        Then releases any keys we may have left held, clears local state,
+        and drops the controller reference.  Best-effort throughout —
+        disconnect must never raise.
         """
         logger.info("Device disconnecting: hwnd={}", self._hwnd)
+
+        # 1. Tell MaaFw to unblock input + restore window position.
+        #    This is THE call that releases BlockInput from MaaFw's
+        #    internal worker thread (the only thread allowed to do so).
+        if self._controller is not None:
+            try:
+                self._controller.post_inactive().wait()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("disconnect: post_inactive failed: {}", exc)
+
+        # 2. Send key_up for any key we may have left held + final
+        #    BlockInput(FALSE) safety net from this Python thread.
         try:
             self.release_all_held_keys()
-        except Exception as exc:  # noqa: BLE001 — disconnect must not raise
+        except Exception as exc:  # noqa: BLE001
             logger.warning("disconnect: release_all_held_keys failed: {}", exc)
+
         self._controller = None
         self._hwnd = None
         self._actual = None
