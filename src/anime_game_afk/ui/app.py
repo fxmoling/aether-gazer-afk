@@ -175,7 +175,13 @@ def main() -> None:
         pass
 
     def _on_window_closing() -> None:
-        _do_shutdown("window.closing")
+        # Must NOT block the webview event thread — "Not Responding" otherwise.
+        # Spin up a daemon thread so the window closes immediately while
+        # cleanup (thread joins, post_inactive, etc.) runs in the background.
+        import threading
+        threading.Thread(
+            target=_do_shutdown, args=("window.closing",), daemon=True
+        ).start()
 
     window.events.closing += _on_window_closing
 
