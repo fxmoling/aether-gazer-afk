@@ -261,17 +261,11 @@ class TaskManager:
             except Exception as exc:
                 self._logger.warning("Worker kill failed: {}", exc)
 
-        # Wait briefly for the reader thread's finally block to run
-        # (it triggers _auto_recover_input).  If it's hung, fall through
-        # — the Job Object close below is the real safety net.
+        # Wait briefly for the reader thread's finally block to run.
+        # That finally already calls _auto_recover_input() — no need to
+        # call it again here (redundant AND unguarded against blocking).
         if self._reader and self._reader.is_alive():
             self._reader.join(timeout=2.0)
-
-        # Belt-and-suspenders: ensure recovery ran even if reader hung.
-        try:
-            self._auto_recover_input()
-        except Exception:
-            pass
 
         # Closing the job handle terminates any process still in the job
         # — covers the case where proc.kill() above didn't take effect.
@@ -778,10 +772,14 @@ class TaskManager:
 
             # Universal stuck-input recovery: any worker exit (normal,
             # crash, killed) reaches this point because TerminateProcess
-            # closes stdout, ending the for-loop above.  Run from the
-            # parent process so it works even when the worker can't run
-            # its own cleanup (kill -9 / TerminateProcess).
-            self._auto_recover_input()
+            # closes stdout, ending the for-loop above.  Run with a hard
+            # timeout so a hung MaaFw connect/post_inactive can't block
+            # this thread forever.
+            _t = threading.Thread(
+                target=self._auto_recover_input, daemon=True
+            )
+            _t.start()
+            _t.join(timeout=3.0)
 
             self._push_js("window.onRunComplete && window.onRunComplete()")
 

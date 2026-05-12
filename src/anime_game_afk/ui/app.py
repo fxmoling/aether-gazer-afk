@@ -143,13 +143,18 @@ def main() -> None:
     # subprocess assigned to the job — even if no Python code runs.
     import atexit
     import signal
+    import threading
 
-    _shutdown_done = [False]
+    _shutdown_lock = threading.Lock()
+    _shutdown_done = [False]  # protected by _shutdown_lock
 
     def _do_shutdown(reason: str) -> None:
-        if _shutdown_done[0]:
-            return
-        _shutdown_done[0] = True
+        # Lock guarantees only one caller proceeds, even if window.closing
+        # daemon thread and atexit race each other.
+        with _shutdown_lock:
+            if _shutdown_done[0]:
+                return
+            _shutdown_done[0] = True
         _log.info("Shutdown triggered by: {}", reason)
         try:
             task_manager.shutdown()
