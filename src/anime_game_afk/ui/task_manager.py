@@ -73,6 +73,14 @@ class TaskManager:
         self._auto_battle_service = None
         self._auto_battle_thread: threading.Thread | None = None
 
+        # Win32 Job Object: when the parent process exits for ANY reason
+        # (normal close, taskbar exit, Task Manager kill, crash) Windows
+        # auto-terminates every worker subprocess we've assigned to it.
+        # This is the only mechanism that survives ungraceful parent
+        # death (including TerminateProcess / kill -9).
+        from anime_game_afk.core.job_object import KillOnCloseJob
+        self._kill_job = KillOnCloseJob()
+
         self._load_pipelines()
         self._load_config()
 
@@ -223,6 +231,57 @@ class TaskManager:
         self._resolution = None
         return {"ok": True}
 
+    def shutdown(self) -> None:
+        """Shut down all running tasks before the application exits.
+
+        Called from the main app entry point when the GUI window closes
+        (normal close, taskbar right-click → Close, Alt+F4).  Stops any
+        running pipeline worker AND auto-battle thread, releases stuck
+        keys, then closes the kill-on-close Job Object so any worker
+        that somehow survived the explicit kill is reaped by the kernel.
+
+        Safe to call multiple times.
+        """
+        self._logger.info("TaskManager shutdown initiated")
+
+        # Stop auto-battle worker thread
+        if self._auto_battle_enabled:
+            self._auto_battle_enabled = False
+            t = self._auto_battle_thread
+            if t and t.is_alive():
+                t.join(timeout=3.0)
+
+        # Kill the pipeline worker subprocess (if running)
+        proc = self._process
+        if proc and proc.poll() is None:
+            self._logger.info("Killing worker PID={}", proc.pid)
+            try:
+                proc.kill()
+                proc.wait(timeout=3)
+            except Exception as exc:
+                self._logger.warning("Worker kill failed: {}", exc)
+
+        # Wait briefly for the reader thread's finally block to run
+        # (it triggers _auto_recover_input).  If it's hung, fall through
+        # — the Job Object close below is the real safety net.
+        if self._reader and self._reader.is_alive():
+            self._reader.join(timeout=2.0)
+
+        # Belt-and-suspenders: ensure recovery ran even if reader hung.
+        try:
+            self._auto_recover_input()
+        except Exception:
+            pass
+
+        # Closing the job handle terminates any process still in the job
+        # — covers the case where proc.kill() above didn't take effect.
+        try:
+            self._kill_job.close()
+        except Exception:
+            pass
+
+        self._logger.info("TaskManager shutdown complete")
+
     def recover_input(self) -> dict[str, Any]:
         """Programmatic recovery (kept as a backup API endpoint).
 
@@ -330,6 +389,11 @@ class TaskManager:
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, env=env, creationflags=creationflags,
         )
+        # Bind worker to job so it dies if the parent dies for any reason.
+        # Best-effort: failure logged inside; worker still works manually
+        # via Stop button — we just lose the auto-cleanup-on-parent-crash.
+        self._kill_job.assign(self._process.pid)
+
         self._reader = threading.Thread(
             target=self._read_worker_output, daemon=True
         )

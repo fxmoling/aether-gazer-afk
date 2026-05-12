@@ -130,6 +130,55 @@ def main() -> None:
     task_manager.bind_window(window)
     log_forwarder.bind_window(window)
 
+    # 6b. Register shutdown hooks for every exit path:
+    #   - Normal window close (after webview.start returns)
+    #   - pywebview window 'closing' event (taskbar right-click → close,
+    #     Alt+F4, ✕ button — all route here before webview.start unblocks)
+    #   - atexit (Python interpreter shutdown — covers SystemExit, etc.)
+    #   - SIGTERM / SIGINT (Ctrl+C in a console run)
+    #
+    # The Job Object inside TaskManager is the ultimate safety net: if
+    # the parent process is killed via TerminateProcess (Task Manager
+    # End Task, kill -9), Windows kernel auto-terminates every worker
+    # subprocess assigned to the job — even if no Python code runs.
+    import atexit
+    import signal
+
+    _shutdown_done = [False]
+
+    def _do_shutdown(reason: str) -> None:
+        if _shutdown_done[0]:
+            return
+        _shutdown_done[0] = True
+        _log.info("Shutdown triggered by: {}", reason)
+        try:
+            task_manager.shutdown()
+        except Exception as exc:
+            _log.error("Error during shutdown: {}", exc)
+        try:
+            log_forwarder.uninstall()
+        except Exception:
+            pass
+
+    atexit.register(_do_shutdown, "atexit")
+
+    try:
+        signal.signal(
+            signal.SIGTERM,
+            lambda *_: (_do_shutdown("SIGTERM"), sys.exit(0)),
+        )
+        signal.signal(
+            signal.SIGINT,
+            lambda *_: (_do_shutdown("SIGINT"), sys.exit(0)),
+        )
+    except (ValueError, OSError):
+        pass
+
+    def _on_window_closing() -> None:
+        _do_shutdown("window.closing")
+
+    window.events.closing += _on_window_closing
+
     # 7. Start pywebview (blocks until window closes)
     #    In scheduled mode, auto-start the daily pipeline after window loads
     import builtins
@@ -151,8 +200,8 @@ def main() -> None:
 
     webview.start(debug="--debug" in sys.argv)
 
-    # 7. Cleanup
-    log_forwarder.uninstall()
+    # 7. Cleanup (idempotent if already triggered by window 'closing' event)
+    _do_shutdown("post-webview.start")
     task_manager.disconnect()
 
 
