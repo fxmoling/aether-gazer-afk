@@ -274,15 +274,12 @@ def main() -> None:
         maa_bin = Path(sys._MEIPASS) / "maa" / "bin"  # type: ignore[attr-defined]
         if maa_bin.exists():
             maa_bin_str = str(maa_bin)
-            internal_str = str(Path(sys._MEIPASS))  # type: ignore[attr-defined]
             os.environ["MAAFW_BINARY_PATH"] = maa_bin_str
             os.environ["PATH"] = (
-                maa_bin_str + os.pathsep + internal_str + os.pathsep
-                + os.environ.get("PATH", "")
+                maa_bin_str + os.pathsep + os.environ.get("PATH", "")
             )
             try:
                 os.add_dll_directory(maa_bin_str)
-                os.add_dll_directory(internal_str)
             except (OSError, AttributeError):
                 pass
             # Preload MaaFw DLLs in dependency order so ctypes finds them

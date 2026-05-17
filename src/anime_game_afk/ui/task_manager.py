@@ -59,8 +59,11 @@ class TaskManager:
         self._reader: threading.Thread | None = None
         self._stderr_reader: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._exit_lock = threading.Lock()
+        self._exiting = False
         self._window: Any = None  # pywebview window
         self._running = False
+        self._stop_requested = False
         self._start_time: float = 0.0
         self._completed_count = 0
         self._total_count = 0
@@ -84,7 +87,7 @@ class TaskManager:
         self._load_pipelines()
         self._load_config()
 
-    def bind_window(self, window: Any) -> None:
+    def bind_window(self, window: Any | None) -> None:
         """Bind pywebview window for evaluate_js push."""
         self._window = window
 
@@ -231,6 +234,56 @@ class TaskManager:
         self._resolution = None
         return {"ok": True}
 
+    def begin_exit(self) -> None:
+        """Start application exit without waiting on worker cleanup.
+
+        This method is safe to call from pywebview's synchronous
+        ``window.events.closing`` handler. It must stay non-blocking:
+        detach the closing WebView, signal background loops to stop, and
+        trigger kernel-level worker termination through the Job Object.
+        Slow cleanup is handled later by :meth:`shutdown`.
+        """
+        with self._exit_lock:
+            if self._exiting:
+                return
+            self._exiting = True
+
+        self._window = None
+        self._running = False
+        self._game_verified = False
+        self._resolution = None
+        self._auto_battle_enabled = False
+
+        service = self._auto_battle_service
+        if service is not None:
+            try:
+                service.stop()
+            except Exception as exc:
+                self._logger.debug("begin_exit: auto-battle stop failed: {}", exc)
+            self._auto_battle_service = None
+
+        recorder = getattr(self, "_combo_recorder", None)
+        if recorder is not None:
+            try:
+                recorder.stop()
+            except Exception as exc:
+                self._logger.debug("begin_exit: combo recorder stop failed: {}", exc)
+
+        # Closing the job handle is intentionally first: it is a fast
+        # kernel operation and kills assigned worker subprocesses even if
+        # Python-side proc.kill()/wait() later misbehaves.
+        try:
+            self._kill_job.close()
+        except Exception as exc:
+            self._logger.debug("begin_exit: kill job close failed: {}", exc)
+
+        proc = self._process
+        if proc and proc.poll() is None:
+            try:
+                proc.kill()
+            except Exception as exc:
+                self._logger.debug("begin_exit: worker kill failed: {}", exc)
+
     def shutdown(self) -> None:
         """Shut down all running tasks before the application exits.
 
@@ -242,6 +295,7 @@ class TaskManager:
 
         Safe to call multiple times.
         """
+        self.begin_exit()
         self._logger.info("TaskManager shutdown initiated")
 
         # Stop auto-battle worker thread
@@ -357,6 +411,7 @@ class TaskManager:
         enabled_ids = set(enabled)
 
         self._running = True
+        self._stop_requested = False
         self._start_time = time.time()
         self._completed_count = 0
         self._total_count = len(enabled_tasks)
@@ -402,28 +457,31 @@ class TaskManager:
     def stop(self) -> dict[str, Any]:
         """Stop execution.
 
-        Kills the worker subprocess.  Stuck-key recovery happens
+        Requests worker termination and returns immediately. Stuck-key recovery happens
         automatically in :meth:`_read_worker_output`'s ``finally`` block
         once the killed worker's stdout pipe closes — same path used for
         normal completion / crash, so all termination scenarios are
         covered uniformly.
         """
+        self._stop_requested = True
+        self._running = False
+
         # Subprocess mode
         proc = self._process
         if proc and proc.poll() is None:
-            proc.kill()
             try:
-                proc.wait(timeout=5)
-            except Exception:
-                pass
+                proc.kill()
+            except Exception as exc:
+                self._logger.warning("Worker kill request failed: {}", exc)
 
-        # Reset any "running" tasks to "stopped"
+        # Reset any "running" tasks to "stopped" immediately so the UI
+        # does not require a second click while the reader thread catches up.
         with self._lock:
             for p in self._pipelines:
                 for t in p.tasks:
                     if t.status == "running":
-                        t.status = "failed"
-                        self._push_task_status(t.id, "failed")
+                        t.status = "stopped"
+                        self._push_task_status(t.id, "stopped")
         self._logger.info("已请求停止")
         return {"ok": True}
 
@@ -743,6 +801,7 @@ class TaskManager:
                     pass  # completion signalled by EOF / _running=False below
 
         finally:
+            stopped_or_exiting = self._stop_requested or self._exiting
             self._running = False
             self._game_verified = False
             self._resolution = None
@@ -753,7 +812,7 @@ class TaskManager:
                     proc.wait(timeout=2)
                 except Exception:
                     pass
-                if proc.returncode and proc.returncode != 0:
+                if proc.returncode and proc.returncode != 0 and not stopped_or_exiting:
                     # Try to capture any remaining stderr
                     err_msg = ""
                     if proc.stderr:
@@ -784,8 +843,14 @@ class TaskManager:
             self._push_js("window.onRunComplete && window.onRunComplete()")
 
             # Apply post-action (scheduled or manual)
-            self._handle_scheduled_post_action(proc)
-            self._handle_manual_post_action()
+            if stopped_or_exiting:
+                self._logger.info("Manual stop/app exit: skipping post-run actions")
+            elif proc is not None and proc.returncode == 0:
+                self._handle_scheduled_post_action(proc)
+                self._handle_manual_post_action()
+            else:
+                self._logger.info("Run did not complete successfully: skipping post-run actions")
+            self._stop_requested = False
 
     def _read_worker_stderr(self) -> None:
         """Stderr reader thread: forward worker log lines to host logger."""
@@ -813,6 +878,8 @@ class TaskManager:
 
     def _push_js(self, js_code: str) -> None:
         """Execute JS in the frontend window (thread-safe)."""
+        if self._exiting:
+            return
         window = self._window
         if window is not None:
             try:

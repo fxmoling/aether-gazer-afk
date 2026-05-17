@@ -110,7 +110,23 @@ export async function startRun() {
 }
 
 export async function stopRun() {
-  await api.stopRun()
+  state.running = false
+  state.statusMsg = '正在停止...'
+
+  for (const p of state.pipelines) {
+    for (const t of p.tasks) {
+      if (t.status === 'running') t.status = 'stopped'
+    }
+  }
+
+  const result = await api.stopRun()
+  if (!result || !result.ok) {
+    state.statusMsg = result?.error || '停止失败'
+    state._hasError = true
+    return result || { ok: false }
+  }
+  state.statusMsg = '已停止'
+  return result
 }
 
 export async function pollStatus() {

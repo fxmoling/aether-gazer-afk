@@ -9,10 +9,14 @@ Uses mixed identification methods:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from anime_game_afk.core.types import Rect
-from anime_game_afk.games.aether_gazer.checks.ocr import OcrScanCheck
+from anime_game_afk.games.aether_gazer.checks.ocr import (
+    OcrResult,
+    OcrScan,
+    ocr_scan_with_retry,
+)
 from anime_game_afk.games.aether_gazer.checks.page import OnPageCheck
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import ReturnToHubAction
@@ -77,9 +81,26 @@ class JointDefenseSweep:
     _MAX_MULTI_X = 0.97     # 1552 / 1600
     _MAX_MULTI_Y = 0.791    # 712 / 900
     _MAX_SCROLL_ATTEMPTS = 5
+    _OCR_RETRIES = 2
+    _OCR_RETRY_DELAY = 1.5
 
     async def can_run(self, ctx: TaskContext) -> bool:
         return True
+
+    async def _ocr(
+        self,
+        ctx: TaskContext,
+        *,
+        region: Rect | None = None,
+        ready: Callable[[OcrResult], bool] | None = None,
+    ) -> OcrScan:
+        return await ocr_scan_with_retry(
+            ctx,
+            region=region,
+            retries=self._OCR_RETRIES,
+            retry_delay=self._OCR_RETRY_DELAY,
+            ready=ready,
+        )
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
         run_log: RunLog | None = getattr(ctx, "run_log", None)
@@ -96,17 +117,22 @@ class JointDefenseSweep:
             return TaskResult(status="failed", message="Cannot return to hub")
         await SleepOp(seconds=0.5).run(ctx)
 
-        # Verify hub + UI active (one OCR pass)
+        # Verify hub via fast template match (~5ms).  Skip the OCR
+        # pre-check for "前往作战" — when the hub is in a transitional
+        # state right after returning, the text may flicker and trigger
+        # ~10s of OCR retries.  WakeHubUiAction already ran above and
+        # the template check below is the authoritative signal.
         hub_check = await OnPageCheck(page="main_hub").evaluate(ctx)
         if not hub_check.passed:
-            ctx.logger.error("[Step 1] Not on hub (template mismatch)")
-            return TaskResult(status="failed", message="Not on hub page")
-        r = await OcrScanCheck().evaluate(ctx)
-        ocr = r.data
-        if not ocr.has("前往作战"):
-            ctx.logger.warning("[Step 1] Hub UI may be idle, waking")
+            ctx.logger.warning(
+                "[Step 1] Hub template mismatch after return; waking once more"
+            )
             await WakeHubUiAction().run(ctx)
-            await SleepOp(seconds=0.15).run(ctx)
+            await SleepOp(seconds=0.3).run(ctx)
+            hub_check = await OnPageCheck(page="main_hub").evaluate(ctx)
+            if not hub_check.passed:
+                ctx.logger.error("[Step 1] Not on hub after second wake")
+                return TaskResult(status="failed", message="Not on hub page")
         if run_log:
             run_log.snap(ctx.device, "jd_hub")
 
@@ -189,14 +215,16 @@ class JointDefenseSweep:
     ) -> bool:
         """Find H label in hub, click ~50px below to enter activity page."""
         # Find "H" label via OCR (small region for speed)
-        r = await OcrScanCheck(region=self._H_SEARCH_REGION).evaluate(ctx)
+        scan = await self._ocr(
+            ctx,
+            region=self._H_SEARCH_REGION,
+            ready=lambda ocr: any(item.text.strip() == "H" for item in ocr.items),
+        )
         h_label = None
-        if r.passed:
-            ocr = r.data
-            for item in ocr.items:
-                if item.text.strip() == "H":
-                    h_label = item
-                    break
+        for item in scan.result.items:
+            if item.text.strip() == "H":
+                h_label = item
+                break
 
         if h_label:
             hx = h_label.region.x + h_label.region.w // 2
@@ -220,12 +248,24 @@ class JointDefenseSweep:
             run_log.snap(ctx.device, "jd_activity_page")
 
         # Verify: one OCR pass to check for activity page keywords
-        r = await OcrScanCheck().evaluate(ctx)
-        if r.passed:
-            ocr = r.data
-            if ocr.has("前往挑战") or ocr.has("福利") or ocr.has("支线") or ocr.has("协议"):
-                ctx.logger.info("  nav: activity page verified")
-                return True
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: (
+                ocr.has("前往挑战")
+                or ocr.has("福利")
+                or ocr.has("支线")
+                or ocr.has("协议")
+            ),
+        )
+        ocr = scan.result
+        if (
+            ocr.has("前往挑战")
+            or ocr.has("福利")
+            or ocr.has("支线")
+            or ocr.has("协议")
+        ):
+            ctx.logger.info("  nav: activity page verified")
+            return True
 
         ctx.logger.warning("  nav: could not verify activity page")
         return True  # Proceed anyway — later steps have their own verification
@@ -238,9 +278,12 @@ class JointDefenseSweep:
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
         """Find '联防协议' in activity list, scrolling if needed."""
-        r = await OcrScanCheck().evaluate(ctx)
-        ocr = r.data if r.passed else None
-        found = ocr.find("联防协议") if ocr else None
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: ocr.find("联防协议") is not None,
+        )
+        ocr = scan.result
+        found = ocr.find("联防协议")
 
         # Scroll down to find
         scroll_down = 0
@@ -255,9 +298,12 @@ class JointDefenseSweep:
             if run_log:
                 snap_r = await ScreenshotOp().run(ctx)
                 run_log.save_image(snap_r.data, f"jd_scroll_down_{scroll_down}")
-            r = await OcrScanCheck().evaluate(ctx)
-            ocr = r.data if r.passed else None
-            found = ocr.find("联防协议") if ocr else None
+            scan = await self._ocr(
+                ctx,
+                ready=lambda ocr: ocr.find("联防协议") is not None,
+            )
+            ocr = scan.result
+            found = ocr.find("联防协议")
             scroll_down += 1
 
         # Scroll back up if not found
@@ -270,9 +316,12 @@ class JointDefenseSweep:
                 if run_log:
                     snap_r = await ScreenshotOp().run(ctx)
                     run_log.save_image(snap_r.data, f"jd_scroll_up_{i}")
-                r = await OcrScanCheck().evaluate(ctx)
-                ocr = r.data if r.passed else None
-                found = ocr.find("联防协议") if ocr else None
+                scan = await self._ocr(
+                    ctx,
+                    ready=lambda ocr: ocr.find("联防协议") is not None,
+                )
+                ocr = scan.result
+                found = ocr.find("联防协议")
                 if found:
                     break
 
@@ -292,8 +341,8 @@ class JointDefenseSweep:
             run_log.snap(ctx.device, "jd_panel")
 
         # Verify: right panel should show "联防协议"
-        r = await OcrScanCheck().evaluate(ctx)
-        if r.passed and r.data.has("联防协议"):
+        scan = await self._ocr(ctx, ready=lambda ocr: ocr.has("联防协议"))
+        if scan.result.has("联防协议"):
             ctx.logger.info("  search: right panel verified '联防协议'")
         else:
             ctx.logger.warning("  search: could not verify right panel")
@@ -307,11 +356,13 @@ class JointDefenseSweep:
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
         """Click 前往挑战 button."""
-        r = await OcrScanCheck().evaluate(ctx)
-        if not r.passed:
-            ctx.logger.error("  challenge: OCR scan failed")
-            return False
-        ocr = r.data
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: (
+                ocr.find("前往挑战") is not None or ocr.find("挑战") is not None
+            ),
+        )
+        ocr = scan.result
         btn = ocr.find("前往挑战")
         if btn is None:
             btn = ocr.find("挑战")
@@ -325,12 +376,11 @@ class JointDefenseSweep:
         await ClickPxOp(px=cx, py=cy, wait=1.0).run(ctx)
 
         # Handle "前置章节" story prompt — dismiss with ESC (取消)
-        r = await OcrScanCheck().evaluate(ctx)
-        if r.passed:
-            check_ocr = r.data
-            if check_ocr.has("前置章节") or check_ocr.has("剧情观感"):
-                ctx.logger.info("  challenge: story prompt detected, pressing ESC")
-                await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
+        scan = await self._ocr(ctx)
+        check_ocr = scan.result
+        if check_ocr.has("前置章节") or check_ocr.has("剧情观感"):
+            ctx.logger.info("  challenge: story prompt detected, pressing ESC")
+            await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
 
         if run_log:
             run_log.snap(ctx.device, "jd_after_challenge")
@@ -344,13 +394,15 @@ class JointDefenseSweep:
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> None:
         """Click 信息集纳 button (may already be selected)."""
-        r = await OcrScanCheck().evaluate(ctx)
-        if not r.passed:
-            ctx.logger.info("  info: OCR scan failed, skipping")
-            if run_log:
-                run_log.snap(ctx.device, "jd_info_collection")
-            return
-        ocr = r.data
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: (
+                ocr.find("信息集纳") is not None
+                or ocr.find("集纳") is not None
+                or ocr.find("震动") is not None
+            ),
+        )
+        ocr = scan.result
         btn = ocr.find("信息集纳")
         if btn is None:
             btn = ocr.find("集纳")
@@ -374,11 +426,8 @@ class JointDefenseSweep:
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
         """Click '震动' node on the map."""
-        r = await OcrScanCheck().evaluate(ctx)
-        if not r.passed:
-            ctx.logger.error("  quake: OCR scan failed")
-            return False
-        ocr = r.data
+        scan = await self._ocr(ctx, ready=lambda ocr: ocr.find("震动") is not None)
+        ocr = scan.result
         quake = ocr.find("震动")
         if quake is None:
             ctx.logger.error("  quake: '震动' not found on map")
@@ -407,18 +456,20 @@ class JointDefenseSweep:
         If the panel closes unexpectedly, re-click 震动 to reopen it.
         """
         # First verify the battle panel is still open
-        r = await OcrScanCheck().evaluate(ctx)
-        ocr = r.data if r.passed else None
-        if ocr is None or not ocr.has("扫荡"):
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: ocr.has("扫荡") or ocr.find("震动") is not None,
+        )
+        ocr = scan.result
+        if not ocr.has("扫荡"):
             ctx.logger.warning(
                 "  multi: battle panel not open, re-clicking 震动"
             )
-            if ocr:
-                quake = ocr.find("震动")
-                if quake:
-                    cx = quake.region.x + quake.region.w // 2
-                    cy = quake.region.y + quake.region.h // 2
-                    await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
+            quake = ocr.find("震动")
+            if quake:
+                cx = quake.region.x + quake.region.w // 2
+                cy = quake.region.y + quake.region.h // 2
+                await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
 
         # Step 1: Click << (min) to reset multiplier
         ctx.logger.info(
@@ -439,35 +490,33 @@ class JointDefenseSweep:
             run_log.save_image(snap_r.data, "jd_after_max_multi")
 
         # One OCR pass for multiplier + sweep button
-        r = await OcrScanCheck().evaluate(ctx)
-        ocr = r.data if r.passed else None
-        if ocr:
-            multi_text = ocr.find("x")
-            if multi_text:
-                ctx.logger.info(
-                    f"  multi: multiplier now '{multi_text.text}'"
-                )
+        scan = await self._ocr(ctx, ready=lambda ocr: ocr.has("扫荡"))
+        ocr = scan.result
+        multi_text = ocr.find("x")
+        if multi_text:
+            ctx.logger.info(
+                f"  multi: multiplier now '{multi_text.text}'"
+            )
 
         # Find and click 扫荡
-        sweep = ocr.find("扫荡") if ocr else None
+        sweep = ocr.find("扫荡")
         if sweep is None:
             # Panel may have closed — try reopening
             ctx.logger.warning("  sweep: '扫荡' not found, trying to reopen panel")
-            if ocr:
-                quake = ocr.find("震动")
-                if quake:
-                    cx = quake.region.x + quake.region.w // 2
-                    cy = quake.region.y + quake.region.h // 2
-                    await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
-                    await ClickOp(
-                        x=self._MIN_MULTI_X, y=self._MIN_MULTI_Y, wait=0.3,
-                    ).run(ctx)
-                    await ClickOp(
-                        x=self._MAX_MULTI_X, y=self._MAX_MULTI_Y, wait=0.5,
-                    ).run(ctx)
-                    r = await OcrScanCheck().evaluate(ctx)
-                    ocr = r.data if r.passed else None
-                    sweep = ocr.find("扫荡") if ocr else None
+            quake = ocr.find("震动")
+            if quake:
+                cx = quake.region.x + quake.region.w // 2
+                cy = quake.region.y + quake.region.h // 2
+                await ClickPxOp(px=cx, py=cy, wait=2.0).run(ctx)
+                await ClickOp(
+                    x=self._MIN_MULTI_X, y=self._MIN_MULTI_Y, wait=0.3,
+                ).run(ctx)
+                await ClickOp(
+                    x=self._MAX_MULTI_X, y=self._MAX_MULTI_Y, wait=0.5,
+                ).run(ctx)
+                scan = await self._ocr(ctx, ready=lambda ocr: ocr.has("扫荡"))
+                ocr = scan.result
+                sweep = ocr.find("扫荡")
 
         if sweep is None:
             ctx.logger.error("  sweep: '扫荡' button still not found")
@@ -504,18 +553,17 @@ class JointDefenseSweep:
             run_log.snap(ctx.device, "jd_sweep_result")
 
         # 2. Check for stamina-insufficient popup (one OCR pass)
-        r = await OcrScanCheck().evaluate(ctx)
-        if r.passed:
-            ocr = r.data
-            if ocr.has("补充") or ocr.has("冷却剂") or ocr.has("吨吨值"):
-                ctx.logger.info(
-                    "  confirm: stamina-insufficient popup detected, "
-                    "pressing ESC to cancel"
-                )
-                await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
-                if run_log:
-                    run_log.snap(ctx.device, "jd_stamina_popup_canceled")
-                return  # Don't try to dismiss result — sweep didn't happen
+        scan = await self._ocr(ctx)
+        ocr = scan.result
+        if ocr.has("补充") or ocr.has("冷却剂") or ocr.has("吨吨值"):
+            ctx.logger.info(
+                "  confirm: stamina-insufficient popup detected, "
+                "pressing ESC to cancel"
+            )
+            await PressKeyOp(key=VK_ESCAPE, wait=0.5).run(ctx)
+            if run_log:
+                run_log.snap(ctx.device, "jd_stamina_popup_canceled")
+            return  # Don't try to dismiss result — sweep didn't happen
 
         # 3. Dismiss result screen — wait for animation, then rapid Enter
         await SleepOp(seconds=2.0).run(ctx)
@@ -544,8 +592,8 @@ class JointDefenseSweep:
             await ClickOp(x=0.022, y=0.039, wait=1.0).run(ctx)
 
             # Check if we see 前往挑战 — means we're on 联防协议 detail page
-            r = await OcrScanCheck().evaluate(ctx)
-            if r.passed and r.data.has("前往挑战"):
+            scan = await self._ocr(ctx, ready=lambda ocr: ocr.has("前往挑战"))
+            if scan.result.has("前往挑战"):
                 ctx.logger.info("  rewards: reached 联防协议 detail page")
                 break
         else:

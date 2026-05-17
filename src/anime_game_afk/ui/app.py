@@ -148,13 +148,21 @@ def main() -> None:
     _shutdown_lock = threading.Lock()
     _shutdown_done = [False]  # protected by _shutdown_lock
 
-    def _do_shutdown(reason: str) -> None:
-        # Lock guarantees only one caller proceeds, even if window.closing
-        # daemon thread and atexit race each other.
+    def _detach_frontend() -> None:
+        # During close, any synchronous window.evaluate_js() can deadlock
+        # with WebView2 teardown. Stop all background push-to-frontend paths
+        # before logging or killing workers.
+        task_manager.bind_window(None)
+        log_forwarder.bind_window(None)
+
+    def _mark_shutdown_started() -> bool:
         with _shutdown_lock:
             if _shutdown_done[0]:
-                return
+                return False
             _shutdown_done[0] = True
+            return True
+    def _run_shutdown(reason: str) -> None:
+    def _run_shutdown(reason: str) -> None:
         _log.info("Shutdown triggered by: {}", reason)
         try:
             task_manager.shutdown()
@@ -164,6 +172,24 @@ def main() -> None:
             log_forwarder.uninstall()
         except Exception:
             pass
+
+    def _do_shutdown(reason: str) -> None:
+        # Lock guarantees only one caller proceeds, even if window.closing,
+        # post-webview.start, and atexit race each other.
+        if not _mark_shutdown_started():
+            return
+        _detach_frontend()
+        task_manager.begin_exit()
+        _run_shutdown(reason)
+
+    def _start_shutdown_thread(reason: str) -> None:
+        if not _mark_shutdown_started():
+            return
+        _detach_frontend()
+        task_manager.begin_exit()
+        threading.Thread(
+            target=_run_shutdown, args=(reason,), daemon=True
+        ).start()
 
     atexit.register(_do_shutdown, "atexit")
 
@@ -181,12 +207,9 @@ def main() -> None:
 
     def _on_window_closing() -> None:
         # Must NOT block the webview event thread — "Not Responding" otherwise.
-        # Spin up a daemon thread so the window closes immediately while
-        # cleanup (thread joins, post_inactive, etc.) runs in the background.
-        import threading
-        threading.Thread(
-            target=_do_shutdown, args=("window.closing",), daemon=True
-        ).start()
+        # Mark shutdown as started before returning so the main thread will
+        # not run blocking cleanup after webview.start() unblocks.
+        _start_shutdown_thread("window.closing")
 
     window.events.closing += _on_window_closing
 
@@ -212,7 +235,9 @@ def main() -> None:
     webview.start(debug="--debug" in sys.argv)
 
     # 7. Cleanup (idempotent if already triggered by window 'closing' event)
-    _do_shutdown("post-webview.start")
+    # Keep this non-blocking too; after the window is gone, process exit
+    # should not depend on MaaFw/post_inactive or worker joins completing.
+    _start_shutdown_thread("post-webview.start")
     task_manager.disconnect()
 
 

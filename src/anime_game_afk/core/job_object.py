@@ -38,6 +38,10 @@ _PROCESS_SET_QUOTA = 0x0100
 # JOBOBJECT_BASIC_LIMIT_INFORMATION.LimitFlags
 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 _JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x00000800
+# SILENT_BREAKAWAY_OK = grandchildren of the parent (e.g. the game launched
+# by the worker) are NOT assigned to this job and survive parent exit.
+# Without this, every process the worker spawns gets killed when the parent
+# dies — including the game.
 _JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x00001000
 
 # JobObjectInfoClass
@@ -111,6 +115,7 @@ class KillOnCloseJob:
             info = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
             info.BasicLimitInformation.LimitFlags = (
                 _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+                | _JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
             )
 
             set_info = kernel32.SetInformationJobObject

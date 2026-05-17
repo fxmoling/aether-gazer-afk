@@ -26,6 +26,7 @@
 ### 6. OCR 包必须包含在构建中
 **问题**: `rapidocr_onnxruntime` 的 config.yaml 和 ONNX 模型文件未被 PyInstaller 自动收集。
 **规则**: `build.py` 必须显式收集 `rapidocr_onnxruntime/*.yaml` 和 `models/*.onnx`。
+**补充**: `onnxruntime-directml` 的 `onnxruntime/capi/*.dll|*.pyd` 也必须显式收集，尤其是 `DirectML.dll`；MaaFw DLL 过滤只能过滤来源为 `maa/bin` 的 DLL，不能按文件名误删 ORT 的 `DirectML.dll`。
 
 ## 启动流程教训
 
@@ -73,3 +74,34 @@
 
 ### 17. 重复逻辑合并
 **已合并**: `HasTextCheck` 和 `FindTextCheck` 合并为 `FindTextCheck`（保留别名兼容）。
+
+## 退出生命周期教训
+
+### 18. pywebview closing 事件里禁止任何同步清理或 evaluate_js
+**问题**: `window.events.closing` 在 WinForms/WebView2 UI 线程同步执行。关闭时如果后台线程还通过 `window.evaluate_js()` 推日志/状态，或 closing handler 触发日志转发，会和 WebView2 teardown 互锁，表现为点 X 后窗口无响应，直到系统强制 kill。
+
+**规则**:
+- closing handler 必须只做非阻塞工作：解绑 `TaskManager`/`LogForwarder` 的 window，调用 `TaskManager.begin_exit()`，然后启动 daemon 线程做慢清理。
+- 任何 shutdown 日志之前必须先解绑前端，避免 loguru sink 调 `window.evaluate_js()`。
+- app 级 shutdown guard 必须在 closing handler 返回前标记完成，防止 `webview.start()` 返回后主线程同步跑 `shutdown()`。
+- `TaskManager.begin_exit()` 只能做快速操作：`_window=None`、停止标志、`KillOnCloseJob.close()`、`proc.kill()`，不能 `wait()`/`join()`/连接 MaaFw。
+
+**验证**: 2026-05-16 重建 dist 后，用 WM_CLOSE 自动化测试 `anime-game-afk.exe`，进程 10s 内退出，日志连续出现 `Shutdown triggered by: window.closing` → `TaskManager shutdown initiated` → `TaskManager shutdown complete`。
+
+### 19. 用户点击“停止”不能触发完成后动作
+**问题**: `TaskManager.stop()` kill worker 后，reader thread 的 `finally` 仍然会执行 `_handle_manual_post_action()`。如果配置里曾保存过 `post_run_action: exit_app_and_game`，用户点击“停止”会被当成“任务结束”，导致游戏和工具一起退出。
+
+**规则**:
+- `stop()` 必须设置 `_stop_requested=True` 并立即返回，不能 `proc.wait()` 卡住前端。
+- reader `finally` 必须在 `_stop_requested` 或 `_exiting` 时跳过 scheduled/manual post-action。
+- 手动 post-action 只应在 worker 正常成功退出（`returncode == 0`）后执行；crash/kill/stop 都不执行。
+- 前端停止按钮应立即把 `state.running=false`，避免用户以为第一次点击没生效。
+- “完成后”下拉必须等真实配置加载成功再启用，不能因为 pywebview API 暂时未 ready 而显示误导性的默认值。
+
+### 20. `onnxruntime`/`onnxruntime-directml` 不能混装进构建环境
+**问题**: `rapidocr_onnxruntime` 依赖普通 `onnxruntime`，`uv run` 会把 CPU wheel 重新装回环境；它和 `onnxruntime-directml` 共享同一个 Python 包名，混装会导致构建时收集到 CPU-only 或不完整的 ORT，打包后表现为 OCR 不可用或 DirectML provider 缺失。
+
+**规则**:
+- `build.py` 在 PyInstaller 前必须卸载普通 `onnxruntime`，再 `--force-reinstall --no-deps onnxruntime-directml`。
+- 构建前必须验证 `onnxruntime.get_available_providers()` 至少包含 `CPUExecutionProvider`，有 GPU 时应包含 `DmlExecutionProvider`。
+- OCR 初始化失败必须记录真实异常，不能只报“RapidOCR not installed”，否则会误导为依赖没装或权限问题。

@@ -16,6 +16,12 @@ OCR-verified coordinates (2026-04-19, 1280×720):
 """
 from __future__ import annotations
 
+from typing import Callable
+
+from anime_game_afk.games.aether_gazer.checks.ocr import (
+    OcrScan,
+    ocr_scan_with_retry,
+)
 from anime_game_afk.games.aether_gazer.knowledge.keys import VK_ENTER, VK_ESCAPE
 from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
     ReturnToHubAction,
@@ -28,7 +34,7 @@ from anime_game_afk.games.aether_gazer.ops.primitives import (
     SleepOp,
 )
 from anime_game_afk.games.aether_gazer.tasks.base import TaskContext, TaskResult
-from anime_game_afk.vision.ocr import ocr_once
+from anime_game_afk.vision.ocr import OcrResult, ocr_once
 
 
 class MediumSeizureCombat:
@@ -59,9 +65,24 @@ class MediumSeizureCombat:
     # Battle wait config
     _BATTLE_CHECK_INTERVAL = 10  # seconds between OCR checks
     _BATTLE_TIMEOUT = 300        # 5 minutes max
+    _OCR_RETRIES = 2
+    _OCR_RETRY_DELAY = 1.5
 
     async def can_run(self, ctx: TaskContext) -> bool:
         return True
+
+    async def _ocr(
+        self,
+        ctx: TaskContext,
+        *,
+        ready: Callable[[OcrResult], bool] | None = None,
+    ) -> OcrScan:
+        return await ocr_scan_with_retry(
+            ctx,
+            retries=self._OCR_RETRIES,
+            retry_delay=self._OCR_RETRY_DELAY,
+            ready=ready,
+        )
 
     async def execute(self, ctx: TaskContext) -> TaskResult:
         ctx.logger.info("=== MediumSeizureCombat: starting ===")
@@ -154,8 +175,12 @@ class MediumSeizureCombat:
 
         # Two-state OCR logic for 介质攫取 node
         ctx.logger.info("[medium_seizure] OCR locating 介质 node")
-        img = ctx.device.screenshot()
-        ocr = ocr_once(img)
+        scan = await self._ocr(
+            ctx,
+            ready=lambda ocr: len(ocr.find_all("介质")) > 0,
+        )
+        img = scan.image
+        ocr = scan.result
         matches = ocr.find_all("介质")
 
         if len(matches) == 0:
@@ -173,8 +198,12 @@ class MediumSeizureCombat:
             await ClickOp(fx, fy, wait=1.5).run(ctx)
 
             # Re-scan for state 2
-            img = ctx.device.screenshot()
-            ocr = ocr_once(img)
+            scan = await self._ocr(
+                ctx,
+                ready=lambda ocr: len(ocr.find_all("介质")) >= 2,
+            )
+            img = scan.image
+            ocr = scan.result
             matches = ocr.find_all("介质")
 
         if len(matches) >= 2:
@@ -194,14 +223,26 @@ class MediumSeizureCombat:
 
     async def _verify_interior(self, ctx: TaskContext) -> bool:
         """Check if we're on the 介质攫取 interior page via OCR."""
-        img = ctx.device.screenshot()
-        ocr = ocr_once(img)
-        # "积分倍" is a reliable substring (OCR reads 率 as 宰 sometimes)
-        if ocr.has("积分倍") or ocr.has("开始挑战") or ocr.has("今日积分"):
+        scan = await self._ocr(
+            ctx,
+            ready=self._is_interior_ocr,
+        )
+        ocr = scan.result
+        if self._is_interior_ocr(ocr):
             ctx.logger.info("[medium_seizure] Interior page verified")
             return True
         ctx.logger.warning("[medium_seizure] Interior page NOT verified")
         return False
+
+    @staticmethod
+    def _is_interior_ocr(ocr: OcrResult) -> bool:
+        """介质攫取内页 requires both challenge and score multiplier text."""
+        has_challenge = ocr.has("开始挑战")
+        has_multiplier = (
+            ocr.has("今日积分倍率")
+            or (ocr.has("今日积分") and (ocr.has("倍率") or ocr.has("积分倍")))
+        )
+        return has_challenge and has_multiplier
 
     async def _check_rewards_incomplete(self, ctx: TaskContext) -> bool:
         """Open reward page, check if any reward shows "未完成".
@@ -212,8 +253,8 @@ class MediumSeizureCombat:
         ctx.logger.info("[medium_seizure] Checking reward status")
         await ClickOp(*self._REWARD_CLAIM, wait=1.0).run(ctx)
 
-        img = ctx.device.screenshot()
-        ocr = ocr_once(img)
+        scan = await self._ocr(ctx)
+        ocr = scan.result
 
         has_incomplete = ocr.has("未完成")
         ctx.logger.info(
@@ -243,8 +284,8 @@ class MediumSeizureCombat:
             await SleepOp(self._BATTLE_CHECK_INTERVAL).run(ctx)
             elapsed += self._BATTLE_CHECK_INTERVAL
 
-            img = ctx.device.screenshot()
-            ocr = ocr_once(img)
+            scan = await self._ocr(ctx)
+            ocr = scan.result
 
             if ocr.has("任务完成"):
                 ctx.logger.info(

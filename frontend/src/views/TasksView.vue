@@ -63,7 +63,7 @@
     <TaskList :tasks="currentTasks" />
 
     <!-- Duowei-specific settings -->
-    <div class="duowei-settings" v-if="state.selectedPipelineId === 'duowei_challenge'">>
+    <div class="duowei-settings" v-if="state.selectedPipelineId === 'duowei_challenge'">
       <div class="duowei-setting-row">
         <label>游戏帧率</label>
         <div class="fps-chips">
@@ -107,7 +107,11 @@
     <!-- Post-run action -->
     <div class="post-action-bar">
       <label>完成后</label>
-      <select v-model="postRunAction" @change="savePostRunAction">
+      <select
+        v-model="postRunAction"
+        :disabled="!postRunActionLoaded"
+        @change="savePostRunAction"
+      >
         <option value="nothing">什么都不做</option>
         <option value="kill_game">退出游戏</option>
         <option value="exit_app">关闭工具</option>
@@ -132,6 +136,7 @@ const showTips = ref(true)
 const swipeMultiplier = ref(1.0)
 const selectedFps = ref(120)
 const postRunAction = ref('nothing')
+const postRunActionLoaded = ref(false)
 const lizhanNextKey = ref('J')
 
 const fpsPresets = [
@@ -174,9 +179,14 @@ async function saveSwipeMultiplier() {
 }
 
 async function loadPostRunAction() {
-  const data = await api.getSettings()
-  if (data && data.post_run_action) {
-    postRunAction.value = data.post_run_action
+  for (let i = 0; i < 5; i++) {
+    const data = await api.getSettings()
+    if (data && data.post_run_action) {
+      postRunAction.value = data.post_run_action
+      postRunActionLoaded.value = true
+      return
+    }
+    await new Promise(r => setTimeout(r, 300))
   }
 }
 

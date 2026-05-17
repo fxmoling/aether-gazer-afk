@@ -97,8 +97,44 @@ Step 8 改为 ESC ×1（已在街道页面）+ 返回 hub
 - 文件: `shop_tasks.py`
 - 弹窗等待时间: 0.5s → 1.0s（确保弹窗完全打开）
 
+### 7. DailyRoutine 最新失败日志结论
+
+**日志**: `dist/anime-game-afk/logs/gui.log` 2026-05-16 21:04-21:13。
+
+**结论**: OCR/打包已恢复，日志显示 `RapidOCR engine initialized (DirectML GPU)`，失败不是 OCR 不可用导致。
+
+**仍失败的任务**:
+- `joint_defense`: 已成功进入活动页、找到 `联防协议`、点击 `前往挑战`，但在 Step 6 未找到 `震动`，失败信息为 `震动 not found on map`。需要重新确认联防协议地图/Tab 状态，当前逻辑只找 OCR `震动`，如果默认页不是 `信息集纳` 或地图布局变化会失败。
+- `medium_seizure`: 已成功导航到介质攫取并进入战斗，但代码是 passive wait，不会主动战斗；300s 后 `Battle timeout`。需要接入自动战斗/连招，或把该任务改成未启用/需要用户手动战斗。
+
+**额外问题**: `DailyRoutine` 内部有失败子任务时仍返回 `ProcessResult(status="success")`，导致外层 pipeline 日志显示 `Pipeline complete: 1/1 succeeded`，会掩盖子任务失败。
+
+### 8. OCR 重试包装
+
+**变更**: 新增 `ocr_scan_with_retry(ctx, retries=0, retry_delay=0.0, ready=None)`，默认不重试；可用 `ready(OcrResult)` 定义“本次 OCR 是否满足业务条件”。返回同一次采样的 screenshot + `OcrResult`，避免为了坐标换算重复截图。
+
+**应用**:
+- `JointDefenseSweep`: 所有 OCR 检查改走 wrapper，传 `retries=2`、`retry_delay=1.5`。`前往作战`、`H`、活动页验证、`联防协议`、`前往挑战`、`信息集纳/震动`、`扫荡`、奖励页验证等都会在条件不满足时重试。
+- `MediumSeizureCombat`: 所有该类内 OCR 检查改走 wrapper，传 `retries=2`、`retry_delay=1.5`。`介质`节点、内页验证、奖励状态、战斗结果 OCR 都会避免动画未完成时一次失败即判定。
+- `MediumSeizureCombat` 内页验证条件调整为必须同时识别 `开始挑战` 和 `今日积分倍率`；兼容 OCR 拆词为 `今日积分` + `倍率`/`积分倍`。
+
+**测试**: 新增 `tests/games/aether_gazer/checks/test_ocr.py` 覆盖默认单次 OCR 和 `ready` predicate 重试；针对性测试通过。
+
+### 9. 点击期间短暂锁定用户输入
+
+**变更**: `DeviceAdapter.click()` 在调用 MaaFw `post_click(...).wait()` 前执行 `BlockInput(TRUE)`，并在 `finally` 中立即执行 `BlockInput(FALSE)`；锁定范围只覆盖底层点击，不包含任务层的后续等待。
+
+**原因**: 当前输入方法依赖 `SendMessageWithCursorPos`，游戏会读取系统光标位置。用户在自动化点击瞬间移动鼠标时，可能让点击落到错误位置，导致 `介质攫取` / `联防协议` 等流程在动画或页面切换中失败。
+
+**安全性**:
+- `BlockInput(FALSE)` 放在 `finally`，即使 MaaFw 点击异常也会释放。
+- 若锁定失败（例如非管理员运行），仍继续点击并记录 warning，不把可用性变成硬失败。
+- `release_all_held_keys()` 仍作为解锁失败时的恢复兜底。
+
+**测试**: `tests/core/test_device.py` 新增覆盖点击会先锁定后释放、以及点击异常时仍释放。
+
 ## 状态
 
 - **创建**: 2026-04-18
-- **最后更新**: 2026-04-29
+- **最后更新**: 2026-05-16
 - **测试**: 535 单元测试通过，E2E 需运行验证

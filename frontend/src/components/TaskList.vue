@@ -76,6 +76,7 @@ const STATUS_MAP = {
   running: '运行中',
   success: '✓ 完成',
   failed: '✘ 失败',
+  stopped: '■ 已停',
   skipped: '— 跳过',
 }
 
@@ -139,6 +140,10 @@ function taskClass(task) {
   border-color: var(--status-error-bg);
 }
 
+.task-item.stopped {
+  border-color: var(--status-warning-bg);
+}
+
 @keyframes glowPulse {
   0%, 100% { box-shadow: 0 0 24px var(--accent-tint-hover); }
   50% { box-shadow: 0 0 36px var(--accent-border); }
@@ -193,7 +198,7 @@ function taskClass(task) {
   opacity: 0.45;
 }
 
-.task-item:not(.running):not(.success):not(.failed) .task-icon {
+.task-item:not(.running):not(.success):not(.failed):not(.stopped) .task-icon {
   opacity: 0.35;
 }
 
@@ -225,6 +230,7 @@ function taskClass(task) {
 .badge-running { background: var(--status-running-bg); color: var(--status-running); }
 .badge-success { background: var(--status-success-bg); color: var(--status-success-text); }
 .badge-failed { background: var(--status-error-bg); color: var(--status-error-text); }
+.badge-stopped { background: var(--status-warning-bg); color: var(--status-warning-text); }
 .badge-skipped { color: var(--checkbox-border); }
 
 /* Spinner for running tasks */

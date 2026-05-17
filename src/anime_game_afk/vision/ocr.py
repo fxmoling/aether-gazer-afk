@@ -85,12 +85,14 @@ def _get_ocr_engine():
         _loguru.info(
             "RapidOCR engine initialized (CPU) — expect ~1500ms per call"
         )
-    except ImportError:
+    except Exception as exc:
         _ocr_engine = None
         _ocr_available = False
-        _loguru.warning(
-            "RapidOCR not installed — falling back to template matching. "
-            "Install with: pip install rapidocr_onnxruntime"
+        _loguru.error(
+            "RapidOCR initialization failed — OCR is unavailable. "
+            "This is usually a packaging/runtime issue, not a game/admin "
+            "permission issue. Error: {!r}",
+            exc,
         )
     return _ocr_engine
 

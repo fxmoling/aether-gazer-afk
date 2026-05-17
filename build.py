@@ -88,6 +88,46 @@ def generate_spec() -> str:
                     (str(sub), f"rapidocr_onnxruntime/{rel.parent}")
                 )
 
+    # OCR runtime collection.  rapidocr_onnxruntime is imported lazily at
+    # runtime, so PyInstaller does not reliably discover it from static
+    # analysis.  onnxruntime also ships native DLL/PYD files under capi/
+    # that must be included explicitly.
+    ocr_binaries = []
+    extra_hidden_imports = []
+    try:
+        from PyInstaller.utils.hooks import (
+            collect_data_files,
+            collect_dynamic_libs,
+            collect_submodules,
+        )
+
+        for pkg in ("rapidocr_onnxruntime", "onnxruntime", "pyclipper"):
+            extra_hidden_imports.extend(collect_submodules(pkg))
+        project_datas.extend(
+            collect_data_files("rapidocr_onnxruntime", include_py_files=False)
+        )
+        project_datas.extend(
+            collect_data_files("onnxruntime", include_py_files=False)
+        )
+        ocr_binaries.extend(collect_dynamic_libs("onnxruntime"))
+        ocr_binaries.extend(collect_dynamic_libs("pyclipper"))
+    except Exception as exc:
+        print(f"WARNING: OCR runtime collection failed: {exc}")
+    ort_capi = SITE_PACKAGES / "onnxruntime" / "capi"
+    if ort_capi.exists():
+        for sub in ort_capi.iterdir():
+            if sub.is_file() and sub.suffix.lower() in (".dll", ".pyd"):
+                ocr_binaries.append((str(sub), "onnxruntime/capi"))
+    if ocr_binaries:
+        seen_binaries = set()
+        unique_binaries = []
+        for src, dst in ocr_binaries:
+            key = (str(Path(src).resolve()).lower(), dst.replace("\\", "/").lower())
+            if key not in seen_binaries:
+                seen_binaries.add(key)
+                unique_binaries.append((src, dst))
+        ocr_binaries = unique_binaries
+
     # Collect YAML plans -> plans/ (convenient top-level access)
     plans_dir = (
         PROJECT_ROOT
@@ -116,7 +156,7 @@ def generate_spec() -> str:
         lines = [f"(r'{src}', r'{dst}')," for src, dst in items]
         return "[\n" + "\n".join(f"{pad}{line}" for line in lines) + "\n    ]"
 
-    binaries_str = "[]"  # No binaries — MaaFw DLLs are in datas to avoid bootloader preload
+    binaries_str = fmt_list(ocr_binaries)
     datas_str = fmt_list(maa_datas + agent_datas + project_datas)
 
     # Hidden imports: modules that PyInstaller can't detect via static analysis
@@ -205,6 +245,13 @@ def generate_spec() -> str:
         "anime_game_afk.games.aether_gazer.tasks.observation_tasks",
         "anime_game_afk.games.aether_gazer.ops",
         "anime_game_afk.games.aether_gazer.ops.base",
+        "rapidocr_onnxruntime",
+        "rapidocr_onnxruntime.main",
+        "onnxruntime",
+        "onnxruntime.capi",
+        "onnxruntime.capi.onnxruntime_pybind11_state",
+        "onnxruntime.capi._pybind_state",
+        "pyclipper",
         # Lazy imports — PyInstaller cannot trace these via static analysis
         "anime_game_afk.games.aether_gazer.combat.script",
         "anime_game_afk.games.aether_gazer.combat.service",
@@ -213,6 +260,10 @@ def generate_spec() -> str:
         "anime_game_afk.core.notifier",
         "anime_game_afk.runtime.run_log",
     ]
+    hidden_imports.extend(
+        m for m in sorted(set(extra_hidden_imports))
+        if m not in hidden_imports
+    )
 
     hidden_str = ",\n        ".join(f"'{m}'" for m in hidden_imports)
 
@@ -263,10 +314,16 @@ _maa_dll_names = {{
     'maawin32controlunit', 'directml', 'fastdeploy_ppocr_maa',
     'onnxruntime_maa', 'opencv_world4_maa', 'vigemclient', 'maaplugindemo',
 }}
+def _is_maafw_binary(name, path):
+    if Path(name).stem.lower() not in _maa_dll_names:
+        return False
+    source_parts = {{part.lower() for part in Path(path).parts}}
+    return 'maa' in source_parts
+
 a.binaries = [
     (name, path, typecode)
     for name, path, typecode in a.binaries
-    if Path(name).stem.lower() not in _maa_dll_names
+    if not _is_maafw_binary(name, path)
 ]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -313,45 +370,58 @@ def _ensure_directml_only_ort() -> None:
     """
     import importlib.metadata as md
 
-    have_dml = False
     have_cpu = False
+    have_dml = False
     for d in md.distributions():
         name = (d.metadata["Name"] or "").lower()
-        if name == "onnxruntime-directml":
-            have_dml = True
-        elif name == "onnxruntime":
+        if name == "onnxruntime":
             have_cpu = True
+        elif name == "onnxruntime-directml":
+            have_dml = True
 
-    if have_dml and not have_cpu:
-        return  # already correct
-
-    print("Fixing onnxruntime install (must be -directml, not CPU)...")
+    # onnxruntime and onnxruntime-directml share the same Python package
+    # name. If both distributions are present, files can overwrite each
+    # other and PyInstaller may package a broken runtime. Always restore
+    # the DirectML wheel after removing the CPU wheel.
+    print("Ensuring onnxruntime-directml is the active ORT runtime...")
     if have_cpu:
         subprocess.run(
             [sys.executable, "-m", "pip", "uninstall", "-y", "onnxruntime"],
-            check=False,
-        )
-    if not have_dml:
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "onnxruntime-directml"],
             check=True,
         )
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--force-reinstall",
+            "--no-deps",
+            "onnxruntime-directml",
+        ],
+        check=True,
+    )
 
-    # Verify DML provider is now reachable
+    # Verify OCR runtime is importable before spending time on PyInstaller.
     try:
         import importlib
+        importlib.invalidate_caches()
         import onnxruntime as ort
         importlib.reload(ort)
         provs = ort.get_available_providers()
+        if "CPUExecutionProvider" not in provs:
+            raise RuntimeError(f"ORT providers missing CPU fallback: {provs}")
         if "DmlExecutionProvider" not in provs:
             print(
-                f"WARNING: DmlExecutionProvider still missing after fix. "
-                f"Providers: {provs}"
+                f"WARNING: DmlExecutionProvider not available. "
+                f"OCR will use CPU fallback. Providers: {provs}"
             )
         else:
             print(f"OK: ORT providers = {provs}")
+        from rapidocr_onnxruntime import RapidOCR
+        print(f"OK: RapidOCR import = {RapidOCR}")
     except Exception as exc:
-        print(f"WARNING: could not verify ORT providers: {exc}")
+        raise SystemExit(f"FATAL: OCR runtime verification failed: {exc}") from exc
 
 
 def build(skip_spec: bool = False) -> None:

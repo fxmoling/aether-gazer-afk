@@ -21,6 +21,7 @@ Explicitly out of scope:
 from __future__ import annotations
 
 import ctypes
+import threading
 import time
 
 import cv2
@@ -41,6 +42,65 @@ from anime_game_afk.core.types import DeviceConfig, Resolution
 # returned as-is (never upscaled).  720 keeps ~32 px icons readable and
 # matches the effective OCR resolution.
 MAX_HEIGHT = 720
+
+
+# OS-level KEYUP for common modifiers via SendInput.
+# MaaFw's `post_key_up` only sends WM_KEYUP scoped to the game window
+# and cannot clear the OS global modifier state.  If something leaves
+# Ctrl/Shift/Alt/Win "down" globally (BlockInput leftover, Ctrl-signal
+# tricks, etc.) the user's own clicks/keys behave wrong even after the
+# script stops.  SendInput pushes a real KEYUP into the OS input queue
+# and is the only reliable cure.  Safe to call when keys aren't down.
+_KEYEVENTF_KEYUP = 0x0002
+_INPUT_KEYBOARD = 1
+_MODIFIER_VKS = (
+    0x10, 0x11, 0x12,  # Shift, Ctrl, Alt (generic)
+    0xA0, 0xA1,        # L/R Shift
+    0xA2, 0xA3,        # L/R Ctrl
+    0xA4, 0xA5,        # L/R Alt
+    0x5B, 0x5C,        # L/R Win
+)
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", ctypes.c_ushort),
+        ("wScan", ctypes.c_ushort),
+        ("dwFlags", ctypes.c_uint),
+        ("time", ctypes.c_uint),
+        ("dwExtraInfo", ctypes.c_void_p),
+    ]
+
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [("ki", _KEYBDINPUT)]
+
+
+class _INPUT(ctypes.Structure):
+    _anonymous_ = ("u",)
+    _fields_ = [("type", ctypes.c_uint), ("u", _INPUT_UNION)]
+
+
+def _release_modifiers_globally() -> int:
+    """Send OS-level KEYUP for all common modifiers via SendInput.
+
+    Returns the number of events Windows accepted.  No-op safe.
+    """
+    try:
+        inputs = (_INPUT * len(_MODIFIER_VKS))()
+        for i, vk in enumerate(_MODIFIER_VKS):
+            inputs[i].type = _INPUT_KEYBOARD
+            inputs[i].ki = _KEYBDINPUT(
+                wVk=vk, wScan=0, dwFlags=_KEYEVENTF_KEYUP,
+                time=0, dwExtraInfo=None,
+            )
+        sent = ctypes.windll.user32.SendInput(
+            len(inputs), ctypes.byref(inputs), ctypes.sizeof(_INPUT)
+        )
+        return int(sent)
+    except (AttributeError, OSError) as exc:
+        logger.debug("SendInput modifier release failed: {}", exc)
+        return 0
 
 
 class DeviceAdapter:
@@ -69,6 +129,7 @@ class DeviceAdapter:
         self._actual: Resolution | None = None
         # Last screenshot output dimensions (after proportional scaling).
         self._screenshot_res: Resolution | None = None
+        self._input_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Properties
@@ -385,7 +446,8 @@ class DeviceAdapter:
         ax = int(fx * self._actual.width)
         ay = int(fy * self._actual.height)
 
-        self._controller.post_click(ax, ay).wait()
+        with self._input_lock:
+            self._controller.post_click(ax, ay).wait()
         logger.debug(
             "click ({:.3f}, {:.3f}) -> actual ({}, {})",
             fx, fy, ax, ay,
@@ -527,9 +589,14 @@ class DeviceAdapter:
         except Exception as exc:  # noqa: BLE001
             logger.debug("release_all_held_keys: BlockInput(FALSE) failed: {}", exc)
 
+        # OS-level modifier release. The post_key_up calls above only
+        # send WM_KEYUP to the game window and cannot clear stuck
+        # Ctrl/Shift/Alt/Win in the global OS key state.
+        sent = _release_modifiers_globally()
+
         logger.info(
-            "release_all_held_keys: sent key_up for {} keys + BlockInput(FALSE)",
-            len(self._RECOVERY_VK_CODES),
+            "release_all_held_keys: window key_up x{} + BlockInput(FALSE) + global modifier release x{}",
+            len(self._RECOVERY_VK_CODES), sent,
         )
 
     # ------------------------------------------------------------------
