@@ -265,7 +265,7 @@ class BuyIntelShards:
             ).evaluate(ctx)
             if not has_intel.passed:
                 # Diagnostic: show what OCR actually found in popup region
-                diag_snap = ctx.device.screenshot()
+                diag_snap = (await ScreenshotOp().run(ctx)).data
                 diag_items = ocr_full(diag_snap, region=self._POPUP_REGION)
                 diag_texts = [t.text for t in diag_items]
                 ctx.logger.error(
