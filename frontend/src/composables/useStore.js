@@ -22,6 +22,10 @@ const state = reactive({
   completedCount: 0,
   totalCount: 0,
 
+  // Auto-battle (pushed from backend on state change)
+  autoBattleOn: false,
+  autoBattleScript: '',
+
   // Logs
   logs: [],
   logFilter: 'ALL',

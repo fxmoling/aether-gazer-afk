@@ -58,6 +58,7 @@ import {
   onTaskMessage,
   dismissToast,
   appendLog,
+  pushToast,
   onRunComplete,
 } from './composables/useStore'
 import { useTheme } from './themes/useTheme'
@@ -106,6 +107,10 @@ onMounted(async () => {
   window.onTaskMessage = onTaskMessage
   window.appendLog = appendLog
   window.onRunComplete = onRunComplete
+  window.onAutoBattleState = (enabled, script) => {
+    state.autoBattleOn = !!enabled
+    state.autoBattleScript = script || ''
+  }
 
   // Check for updates (non-blocking, after UI is ready)
   const settings = await api.getSettings()

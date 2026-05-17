@@ -57,6 +57,28 @@
     </div>
 
     <div class="settings-section">
+      <h3>全局快捷键</h3>
+      <p class="setting-hint" style="margin-bottom: 8px">仅在游戏窗口前台时生效，不影响其他应用</p>
+      <div
+        v-for="item in hotkeyItems"
+        :key="item.action"
+        class="setting-row"
+      >
+        <label>{{ item.label }}</label>
+        <button
+          ref="hotkeyBtnRefs"
+          class="btn btn-secondary hotkey-btn"
+          :class="{ capturing: capturingAction === item.action }"
+          :data-action="item.action"
+          @click.stop="startCapture(item.action)"
+        >
+          {{ capturingAction === item.action ? '按下新组合键（Esc 取消）…' : (hotkeys[item.action] || '未设置') }}
+        </button>
+      </div>
+      <div v-if="hotkeyMsg" class="save-hint">{{ hotkeyMsg }}</div>
+    </div>
+
+    <div class="settings-section">
       <h3>通知</h3>
       <div class="setting-row">
         <label>🔔 完成通知</label>
@@ -159,6 +181,21 @@ const updateMsgClass = ref('')
 const updateInfo = ref(null)
 const keybindSaved = ref(false)
 
+const hotkeyItems = [
+  { action: 'toggle_auto_battle', label: '切换自动战斗' },
+  { action: 'stop_all', label: '停止当前任务' },
+]
+const hotkeys = reactive({ toggle_auto_battle: '', stop_all: '' })
+const capturingAction = ref('')
+const hotkeyMsg = ref('')
+let hotkeyMsgTimer = null
+
+function showHotkeyMsg(text) {
+  hotkeyMsg.value = text
+  if (hotkeyMsgTimer) clearTimeout(hotkeyMsgTimer)
+  hotkeyMsgTimer = setTimeout(() => { hotkeyMsg.value = '' }, 1800)
+}
+
 const keybindLabels = {
   attack: '攻击',
   skill1: '技能1',
@@ -180,8 +217,113 @@ onMounted(async () => {
     if (data.combat_keybinds) {
       Object.assign(form.keybinds, data.combat_keybinds)
     }
+    if (data.hotkeys) {
+      for (const k of Object.keys(hotkeys)) {
+        if (typeof data.hotkeys[k] === 'string') hotkeys[k] = data.hotkeys[k]
+      }
+    }
   }
 })
+
+function startCapture(action) {
+  capturingAction.value = action
+  // Install document listeners for this capture session.
+  // Use capture phase so we beat the browser's default Alt-menu handling.
+  document.addEventListener('keydown', _captureKeydown, true)
+  document.addEventListener('mousedown', _captureMousedown, true)
+}
+
+function cancelCapture() {
+  if (!capturingAction.value) return
+  capturingAction.value = ''
+  document.removeEventListener('keydown', _captureKeydown, true)
+  document.removeEventListener('mousedown', _captureMousedown, true)
+}
+
+function _captureMousedown(ev) {
+  // Cancel if user clicks anywhere outside the active hotkey button.
+  const action = capturingAction.value
+  if (!action) return
+  const target = ev.target
+  if (target && target.closest && target.closest(`[data-action="${action}"]`)) {
+    return
+  }
+  cancelCapture()
+}
+
+function _captureKeydown(ev) {
+  if (!capturingAction.value) return
+  ev.preventDefault()
+  ev.stopPropagation()
+  // Esc cancels (only when pressed alone)
+  if (ev.key === 'Escape' && !ev.ctrlKey && !ev.altKey && !ev.shiftKey && !ev.metaKey) {
+    cancelCapture()
+    return
+  }
+  // Wait for a real main key — ignore lone modifier presses
+  if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'].includes(ev.key)) return
+  const combo = _vkLabel(ev)
+  if (!combo) return
+  _submitCapture(capturingAction.value, combo)
+}
+
+async function _submitCapture(action, combo) {
+  const prev = hotkeys[action]
+  hotkeys[action] = combo  // optimistic display
+  cancelCapture()
+  const result = await api.setHotkey(action, combo)
+  if (result && result.ok) {
+    hotkeys[action] = result.combo || combo
+    showHotkeyMsg(`✔ 已保存: ${hotkeys[action]}`)
+  } else {
+    hotkeys[action] = prev
+    showHotkeyMsg((result && result.error) || '设置失败')
+  }
+}
+
+function _vkLabel(ev) {
+  // Build a combo string from KeyboardEvent
+  const mods = []
+  if (ev.ctrlKey) mods.push('Ctrl')
+  if (ev.altKey) mods.push('Alt')
+  if (ev.shiftKey) mods.push('Shift')
+  if (ev.metaKey) mods.push('Win')
+  let main = ''
+  const code = ev.code || ''
+  const key = ev.key || ''
+  if (/^Key[A-Z]$/.test(code)) main = code.slice(3)
+  else if (/^Digit[0-9]$/.test(code)) main = code.slice(5)
+  else if (/^F([1-9]|1\d|2[0-4])$/.test(code)) main = code
+  else if (code === 'Space') main = 'Space'
+  else if (code === 'Enter' || code === 'NumpadEnter') main = 'Enter'
+  else if (code === 'Tab') main = 'Tab'
+  else if (code === 'Escape') main = 'Esc'
+  else if (code === 'Backspace') main = 'Backspace'
+  else if (code === 'Delete') main = 'Delete'
+  else if (code === 'Insert') main = 'Insert'
+  else if (code === 'Home') main = 'Home'
+  else if (code === 'End') main = 'End'
+  else if (code === 'PageUp') main = 'PageUp'
+  else if (code === 'PageDown') main = 'PageDown'
+  else if (code === 'ArrowUp') main = 'Up'
+  else if (code === 'ArrowDown') main = 'Down'
+  else if (code === 'ArrowLeft') main = 'Left'
+  else if (code === 'ArrowRight') main = 'Right'
+  else if (key && key.length === 1) main = key.toUpperCase()
+  if (!main) return ''
+  return [...mods, main].join('+')
+}
+
+async function onCaptureKey(ev, action) {
+  // Deprecated: capture now happens via document-level listener installed
+  // by startCapture(). Left as a no-op for backwards compatibility.
+  return
+}
+
+async function clearHotkey(action) {
+  // Deprecated: no clear button in UI anymore.
+  return
+}
 
 async function detectGamePath() {
   detecting.value = true
@@ -522,5 +664,15 @@ function openRelease() {
   border-color: var(--accent-1);
   background: var(--accent-tint);
   color: var(--accent-text);
+}
+
+.hotkey-btn {
+  min-width: 160px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.hotkey-btn.capturing {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 2px;
 }
 </style>

@@ -275,6 +275,38 @@ class UserConfig:
         """Set post-run action."""
         self._settings()["post_run_action"] = action
 
+    def auto_run_on_startup(self) -> bool:
+        """Whether to auto-run the daily routine when the GUI starts."""
+        return bool(self._settings().get("auto_run_on_startup", False))
+
+    def set_auto_run_on_startup(self, enabled: bool) -> None:
+        """Toggle auto-run of daily routine on GUI startup."""
+        self._settings()["auto_run_on_startup"] = bool(enabled)
+
+    # ------------------------------------------------------------------
+    # Global hotkeys (game foreground scoped)
+    # ------------------------------------------------------------------
+
+    _DEFAULT_HOTKEYS = {
+        "toggle_auto_battle": "Alt+1",
+        "stop_all": "Alt+2",
+    }
+
+    def hotkeys(self) -> dict[str, str]:
+        """Return current hotkey bindings, falling back to defaults."""
+        raw = self._settings().get("hotkeys") or {}
+        merged = dict(self._DEFAULT_HOTKEYS)
+        for k, v in raw.items():
+            if isinstance(v, str):
+                merged[k] = v
+        return merged
+
+    def set_hotkey(self, action: str, combo: str) -> None:
+        """Set a single hotkey binding (use empty string to disable)."""
+        binds = dict(self._settings().get("hotkeys") or {})
+        binds[action] = combo or ""
+        self._settings()["hotkeys"] = binds
+
     # ------------------------------------------------------------------
     # Combat keybinds
     # ------------------------------------------------------------------

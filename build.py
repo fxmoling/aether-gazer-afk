@@ -258,6 +258,7 @@ def generate_spec() -> str:
         "anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui",
         "anime_game_afk.games.aether_gazer.knowledge.pages",
         "anime_game_afk.core.notifier",
+        "anime_game_afk.core.hotkey_listener",
         "anime_game_afk.runtime.run_log",
     ]
     hidden_imports.extend(

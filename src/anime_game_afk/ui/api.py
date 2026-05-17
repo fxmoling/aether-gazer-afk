@@ -227,6 +227,8 @@ class Api:
             "lizhan_next_key": cfg.lizhan_next_key(),
             "theme": cfg.theme(),
             "post_run_action": cfg.post_run_action(),
+            "auto_run_on_startup": cfg.auto_run_on_startup(),
+            "hotkeys": cfg.hotkeys(),
         }
 
     def save_settings(
@@ -346,6 +348,41 @@ class Api:
             cfg.set_post_run_action(action)
             cfg.save()
             return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def set_auto_run_on_startup(self, enabled: bool) -> dict[str, Any]:
+        """Toggle auto-run of daily routine when the GUI launches."""
+        from anime_game_afk.config.user_config import UserConfig
+
+        try:
+            cfg = UserConfig.load()
+            cfg.set_auto_run_on_startup(bool(enabled))
+            cfg.save()
+            return {"ok": True, "enabled": bool(enabled)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def set_hotkey(self, action: str, combo: str) -> dict[str, Any]:
+        """Set a hotkey binding and reload the global listener."""
+        from anime_game_afk.config.user_config import UserConfig
+        from anime_game_afk.core.hotkey_listener import parse_combo, format_combo
+
+        allowed = {"toggle_auto_battle", "stop_all"}
+        if action not in allowed:
+            return {"ok": False, "error": f"unknown action: {action}"}
+        normalized = ""
+        if combo:
+            p = parse_combo(combo)
+            if p is None:
+                return {"ok": False, "error": f"invalid combo: {combo}"}
+            normalized = format_combo(*p)
+        try:
+            cfg = UserConfig.load()
+            cfg.set_hotkey(action, normalized)
+            cfg.save()
+            self._tm.reload_hotkeys()
+            return {"ok": True, "action": action, "combo": normalized}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

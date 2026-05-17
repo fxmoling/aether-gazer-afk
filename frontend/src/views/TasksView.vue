@@ -84,8 +84,18 @@
 
     <!-- Post-run action (daily routine only) -->
     <div class="post-run-row" v-if="state.selectedPipelineId === 'daily_routine'">
+      <label>启动时</label>
+      <select
+        :value="autoRunOnStartup ? 'auto' : 'manual'"
+        :disabled="!autoRunOnStartupLoaded"
+        @change="onAutoRunOnStartupChange"
+      >
+        <option value="manual">什么也不做</option>
+        <option value="auto">自动一条龙</option>
+      </select>
       <label>完成后</label>
       <select
+        class="post-run-select"
         v-model="postRunAction"
         :disabled="!postRunActionLoaded"
         @change="savePostRunAction"
@@ -116,6 +126,8 @@ const selectedFps = ref(120)
 const lizhanNextKey = ref('J')
 const postRunAction = ref('nothing')
 const postRunActionLoaded = ref(false)
+const autoRunOnStartup = ref(false)
+const autoRunOnStartupLoaded = ref(false)
 
 const fpsPresets = [
   { fps: 120, label: '120帧', multiplier: 1.0 },
@@ -177,15 +189,34 @@ async function loadPostRunAction() {
     if (data && data.post_run_action) {
       postRunAction.value = data.post_run_action
       postRunActionLoaded.value = true
+      if (typeof data.auto_run_on_startup === 'boolean') {
+        autoRunOnStartup.value = data.auto_run_on_startup
+      }
+      autoRunOnStartupLoaded.value = true
       return
     }
     await new Promise(r => setTimeout(r, 300))
   }
   postRunActionLoaded.value = true
+  autoRunOnStartupLoaded.value = true
 }
 
 async function savePostRunAction() {
   await api.setPostRunAction(postRunAction.value)
+}
+
+async function toggleAutoRunOnStartup(next) {
+  const prev = autoRunOnStartup.value
+  autoRunOnStartup.value = next
+  const result = await api.setAutoRunOnStartup(next)
+  if (!result || !result.ok) {
+    autoRunOnStartup.value = prev
+    if (result) alert(result.error || '保存失败')
+  }
+}
+
+function onAutoRunOnStartupChange(ev) {
+  toggleAutoRunOnStartup(ev.target.value === 'auto')
 }
 
 function dismissTips() {
@@ -463,7 +494,38 @@ const currentTasks = computed(() =>
 }
 
 .post-run-row select {
-  flex: 1;
-  max-width: 220px;
+  max-width: 140px;
+}
+
+.post-run-row select.post-run-select {
+  max-width: 154px;
+}
+
+.btn-startup-toggle {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-startup-toggle:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.btn-startup-toggle.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: transparent;
+  color: #fff;
+}
+
+.btn-startup-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

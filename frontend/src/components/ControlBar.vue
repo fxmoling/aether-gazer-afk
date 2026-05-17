@@ -51,9 +51,17 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { state, startRun, stopRun } from '../composables/useStore'
 import { api } from '../composables/useApi'
 
-const autoBattleOn = ref(false)
+// Auto-battle state lives in the store so backend pushes (hotkey, etc.)
+// update the UI without polling. Writes flow optimistically through here
+// too — backend's _push_auto_battle_state confirms on completion.
+const autoBattleOn = computed({
+  get: () => state.autoBattleOn,
+  set: (v) => { state.autoBattleOn = !!v },
+})
 const selectedScript = ref('default')
-const activeScriptName = ref('')
+const activeScriptName = computed(() =>
+  autoBattleOn.value ? scriptDisplayName(state.autoBattleScript || selectedScript.value) : ''
+)
 const scripts = ref([{ id: 'default', name: '默认连招' }])
 let pollTimer = null
 
@@ -99,7 +107,7 @@ async function onScriptChange() {
   if (autoBattleOn.value) {
     const result = await api.swapAutoBattleScript(selectedScript.value)
     if (result && result.ok) {
-      activeScriptName.value = scriptDisplayName(selectedScript.value)
+      state.autoBattleScript = selectedScript.value
     }
   }
 }
@@ -107,20 +115,20 @@ async function onScriptChange() {
 async function toggleAutoBattle() {
   if (autoBattleOn.value) {
     // Optimistic: flip immediately so user sees instant feedback
-    autoBattleOn.value = false
-    activeScriptName.value = ''
+    state.autoBattleOn = false
+    state.autoBattleScript = ''
     await api.stopAutoBattle()
   } else {
     // Optimistic: flip immediately; revert on failure
-    autoBattleOn.value = true
-    activeScriptName.value = scriptDisplayName(selectedScript.value)
+    state.autoBattleOn = true
+    state.autoBattleScript = selectedScript.value
     const result = await api.startAutoBattle(selectedScript.value)
     if (result && result.ok) {
-      activeScriptName.value = scriptDisplayName(result.script || selectedScript.value)
+      state.autoBattleScript = result.script || selectedScript.value
       state.connected = true
     } else {
-      autoBattleOn.value = false
-      activeScriptName.value = ''
+      state.autoBattleOn = false
+      state.autoBattleScript = ''
       if (result) alert(result.error || '启动失败')
     }
   }
@@ -129,12 +137,8 @@ async function toggleAutoBattle() {
 async function pollStatus() {
   const s = await api.getAutoBattleStatus()
   if (s) {
-    autoBattleOn.value = s.enabled
-    if (s.enabled && s.script) {
-      activeScriptName.value = scriptDisplayName(s.script)
-    } else if (!s.enabled) {
-      activeScriptName.value = ''
-    }
+    state.autoBattleOn = !!s.enabled
+    state.autoBattleScript = s.enabled ? (s.script || '') : ''
   }
 }
 

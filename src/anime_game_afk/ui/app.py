@@ -218,16 +218,25 @@ def main() -> None:
     import builtins
     is_scheduled = getattr(builtins, '_SCHEDULED_MODE', False)
 
+    def _auto_run_on_startup_enabled() -> bool:
+        try:
+            from anime_game_afk.config.user_config import UserConfig
+            return UserConfig.load().auto_run_on_startup()
+        except Exception as exc:
+            _log.warning("Failed to read auto_run_on_startup: {}", exc)
+            return False
+
     def _on_loaded():
         """Called when the webview window finishes loading."""
-        if is_scheduled:
+        if is_scheduled or _auto_run_on_startup_enabled():
+            reason = "scheduled" if is_scheduled else "startup-toggle"
             import threading
             import time
             def _auto_start():
                 time.sleep(2)  # Wait for frontend JS to initialize
-                _log.info("[scheduled] Auto-starting pipeline: daily_routine")
+                _log.info("[{}] Auto-starting pipeline: daily_routine", reason)
                 result = task_manager.start("daily_routine")
-                _log.info("[scheduled] start result: {}", result)
+                _log.info("[{}] start result: {}", reason, result)
             threading.Thread(target=_auto_start, daemon=True).start()
 
     window.events.loaded += _on_loaded

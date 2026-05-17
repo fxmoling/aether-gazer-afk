@@ -50,6 +50,8 @@ export const api = {
   setTheme: (themeId) => apiCall('set_theme', themeId),
   openLogFolder: () => apiCall('open_log_folder'),
   setPostRunAction: (action) => apiCall('set_post_run_action', action),
+  setAutoRunOnStartup: (enabled) => apiCall('set_auto_run_on_startup', enabled),
+  setHotkey: (action, combo) => apiCall('set_hotkey', action, combo),
   startAutoBattle: (scriptName = '') => apiCall('start_auto_battle', scriptName),
   stopAutoBattle: () => apiCall('stop_auto_battle'),
   swapAutoBattleScript: (scriptName) => apiCall('swap_auto_battle_script', scriptName),

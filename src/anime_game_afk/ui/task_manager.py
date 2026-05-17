@@ -84,6 +84,14 @@ class TaskManager:
         from anime_game_afk.core.job_object import KillOnCloseJob
         self._kill_job = KillOnCloseJob()
 
+        # Global hotkey listener (game-foreground scoped). Created lazily
+        # so config loading errors don't crash __init__.
+        from anime_game_afk.core.hotkey_listener import HotkeyListener
+        self._hotkey_listener: HotkeyListener | None = HotkeyListener(
+            self._on_hotkey,
+        )
+        self._refresh_hotkeys()
+
         self._load_pipelines()
         self._load_config()
 
@@ -328,7 +336,63 @@ class TaskManager:
         except Exception:
             pass
 
+        try:
+            if self._hotkey_listener is not None:
+                self._hotkey_listener.stop()
+        except Exception:
+            pass
+
         self._logger.info("TaskManager shutdown complete")
+
+    # ------------------------------------------------------------------
+    # Hotkeys
+    # ------------------------------------------------------------------
+
+    def _on_hotkey(self, action: str) -> None:
+        self._logger.info("Hotkey fired: {}", action)
+        # Brief OS-level beep so the user gets immediate feedback even
+        # when the game has focus (no popup, no focus steal). GUI toasts
+        # are useless when the game is foreground, so we skip them here.
+        try:
+            import winsound
+            winsound.MessageBeep(0)  # MB_OK
+        except Exception:
+            pass
+        if action == "toggle_auto_battle":
+            if self._auto_battle_enabled:
+                self.stop_auto_battle()
+            else:
+                self.start_auto_battle("")
+        elif action == "stop_all":
+            if self._auto_battle_enabled:
+                self.stop_auto_battle()
+            self.stop()
+        else:
+            self._logger.warning("Unknown hotkey action: {}", action)
+
+    def _refresh_hotkeys(self) -> None:
+        """Reload hotkey bindings from user config and (re)start the listener."""
+        if self._hotkey_listener is None:
+            return
+        try:
+            from anime_game_afk.config.user_config import UserConfig
+            cfg = UserConfig.load()
+            bindings = cfg.hotkeys()
+            title = cfg.raw.get("games", {}).get("aether_gazer", {}).get(
+                "window_title", "AetherGazer",
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._logger.warning("Hotkey config load failed: {}", exc)
+            return
+        normalized = self._hotkey_listener.update_bindings(bindings)
+        self._hotkey_listener.set_window_title(title)
+        if not self._hotkey_listener.start():
+            self._logger.warning("HotkeyListener failed to start")
+        self._logger.info("Hotkeys active: {}", normalized)
+
+    def reload_hotkeys(self) -> None:
+        """Public: re-read config and apply."""
+        self._refresh_hotkeys()
 
     def _auto_recover_input(self) -> bool:
         """Release stuck keys from the parent process.
@@ -526,6 +590,7 @@ class TaskManager:
         )
         self._auto_battle_thread.start()
         self._logger.info("自动战斗已开启 (script={})", script_name)
+        self._push_auto_battle_state()
         return {"ok": True, "script": script_name}
 
     def stop_auto_battle(self) -> dict[str, Any]:
@@ -535,7 +600,15 @@ class TaskManager:
         self._auto_battle_enabled = False
         self._auto_battle_service = None
         self._logger.info("自动战斗已关闭")
+        self._push_auto_battle_state()
         return {"ok": True}
+
+    def _push_auto_battle_state(self) -> None:
+        self._push_js(
+            f"window.onAutoBattleState && window.onAutoBattleState("
+            f"{json.dumps(bool(self._auto_battle_enabled))}, "
+            f"{json.dumps(self._auto_battle_script)})"
+        )
 
     def swap_auto_battle_script(self, script_name: str) -> dict[str, Any]:
         """Hot-swap the combat script while auto-battle is running."""
