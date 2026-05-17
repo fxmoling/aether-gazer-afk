@@ -173,12 +173,6 @@ class DeviceAdapter:
             DeviceConnectionError: MaaFw controller could not be initialised.
         """
         self._connect_foreground()
-        # Start the low-level mouse hook so subsequent clicks can pin the
-        # cursor.  Best-effort: if the hook fails to install (rare, e.g.
-        # restrictive AV policy) clicks still work, just without the user
-        # mouse protection.
-        if not self._input_guard.is_active:
-            self._input_guard.start()
 
     def _connect_foreground(self) -> None:
         """Standard foreground connection with screencap fallback.
@@ -312,12 +306,6 @@ class DeviceAdapter:
         except Exception as exc:  # noqa: BLE001
             logger.warning("disconnect: release_all_held_keys failed: {}", exc)
 
-        # 3. Stop the input guard (uninstalls the WH_MOUSE_LL hook).
-        try:
-            self._input_guard.stop()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("disconnect: input_guard stop failed: {}", exc)
-
         self._controller = None
         self._hwnd = None
         self._actual = None
@@ -393,12 +381,14 @@ class DeviceAdapter:
     def click(self, fx: float, fy: float) -> None:
         """Send a mouse click at fractional coordinates.
 
-        While the click is being delivered we lock the InputGuard, which
-        absorbs any real user mouse input via WH_MOUSE_LL.  Combined
-        with our own ``SetCursorPos`` to the target, this guarantees the
-        cursor is exactly at the target screen position when the game
-        processes ``WM_LBUTTONDOWN`` / ``WM_LBUTTONUP``, regardless of
-        what the user does with their mouse.
+        Uses MaaFw's ``SendMessageWithCursorPos`` mouse method: the library
+        moves the OS cursor + posts WM_LBUTTONDOWN/UP itself.  To prevent
+        the user's concurrent mouse motion from turning the click into a
+        drag (the cursor would otherwise drift between DOWN and UP), we
+        run a tight ``SetCursorPos(target)`` loop on a parallel thread
+        for the duration of the click — no input hook, no event blocking,
+        we just overwrite the cursor position faster than the OS can
+        process user mouse-move events.
 
         Args:
             fx: Horizontal position as fraction [0.0, 1.0].
@@ -413,32 +403,55 @@ class DeviceAdapter:
 
         ax = int(fx * self._actual.width)
         ay = int(fy * self._actual.height)
-
-        # Resolve target in screen coords and snapshot the current cursor
-        # so we can restore it after the click.
         target_screen = self._client_to_screen(ax, ay)
         orig_cursor = self._get_cursor_pos()
 
         with self._input_lock:
-            with self._input_guard.locked():
-                if target_screen is not None:
-                    self._set_cursor_pos(*target_screen)
-                    # Brief settle so the OS observes the new cursor pos
-                    # before the game receives the click message.
-                    time.sleep(0.008)
-                try:
-                    self._controller.post_click(ax, ay).wait()
-                finally:
-                    # Let the game finish reading WM_LBUTTONUP before we
-                    # restore the cursor; otherwise the restored position
-                    # could leak into the click handler.
-                    time.sleep(0.008)
-                    if orig_cursor is not None:
-                        self._set_cursor_pos(*orig_cursor)
-        logger.debug(
-            "click ({:.3f}, {:.3f}) -> actual ({}, {}) screen={}",
-            fx, fy, ax, ay, target_screen,
-        )
+            stop_evt = threading.Event()
+            pinner: threading.Thread | None = None
+            if target_screen is not None:
+                pinner = threading.Thread(
+                    target=self._cursor_pin,
+                    args=(target_screen, stop_evt),
+                    name="CursorPin",
+                    daemon=True,
+                )
+                pinner.start()
+            try:
+                self._controller.post_click(ax, ay).wait()
+            finally:
+                # Hold the pin a tiny bit longer than the click itself so
+                # the game's WM_LBUTTONUP handler sees a stable cursor.
+                time.sleep(0.02)
+                stop_evt.set()
+                if pinner is not None:
+                    pinner.join(timeout=0.2)
+                if orig_cursor is not None:
+                    self._set_cursor_pos(*orig_cursor)
+        logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {})", fx, fy, ax, ay)
+
+    def _cursor_pin(
+        self,
+        target: tuple[int, int],
+        stop_evt: threading.Event,
+    ) -> None:
+        """Spam SetCursorPos at ~200Hz to dominate the cursor position.
+
+        This is the "soft" alternative to a WH_MOUSE_LL hook: we don't
+        intercept any input, we simply overwrite the cursor position
+        faster than the OS processes user mouse-move events, so during
+        the click window the click target wins.  Cost: brief visible
+        cursor snap (~30–50ms) when user happens to be moving the mouse.
+        """
+        self._ensure_thread_dpi_aware()
+        # ~200Hz pinning; sleep_ms=5 keeps CPU negligible while still
+        # faster than the typical 125Hz/250Hz mouse polling rate.
+        while not stop_evt.is_set():
+            try:
+                ctypes.windll.user32.SetCursorPos(int(target[0]), int(target[1]))
+            except (AttributeError, OSError):
+                return
+            time.sleep(0.005)
 
     # ------------------------------------------------------------------
     # Win32 cursor helpers (used by click() to pin cursor on target)
@@ -519,12 +532,10 @@ class DeviceAdapter:
     ) -> None:
         """Perform a pointer swipe between two fractional coordinates.
 
-        Under the plain ``SendMessage`` mouse method MaaFw does not move
-        the cursor.  To make swipes work for Unity (which reads
-        ``GetCursorPos()`` during drag), we run a parallel interpolation
-        thread that linearly walks the cursor from start to end over the
-        swipe ``duration``.  The InputGuard absorbs any user mouse input
-        during that window so the user cannot deflect the swipe.
+        Delegates to MaaFw's ``post_swipe``.  With
+        ``SendMessageWithCursorPos`` mouse method, MaaFw moves the OS
+        cursor along the swipe path itself, so we no longer run our own
+        interpolation thread or absorb user input.
 
         Args:
             fx1: Start X as fraction [0.0, 1.0].
@@ -544,47 +555,34 @@ class DeviceAdapter:
         ay1 = int(fy1 * self._actual.height)
         ax2 = int(fx2 * self._actual.width)
         ay2 = int(fy2 * self._actual.height)
-
         start_screen = self._client_to_screen(ax1, ay1)
         end_screen = self._client_to_screen(ax2, ay2)
         orig_cursor = self._get_cursor_pos()
 
         with self._input_lock:
-            with self._input_guard.locked():
-                stop_evt = threading.Event()
-                mover: threading.Thread | None = None
-                if start_screen is not None and end_screen is not None:
-                    mover = threading.Thread(
-                        target=self._cursor_walk,
-                        args=(start_screen, end_screen,
-                              duration / 1000.0, stop_evt),
-                        name="CursorWalk",
-                        daemon=True,
-                    )
-                    mover.start()
-                    # Brief settle so the start position is visible to
-                    # the game before MaaFw sends WM_LBUTTONDOWN.
-                    time.sleep(0.008)
-                try:
-                    self._controller.post_swipe(
-                        ax1, ay1, ax2, ay2, duration,
-                    ).wait()
-                finally:
-                    stop_evt.set()
-                    if mover is not None:
-                        mover.join(timeout=0.5)
-                    # Park cursor at end before restore so the game's
-                    # mouse-up handler sees the final position.
-                    if end_screen is not None:
-                        self._set_cursor_pos(*end_screen)
-                        time.sleep(0.008)
-                    if orig_cursor is not None:
-                        self._set_cursor_pos(*orig_cursor)
+            stop_evt = threading.Event()
+            mover: threading.Thread | None = None
+            if start_screen is not None and end_screen is not None:
+                mover = threading.Thread(
+                    target=self._cursor_walk,
+                    args=(start_screen, end_screen,
+                          duration / 1000.0, stop_evt),
+                    name="CursorWalk",
+                    daemon=True,
+                )
+                mover.start()
+            try:
+                self._controller.post_swipe(ax1, ay1, ax2, ay2, duration).wait()
+            finally:
+                stop_evt.set()
+                if mover is not None:
+                    mover.join(timeout=0.5)
+                if orig_cursor is not None:
+                    self._set_cursor_pos(*orig_cursor)
         logger.debug(
             "swipe ({:.3f},{:.3f})->({:.3f},{:.3f}) duration={}ms -> "
-            "pixel ({},{})->({},{}) screen={}->{}",
+            "pixel ({},{})->({},{})",
             fx1, fy1, fx2, fy2, duration, ax1, ay1, ax2, ay2,
-            start_screen, end_screen,
         )
 
     def _cursor_walk(

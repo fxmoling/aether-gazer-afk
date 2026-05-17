@@ -100,6 +100,17 @@ async def _run(pipeline_id: str, enabled_ids: set[str]) -> int:
     logger = get_logger("worker")
     logger.info("Worker started: pipeline={}, tasks={}", pipeline_id, enabled_ids)
 
+    # Preload RapidOCR engine in the background so the first task's first
+    # OCR call doesn't pay the ~10s DirectML init cost on the critical path.
+    import threading as _threading
+    def _preload_ocr():
+        try:
+            from anime_game_afk.vision.ocr import _get_ocr_engine
+            _get_ocr_engine()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("OCR preload failed: {}", exc)
+    _threading.Thread(target=_preload_ocr, name="OcrPreload", daemon=True).start()
+
     import platform
     import time as _time
     _worker_start = _time.monotonic()

@@ -19,14 +19,15 @@ AETHER_GAZER_CONFIG = GameConfig(
     resource_path=_BASE / "assets" / "aether_gazer",  # placeholder; resource/ removed (unused)
     # FramePool: DXGI 帧池捕获，不发送窗口消息，游戏无法检测
     screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-    # 鼠标用纯 SendMessage（不带 CursorPos 后缀）：MaaFw 源码确认此路径
-    # `block_input=false`，完全不调用 BlockInput → 没有卡 Ctrl 风险。
-    # Unity 在处理消息时读取 GetCursorPos()，所以 DeviceAdapter.click()
-    # 自己用 SetCursorPos 把光标短暂放到目标位置；同时 InputGuard
-    # (WH_MOUSE_LL 钩子) 在那 ~20ms 窗口里吸收用户的真实鼠标事件，
-    # 保证用户即使快速移动鼠标也无法干扰点击落点。
-    # 参见: MaaWin32ControlUnit/Manager/Win32ControlUnitMgr.cpp make_input
+    # Mouse: plain SendMessage (block_input=false, MaaFw posts only window
+    # messages and does NOT move the OS cursor).  DeviceAdapter.click()
+    # spins up a short-lived CursorPin thread that spams SetCursorPos to
+    # the target so Unity's GetCursorPos() reads the right point during
+    # WM_LBUTTONDOWN/UP.  DeviceAdapter.swipe() uses a CursorWalk thread
+    # that linearly interpolates from start→end at our own (fast) pace.
+    # This avoids MaaFw's SendMessageWithCursorPos slow internal
+    # interpolation (~8x slower than the requested swipe duration).
     mouse_method=MaaWin32InputMethodEnum.SendMessage,
-    # 键盘用同样的纯 SendMessage：源码确认 block_input=false。
+    # Keyboard stays plain SendMessage (block_input=false, no stuck-key risk).
     keyboard_method=MaaWin32InputMethodEnum.SendMessage,
 )

@@ -277,13 +277,17 @@ class JointDefenseSweep:
     async def _find_and_click_joint_defense(
         self, ctx: TaskContext, run_log: RunLog | None,
     ) -> bool:
-        """Find '联防协议' in activity list, scrolling if needed."""
-        scan = await self._ocr(
-            ctx,
-            ready=lambda ocr: ocr.find("联防协议") is not None,
-        )
-        ocr = scan.result
-        found = ocr.find("联防协议")
+        """Find '联防协议' in activity list, scrolling if needed.
+
+        Single OCR per scroll attempt — no internal retry/delay, since
+        a missing text just means we need to scroll further.
+        """
+
+        async def _scan_once() -> tuple[OcrScan, object | None]:
+            scan = await ocr_scan_with_retry(ctx, retries=0)
+            return scan, scan.result.find("联防协议")
+
+        scan, found = await _scan_once()
 
         # Scroll down to find
         scroll_down = 0
@@ -293,17 +297,12 @@ class JointDefenseSweep:
                 f"{self._MAX_SCROLL_ATTEMPTS})"
             )
             await SwipeOp(
-                x1=0.125, y1=0.667, x2=0.125, y2=0.333, duration=300, wait=2.0,
+                x1=0.125, y1=0.667, x2=0.125, y2=0.333, duration=300, wait=0.6,
             ).run(ctx)
             if run_log:
                 snap_r = await ScreenshotOp().run(ctx)
                 run_log.save_image(snap_r.data, f"jd_scroll_down_{scroll_down}")
-            scan = await self._ocr(
-                ctx,
-                ready=lambda ocr: ocr.find("联防协议") is not None,
-            )
-            ocr = scan.result
-            found = ocr.find("联防协议")
+            scan, found = await _scan_once()
             scroll_down += 1
 
         # Scroll back up if not found
@@ -311,17 +310,12 @@ class JointDefenseSweep:
             ctx.logger.info("  search: not found scrolling down, scrolling up")
             for i in range(self._MAX_SCROLL_ATTEMPTS + scroll_down):
                 await SwipeOp(
-                    x1=0.125, y1=0.333, x2=0.125, y2=0.667, duration=300, wait=2.0,
+                    x1=0.125, y1=0.333, x2=0.125, y2=0.667, duration=300, wait=0.6,
                 ).run(ctx)
                 if run_log:
                     snap_r = await ScreenshotOp().run(ctx)
                     run_log.save_image(snap_r.data, f"jd_scroll_up_{i}")
-                scan = await self._ocr(
-                    ctx,
-                    ready=lambda ocr: ocr.find("联防协议") is not None,
-                )
-                ocr = scan.result
-                found = ocr.find("联防协议")
+                scan, found = await _scan_once()
                 if found:
                     break
 
