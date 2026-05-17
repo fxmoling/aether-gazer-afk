@@ -170,3 +170,5 @@ docs/README.md
 # Frontend build artifacts (built files are in src/anime_game_afk/ui/web/)
 frontend/node_modules/
 frontend/dist/
+
+build_log.txt

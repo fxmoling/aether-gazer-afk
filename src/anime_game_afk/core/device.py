@@ -23,6 +23,7 @@ from __future__ import annotations
 import ctypes
 import threading
 import time
+from ctypes import wintypes as _wintypes
 
 import cv2
 import numpy as np
@@ -130,6 +131,11 @@ class DeviceAdapter:
         # Last screenshot output dimensions (after proportional scaling).
         self._screenshot_res: Resolution | None = None
         self._input_lock = threading.Lock()
+        # Low-level mouse hook guard: pins the cursor in place while we
+        # click, so a user moving the mouse cannot deflect the click.
+        # Started lazily on first connect(); stopped on disconnect().
+        from anime_game_afk.core.input_guard import InputGuard
+        self._input_guard: InputGuard = InputGuard()
 
     # ------------------------------------------------------------------
     # Properties
@@ -223,6 +229,12 @@ class DeviceAdapter:
             DeviceConnectionError: MaaFw controller could not be initialised.
         """
         self._connect_foreground()
+        # Start the low-level mouse hook so subsequent clicks can pin the
+        # cursor.  Best-effort: if the hook fails to install (rare, e.g.
+        # restrictive AV policy) clicks still work, just without the user
+        # mouse protection.
+        if not self._input_guard.is_active:
+            self._input_guard.start()
 
     def _connect_foreground(self) -> None:
         """Standard foreground connection with screencap fallback.
@@ -357,6 +369,12 @@ class DeviceAdapter:
         except Exception as exc:  # noqa: BLE001
             logger.warning("disconnect: release_all_held_keys failed: {}", exc)
 
+        # 3. Stop the input guard (uninstalls the WH_MOUSE_LL hook).
+        try:
+            self._input_guard.stop()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("disconnect: input_guard stop failed: {}", exc)
+
         self._controller = None
         self._hwnd = None
         self._actual = None
@@ -432,6 +450,13 @@ class DeviceAdapter:
     def click(self, fx: float, fy: float) -> None:
         """Send a mouse click at fractional coordinates.
 
+        While the click is being delivered we lock the InputGuard, which
+        absorbs any real user mouse input via WH_MOUSE_LL.  Combined
+        with our own ``SetCursorPos`` to the target, this guarantees the
+        cursor is exactly at the target screen position when the game
+        processes ``WM_LBUTTONDOWN`` / ``WM_LBUTTONUP``, regardless of
+        what the user does with their mouse.
+
         Args:
             fx: Horizontal position as fraction [0.0, 1.0].
             fy: Vertical position as fraction [0.0, 1.0].
@@ -446,12 +471,100 @@ class DeviceAdapter:
         ax = int(fx * self._actual.width)
         ay = int(fy * self._actual.height)
 
+        # Resolve target in screen coords and snapshot the current cursor
+        # so we can restore it after the click.
+        target_screen = self._client_to_screen(ax, ay)
+        orig_cursor = self._get_cursor_pos()
+
         with self._input_lock:
-            self._controller.post_click(ax, ay).wait()
+            with self._input_guard.locked():
+                if target_screen is not None:
+                    self._set_cursor_pos(*target_screen)
+                    # Brief settle so the OS observes the new cursor pos
+                    # before the game receives the click message.
+                    time.sleep(0.008)
+                try:
+                    self._controller.post_click(ax, ay).wait()
+                finally:
+                    # Let the game finish reading WM_LBUTTONUP before we
+                    # restore the cursor; otherwise the restored position
+                    # could leak into the click handler.
+                    time.sleep(0.008)
+                    if orig_cursor is not None:
+                        self._set_cursor_pos(*orig_cursor)
         logger.debug(
-            "click ({:.3f}, {:.3f}) -> actual ({}, {})",
-            fx, fy, ax, ay,
+            "click ({:.3f}, {:.3f}) -> actual ({}, {}) screen={}",
+            fx, fy, ax, ay, target_screen,
         )
+
+    # ------------------------------------------------------------------
+    # Win32 cursor helpers (used by click() to pin cursor on target)
+    # ------------------------------------------------------------------
+
+    # DPI awareness context: PER_MONITOR_AWARE_V2 makes ClientToScreen and
+    # SetCursorPos work in *physical* pixels — the same coordinate system
+    # the (DPI-aware) game window uses.  Python's main thread is usually
+    # DPI-unaware, so without this call, ClientToScreen returns virtualized
+    # logical coords and SetCursorPos lands the cursor in the wrong screen
+    # position under HiDPI display scaling (125%/150% etc).
+    _DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+
+    @staticmethod
+    def _ensure_thread_dpi_aware() -> None:
+        """Switch the calling thread to PER_MONITOR_AWARE_V2.
+
+        Best-effort, idempotent at the Windows kernel level (cheap to call
+        repeatedly).  DPI awareness is per-thread; we set it inline before
+        every ClientToScreen / SetCursorPos so any thread that ends up
+        running click() is in the correct coordinate space.
+        """
+        try:
+            ctypes.windll.user32.SetThreadDpiAwarenessContext(
+                ctypes.c_void_p(
+                    DeviceAdapter._DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+                )
+            )
+        except (AttributeError, OSError) as exc:
+            logger.debug("SetThreadDpiAwarenessContext failed: {}", exc)
+
+    def _client_to_screen(self, ax: int, ay: int) -> tuple[int, int] | None:
+        """Translate client-area pixel coords to absolute screen coords."""
+        self._ensure_thread_dpi_aware()
+        if self._hwnd is None:
+            return None
+        pt = _wintypes.POINT(int(ax), int(ay))
+        try:
+            ok = ctypes.windll.user32.ClientToScreen(
+                self._hwnd, ctypes.byref(pt),
+            )
+            if not ok:
+                return None
+        except (AttributeError, OSError) as exc:
+            logger.debug("ClientToScreen failed: {}", exc)
+            return None
+        return (pt.x, pt.y)
+
+    @staticmethod
+    def _get_cursor_pos() -> tuple[int, int] | None:
+        DeviceAdapter._ensure_thread_dpi_aware()
+        pt = _wintypes.POINT()
+        try:
+            if ctypes.windll.user32.GetCursorPos(ctypes.byref(pt)):
+                return (pt.x, pt.y)
+        except (AttributeError, OSError) as exc:
+            logger.debug("GetCursorPos failed: {}", exc)
+        return None
+
+    @staticmethod
+    def _set_cursor_pos(x: int, y: int) -> bool:
+        DeviceAdapter._ensure_thread_dpi_aware()
+        try:
+            return bool(
+                ctypes.windll.user32.SetCursorPos(int(x), int(y))
+            )
+        except (AttributeError, OSError) as exc:
+            logger.debug("SetCursorPos failed: {}", exc)
+            return False
 
     def swipe(
         self,

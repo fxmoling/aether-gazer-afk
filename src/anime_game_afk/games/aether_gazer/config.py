@@ -19,13 +19,14 @@ AETHER_GAZER_CONFIG = GameConfig(
     resource_path=_BASE / "assets" / "aether_gazer",  # placeholder; resource/ removed (unused)
     # FramePool: DXGI 帧池捕获，不发送窗口消息，游戏无法检测
     screencap_method=MaaWin32ScreencapMethodEnum.FramePool,
-    # 鼠标必须用 SendMessageWithCursorPos：Unity 引擎读光标位置而非鼠标消息坐标，
-    # 不带 CursorPos 的方式点击会落在屏幕中心（光标不动）。代价是它会调用
-    # BlockInput(TRUE/FALSE) 阻塞用户键鼠输入约 1ms/click。
-    mouse_method=MaaWin32InputMethodEnum.SendMessageWithCursorPos,
-    # 键盘用 *纯* SendMessage：MaaFw 源码确认 keyboard 路径完全不调用 BlockInput
-    # 且不需要光标位置。这样脚本运行时频繁的 press_key/hold_key 完全不会
-    # 影响用户的键鼠输入。当 mouse/keyboard method 不同时 MaaFw 会创建两个
-    # 独立的 Input 实例（见 Win32ControlUnitMgr.cpp L69-76）。
+    # 鼠标用纯 SendMessage（不带 CursorPos 后缀）：MaaFw 源码确认此路径
+    # `block_input=false`，完全不调用 BlockInput → 没有卡 Ctrl 风险。
+    # Unity 在处理消息时读取 GetCursorPos()，所以 DeviceAdapter.click()
+    # 自己用 SetCursorPos 把光标短暂放到目标位置；同时 InputGuard
+    # (WH_MOUSE_LL 钩子) 在那 ~20ms 窗口里吸收用户的真实鼠标事件，
+    # 保证用户即使快速移动鼠标也无法干扰点击落点。
+    # 参见: MaaWin32ControlUnit/Manager/Win32ControlUnitMgr.cpp make_input
+    mouse_method=MaaWin32InputMethodEnum.SendMessage,
+    # 键盘用同样的纯 SendMessage：源码确认 block_input=false。
     keyboard_method=MaaWin32InputMethodEnum.SendMessage,
 )
