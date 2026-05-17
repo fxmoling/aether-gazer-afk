@@ -25,7 +25,9 @@ defineEmits(['navigate'])
 
 const items = [
   { page: 'tasks', icon: '☑', label: '任务' },
-  { page: 'schedule', icon: '⏰', label: '定时' },
+  // ⏰ + U+FE0E variant selector forces text (monochrome) presentation
+  // so the schedule icon matches the other monochrome glyphs.
+  { page: 'schedule', icon: '⏰︎', label: '定时' },
   { page: 'logs', icon: '≡', label: '日志' },
   { page: 'combat', icon: '⚔', label: '连招' },
   { page: 'settings', icon: '⚙', label: '设置' },

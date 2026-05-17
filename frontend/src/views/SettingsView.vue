@@ -14,19 +14,58 @@
     </div>
 
     <div class="settings-section">
-      <h3>关于</h3>
-      <div class="info-row">
-        <span class="info-label">应用名称</span>
-        <span class="info-value">AetherGazer AFK</span>
+      <h3>游戏路径</h3>
+      <div class="setting-row">
+        <label>游戏路径</label>
+        <div class="path-row">
+          <input
+            type="text"
+            :value="settings.game_exe_path || '(未设置，将自动检测)'"
+            readonly
+            class="setting-input path-input"
+          >
+          <button class="btn btn-secondary" @click="detectGamePath">
+            {{ detecting ? '检测中...' : '自动检测' }}
+          </button>
+        </div>
       </div>
-      <div class="info-row">
-        <span class="info-label">版本</span>
-        <span class="info-value">{{ settings.version || '-' }}</span>
+      <p class="setting-hint">
+        未设置时将自动检测正在运行的游戏进程。
+      </p>
+    </div>
+
+    <div class="settings-section">
+      <h3>战斗按键</h3>
+      <p class="setting-hint" style="margin-left: 0; margin-bottom: 10px">
+        如果你修改了游戏内的战斗快捷键，请在此处同步配置。<br>
+        <b>注意：</b>请勿修改其他便利性快捷键（如邮箱、开始作战等），否则自动化流程可能异常。
+      </p>
+      <div class="keybind-grid">
+        <div class="keybind-row" v-for="(label, key) in keybindLabels" :key="key">
+          <label>{{ label }}</label>
+          <input
+            type="text"
+            :value="form.keybinds[key]"
+            maxlength="1"
+            class="setting-input keybind-input"
+            @keydown.prevent="onKeybindKey(key, $event)"
+            readonly
+          >
+        </div>
       </div>
-      <div class="info-row">
-        <span class="info-label">游戏</span>
-        <span class="info-value">深空之眼 (Aether Gazer)</span>
+      <div v-if="keybindSaved" class="save-hint" style="margin-top: 6px">✔ 已保存</div>
+    </div>
+
+    <div class="settings-section">
+      <h3>通知</h3>
+      <div class="setting-row">
+        <label>🔔 完成通知</label>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="form.notifyOnComplete" @change="onNotifyToggle">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
+      <p class="setting-hint">任务完成或失败时显示系统通知</p>
     </div>
 
     <div class="settings-section">
@@ -56,70 +95,20 @@
     </div>
 
     <div class="settings-section">
-      <h3>通知</h3>
-      <div class="setting-row">
-        <label>🔔 完成通知</label>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="form.notifyOnComplete" @change="onNotifyToggle">
-          <span class="toggle-slider"></span>
-        </label>
+      <h3>关于</h3>
+      <div class="info-row">
+        <span class="info-label">版本</span>
+        <span class="info-value">{{ settings.version || '-' }}</span>
       </div>
-      <p class="setting-hint">任务完成或失败时显示系统通知</p>
-    </div>
-
-    <div class="settings-section">
-      <h3>战斗按键</h3>
-      <p class="setting-hint" style="margin-left: 0; margin-bottom: 10px">
-        如果你修改了游戏内的战斗快捷键，请在此处同步配置。<br>
-        <b>注意：</b>请勿修改其他便利性快捷键（如邮箱、开始作战等），否则自动化流程可能异常。
-      </p>
-      <div class="keybind-grid">
-        <div class="keybind-row" v-for="(label, key) in keybindLabels" :key="key">
-          <label>{{ label }}</label>
-          <input
-            type="text"
-            :value="form.keybinds[key]"
-            maxlength="1"
-            class="setting-input keybind-input"
-            @keydown.prevent="onKeybindKey(key, $event)"
-            readonly
-          >
-        </div>
+      <div class="info-row">
+        <span class="info-label">QQ 群</span>
+        <span class="info-value">
+          <a :href="qqGroupUrl" target="_blank" class="footer-link">915233498</a>
+        </span>
       </div>
-      <div v-if="keybindSaved" class="save-hint" style="margin-top: 6px">✔ 已保存</div>
-    </div>
-
-    <div class="settings-section">
-      <h3>游戏设置</h3>
-      <div class="setting-row">
-        <label>游戏窗口标题</label>
-        <input
-          type="text"
-          v-model="form.windowTitle"
-          placeholder="AetherGazer"
-          class="setting-input"
-          @blur="saveWindowTitle"
-          @keyup.enter="$event.target.blur()"
-        >
-        <span v-if="savedHint === 'windowTitle'" class="save-hint">✔</span>
+      <div class="qr-row">
+        <img :src="qqGroupQr" class="qr-img" alt="QQ群二维码">
       </div>
-      <div class="setting-row">
-        <label>游戏路径</label>
-        <div class="path-row">
-          <input
-            type="text"
-            :value="settings.game_exe_path || '(未设置，将自动检测)'"
-            readonly
-            class="setting-input path-input"
-          >
-          <button class="btn btn-secondary" @click="detectGamePath">
-            {{ detecting ? '检测中...' : '自动检测' }}
-          </button>
-        </div>
-      </div>
-      <p class="setting-hint">
-        程序通过窗口标题查找游戏。游戏路径用于自动启动游戏。
-      </p>
     </div>
 
     <div class="settings-footer">
@@ -136,8 +125,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { api } from '../composables/useApi'
 import { useTheme } from '../themes/useTheme'
+import qqGroupQrSrc from '../assets/group_qr.jpg'
 
 const { currentTheme, setTheme, themeList } = useTheme()
+
+const qqGroupUrl = 'https://qm.qq.com/q/W9LZqg9NG'
+const qqGroupQr = qqGroupQrSrc
 
 const settings = reactive({
   version: '',
@@ -145,7 +138,6 @@ const settings = reactive({
 })
 
 const form = reactive({
-  windowTitle: 'AetherGazer',
   autoUpdate: true,
   notifyOnComplete: true,
   keybinds: {
@@ -165,7 +157,6 @@ const checking = ref(false)
 const updateMsg = ref('')
 const updateMsgClass = ref('')
 const updateInfo = ref(null)
-const savedHint = ref('')
 const keybindSaved = ref(false)
 
 const keybindLabels = {
@@ -184,7 +175,6 @@ onMounted(async () => {
   if (data) {
     settings.version = data.version || ''
     settings.game_exe_path = data.game_exe_path || ''
-    form.windowTitle = data.window_title || 'AetherGazer'
     form.autoUpdate = data.auto_update !== false
     form.notifyOnComplete = data.notify_on_complete !== false
     if (data.combat_keybinds) {
@@ -192,14 +182,6 @@ onMounted(async () => {
     }
   }
 })
-
-async function saveWindowTitle() {
-  const result = await api.saveSettings(form.windowTitle)
-  if (result && result.ok) {
-    savedHint.value = 'windowTitle'
-    setTimeout(() => { savedHint.value = '' }, 2000)
-  }
-}
 
 async function detectGamePath() {
   detecting.value = true
@@ -474,6 +456,20 @@ function openRelease() {
 .btn-sm {
   padding: 4px 12px;
   font-size: 12px;
+}
+
+.qr-row {
+  margin-top: 10px;
+  margin-left: 100px;
+}
+
+.qr-img {
+  width: 120px;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
 }
 
 .settings-footer {

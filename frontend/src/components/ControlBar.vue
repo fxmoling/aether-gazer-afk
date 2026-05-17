@@ -2,18 +2,10 @@
   <div class="control-bar">
     <div class="control-row">
       <button
-        class="btn-start"
-        :disabled="state.running"
-        @click="handleStart"
+        :class="['btn-run', { 'is-stop': state.running }]"
+        @click="toggleRun"
       >
-        ▶ 开始运行
-      </button>
-      <button
-        class="btn-stop"
-        :disabled="!state.running"
-        @click="handleStop"
-      >
-        ■ 停止
+        {{ state.running ? '■ 停止' : '▶ 开始运行' }}
       </button>
     <button
       class="btn-auto-battle"
@@ -114,17 +106,22 @@ async function onScriptChange() {
 
 async function toggleAutoBattle() {
   if (autoBattleOn.value) {
-    await api.stopAutoBattle()
+    // Optimistic: flip immediately so user sees instant feedback
     autoBattleOn.value = false
     activeScriptName.value = ''
+    await api.stopAutoBattle()
   } else {
+    // Optimistic: flip immediately; revert on failure
+    autoBattleOn.value = true
+    activeScriptName.value = scriptDisplayName(selectedScript.value)
     const result = await api.startAutoBattle(selectedScript.value)
     if (result && result.ok) {
-      autoBattleOn.value = true
       activeScriptName.value = scriptDisplayName(result.script || selectedScript.value)
       state.connected = true
-    } else if (result) {
-      alert(result.error || '启动失败')
+    } else {
+      autoBattleOn.value = false
+      activeScriptName.value = ''
+      if (result) alert(result.error || '启动失败')
     }
   }
 }
@@ -140,8 +137,6 @@ async function pollStatus() {
     }
   }
 }
-
-async function loadPostRunAction() {}
 
 onMounted(() => {
   loadScripts()
@@ -170,15 +165,15 @@ const runTimeText = computed(() => {
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 })
 
-async function handleStart() {
+async function toggleRun() {
+  if (state.running) {
+    await stopRun()
+    return
+  }
   const result = await startRun()
   if (!result.ok) {
     alert(result.error || '启动失败')
   }
-}
-
-async function handleStop() {
-  await stopRun()
 }
 </script>
 
@@ -198,7 +193,7 @@ async function handleStop() {
   gap: 12px;
 }
 
-.btn-start {
+.btn-run {
   flex: 1;
   max-width: 220px;
   padding: 12px 24px;
@@ -211,39 +206,25 @@ async function handleStop() {
   cursor: pointer;
   letter-spacing: 0.5px;
   box-shadow: 0 4px 20px var(--accent-border-strong);
-  transition: box-shadow 0.15s, transform 0.15s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-.btn-start:hover:not(:disabled) {
+.btn-run:hover {
   box-shadow: 0 6px 28px var(--border-focus);
   transform: translateY(-1px);
 }
 
-.btn-start:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-stop {
-  padding: 12px 20px;
+.btn-run.is-stop {
   background: var(--btn-secondary-bg);
-  border: 1px solid var(--btn-secondary-border);
-  border-radius: var(--radius-lg);
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
-}
-
-.btn-stop:hover:not(:disabled) {
-  background: var(--btn-danger-hover-bg);
-  border-color: var(--btn-danger-hover-border);
+  border: 1px solid var(--btn-danger-hover-border);
   color: var(--btn-danger-text);
+  box-shadow: none;
+  font-weight: 600;
 }
 
-.btn-stop:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+.btn-run.is-stop:hover {
+  background: var(--btn-danger-hover-bg);
+  box-shadow: none;
 }
 
 .control-info {

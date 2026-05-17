@@ -16,11 +16,11 @@
         :key="task.id"
         class="task-item"
         :class="taskClass(task)"
+        @click="toggleTask(task.id, !task.enabled)"
       >
         <div
           class="task-check"
           :class="{ checked: task.enabled }"
-          @click="toggleTask(task.id, !task.enabled)"
         ></div>
         <span class="task-icon">{{ taskIcon(task.id) }}</span>
         <span class="task-name" :class="{ unsafe: !task.safe }">
@@ -118,6 +118,8 @@ function taskClass(task) {
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  user-select: none;
 }
 
 .task-item:hover {

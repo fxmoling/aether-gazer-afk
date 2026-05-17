@@ -1,6 +1,6 @@
 <template>
   <div class="tasks-view">
-    <ConnectionBar />
+    <ConnectionBar :desc="selectedPipeline ? selectedPipeline.description : ''" />
 
     <!-- Pipeline selector -->
     <div class="pipeline-bar">
@@ -17,9 +17,6 @@
     </div>
 
     <!-- Pipeline description -->
-    <div v-if="selectedPipeline" class="pipeline-desc">
-      {{ selectedPipeline.description }}
-    </div>
 
     <!-- Usage tips banner (content varies by pipeline) -->
     <div class="tips-banner" v-if="showTips && currentTips.length">
@@ -39,25 +36,6 @@
     </div>
     <div class="tips-collapsed" v-else-if="currentTips.length" @click="showTips = true; saveTips()">
       <span class="tips-icon">⚠️</span> 使用须知（点击展开）
-    </div>
-
-    <!-- Progress section -->
-    <div class="progress-section" v-if="totalCount > 0">
-      <div class="progress-header">
-        <span class="progress-title">任务设置</span>
-        <span class="progress-count">{{ completedCount }} / {{ totalCount }}</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
-      </div>
-    </div>
-
-    <!-- Section header for processes without sub-tasks -->
-    <div class="progress-section" v-else-if="selectedPipeline">
-      <div class="progress-header">
-        <span class="progress-title">任务设置</span>
-        <span class="progress-count" style="color: rgba(102,126,234,0.7)">无限循环</span>
-      </div>
     </div>
 
     <TaskList :tasks="currentTasks" />
@@ -104,8 +82,8 @@
       <p class="duowei-hint">游戏中"挑战下一关"的快捷键，默认为 J（普通攻击键）</p>
     </div>
 
-    <!-- Post-run action -->
-    <div class="post-action-bar">
+    <!-- Post-run action (daily routine only) -->
+    <div class="post-run-row" v-if="state.selectedPipelineId === 'daily_routine'">
       <label>完成后</label>
       <select
         v-model="postRunAction"
@@ -135,9 +113,9 @@ import { api } from '../composables/useApi'
 const showTips = ref(true)
 const swipeMultiplier = ref(1.0)
 const selectedFps = ref(120)
+const lizhanNextKey = ref('J')
 const postRunAction = ref('nothing')
 const postRunActionLoaded = ref(false)
-const lizhanNextKey = ref('J')
 
 const fpsPresets = [
   { fps: 120, label: '120帧', multiplier: 1.0 },
@@ -150,8 +128,8 @@ onMounted(() => {
   const saved = localStorage.getItem('tips_dismissed')
   if (saved === 'true') showTips.value = false
   loadSwipeMultiplier()
-  loadPostRunAction()
   loadLizhanNextKey()
+  loadPostRunAction()
 })
 
 async function loadSwipeMultiplier() {
@@ -178,22 +156,6 @@ async function saveSwipeMultiplier() {
   selectedFps.value = preset ? preset.fps : 0
 }
 
-async function loadPostRunAction() {
-  for (let i = 0; i < 5; i++) {
-    const data = await api.getSettings()
-    if (data && data.post_run_action) {
-      postRunAction.value = data.post_run_action
-      postRunActionLoaded.value = true
-      return
-    }
-    await new Promise(r => setTimeout(r, 300))
-  }
-}
-
-async function savePostRunAction() {
-  await api.setPostRunAction(postRunAction.value)
-}
-
 async function loadLizhanNextKey() {
   const data = await api.getSettings()
   if (data && data.lizhan_next_key) {
@@ -206,6 +168,24 @@ async function saveLizhanNextKey() {
   if (result && !result.ok) {
     lizhanNextKey.value = 'J'
   }
+}
+
+async function loadPostRunAction() {
+  // pywebview may not be ready immediately; retry a few times.
+  for (let i = 0; i < 5; i++) {
+    const data = await api.getSettings()
+    if (data && data.post_run_action) {
+      postRunAction.value = data.post_run_action
+      postRunActionLoaded.value = true
+      return
+    }
+    await new Promise(r => setTimeout(r, 300))
+  }
+  postRunActionLoaded.value = true
+}
+
+async function savePostRunAction() {
+  await api.setPostRunAction(postRunAction.value)
 }
 
 function dismissTips() {
@@ -243,13 +223,6 @@ const currentTasks = computed(() =>
   selectedPipeline.value ? selectedPipeline.value.tasks : []
 )
 
-const totalCount = computed(() => currentTasks.value.length)
-const completedCount = computed(() =>
-  currentTasks.value.filter(t => t.status === 'success').length
-)
-const progressPct = computed(() =>
-  totalCount.value > 0 ? Math.round((completedCount.value / totalCount.value) * 100) : 0
-)
 </script>
 
 <style scoped>
@@ -391,49 +364,6 @@ const progressPct = computed(() =>
   color: var(--chip-active-text);
 }
 
-.pipeline-desc {
-  padding: 4px 20px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.progress-section {
-  padding: 12px 20px 0;
-}
-
-.progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.progress-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.progress-count {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.progress-track {
-  height: 4px;
-  background: var(--progress-bg);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--progress-fill);
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
 /* Duowei settings */
 .duowei-settings {
   padding: 12px 20px;
@@ -488,26 +418,6 @@ const progressPct = computed(() =>
   text-transform: uppercase;
 }
 
-/* Post-run action */
-.post-action-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.post-action-bar label {
-  color: var(--text-muted);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.post-action-bar select {
-  font-size: 12px;
-  max-width: 260px;
-}
-
 /* FPS preset chips */
 .fps-chips {
   display: flex;
@@ -535,5 +445,25 @@ const progressPct = computed(() =>
   border-color: var(--chip-active-border);
   color: var(--chip-active-text);
   font-weight: 600;
+}
+
+/* Compact post-run action row (daily routine only) */
+.post-run-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.post-run-row label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.post-run-row select {
+  flex: 1;
+  max-width: 220px;
 }
 </style>

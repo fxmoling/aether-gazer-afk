@@ -212,10 +212,23 @@ class TacticsTaskClaim:
     description = "Claim 对策协议 task rewards"
     category = "daily"
     requires_pages = ("main_hub", "tactics")
-    requires_ocr = False
+    requires_ocr = True
     safe = True
 
     async def can_run(self, ctx: TaskContext) -> bool:
+        # OCR the hub for '对策协议' text — skip task if entry not visible
+        # (e.g. account hasn't unlocked the feature yet).
+        ctx.logger.info("TacticsTaskClaim.can_run: OCR hub for '对策协议'…")
+        result = await FindTextCheck(target="对策协议").evaluate(ctx)
+        ctx.logger.info(
+            f"TacticsTaskClaim.can_run: result.passed={result.passed} "
+            f"msg={result.message}"
+        )
+        if not result.passed:
+            ctx.logger.info(
+                "TacticsTaskClaim: '对策协议' not found on hub — skipping"
+            )
+            return False
         return True
 
     async def execute(self, ctx: TaskContext) -> TaskResult:

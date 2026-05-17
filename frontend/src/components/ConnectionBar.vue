@@ -4,6 +4,7 @@
       <div class="status-dot" :class="dotClass"></div>
       <span class="status-text">{{ statusText }}</span>
     </div>
+    <span v-if="desc" class="status-desc">{{ desc }}</span>
   </div>
 </template>
 
@@ -11,10 +12,14 @@
 import { computed } from 'vue'
 import { state } from '../composables/useStore'
 
+defineProps({
+  desc: { type: String, default: '' },
+})
+
 const dotClass = computed(() => {
   if (state.connected) return 'connected'
   if (state.running) return 'working'
-  return 'disconnected'
+  return 'ready'
 })
 
 const statusText = computed(() => {
@@ -29,8 +34,14 @@ const statusText = computed(() => {
 .status-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.status-desc {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .status-left {
@@ -60,6 +71,12 @@ const statusText = computed(() => {
 
 .status-dot.disconnected {
   background: var(--text-muted);
+}
+
+.status-dot.ready {
+  background: var(--conn-dot-connected);
+  box-shadow: 0 0 6px var(--conn-dot-connected);
+  opacity: 0.85;
 }
 
 @keyframes dotPulse {
