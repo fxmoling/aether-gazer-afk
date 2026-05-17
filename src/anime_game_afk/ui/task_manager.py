@@ -330,22 +330,14 @@ class TaskManager:
 
         self._logger.info("TaskManager shutdown complete")
 
-    def recover_input(self) -> dict[str, Any]:
-        """Programmatic recovery (kept as a backup API endpoint).
-
-        Normal operation does NOT require this — :meth:`_auto_recover_input`
-        runs automatically on every worker exit (normal, crash, killed).
-        Exposed only for ad-hoc diagnostics.
-        """
-        ok = self._auto_recover_input()
-        return {"ok": ok}
-
     def _auto_recover_input(self) -> bool:
-        """Release stuck keys + clear BlockInput from the parent process.
+        """Release stuck keys from the parent process.
 
-        Always called in :meth:`_read_worker_output`'s ``finally`` so it
+        Called from :meth:`_read_worker_output`'s ``finally`` block so it
         triggers on every worker termination — including ``proc.kill()``
-        where the worker can't run its own cleanup.
+        where the worker can't run its own cleanup.  Creates a transient
+        :class:`DeviceAdapter`, connects long enough for ``disconnect()``
+        to invoke ``release_all_held_keys()``, then drops it.
 
         Best-effort: silently swallows all errors (game window may be
         closed, hwnd invalid, etc.).

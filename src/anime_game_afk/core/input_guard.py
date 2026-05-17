@@ -50,6 +50,66 @@ _HC_ACTION = 0
 _LLMHF_INJECTED = 0x00000001
 _WM_QUIT = 0x0012
 
+# SendInput constants for the global modifier release helper below.
+_INPUT_KEYBOARD = 1
+_KEYEVENTF_KEYUP = 0x0002
+_MODIFIER_VKS = (
+    0x10, 0x11, 0x12,  # Shift, Ctrl, Alt (generic)
+    0xA0, 0xA1,        # L/R Shift
+    0xA2, 0xA3,        # L/R Ctrl
+    0xA4, 0xA5,        # L/R Alt
+    0x5B, 0x5C,        # L/R Win
+)
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", ctypes.c_ushort),
+        ("wScan", ctypes.c_ushort),
+        ("dwFlags", ctypes.c_uint),
+        ("time", ctypes.c_uint),
+        ("dwExtraInfo", ctypes.c_void_p),
+    ]
+
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [("ki", _KEYBDINPUT)]
+
+
+class _INPUT(ctypes.Structure):
+    _anonymous_ = ("u",)
+    _fields_ = [("type", ctypes.c_uint), ("u", _INPUT_UNION)]
+
+
+def release_modifiers_globally() -> int:
+    """Send OS-level KEYUP for Ctrl/Shift/Alt/Win via ``SendInput``.
+
+    MaaFw's ``post_key_up`` only sends ``WM_KEYUP`` scoped to the game
+    window and cannot clear the OS global modifier state.  If something
+    leaves a modifier "down" globally — for example a script that died
+    mid-``hold_key`` — the user's own clicks/keys keep misbehaving until
+    they manually press the stuck key.  ``SendInput`` pushes a real
+    ``KEYUP`` into the OS input queue and is the only reliable cure.
+
+    Safe to call when keys aren't actually down (Windows ignores phantom
+    key-ups).  Returns the count of events Windows accepted.
+    """
+    try:
+        inputs = (_INPUT * len(_MODIFIER_VKS))()
+        for i, vk in enumerate(_MODIFIER_VKS):
+            inputs[i].type = _INPUT_KEYBOARD
+            inputs[i].ki = _KEYBDINPUT(
+                wVk=vk, wScan=0, dwFlags=_KEYEVENTF_KEYUP,
+                time=0, dwExtraInfo=None,
+            )
+        sent = ctypes.windll.user32.SendInput(
+            len(inputs), ctypes.byref(inputs), ctypes.sizeof(_INPUT)
+        )
+        return int(sent)
+    except (AttributeError, OSError) as exc:
+        logger.debug("SendInput modifier release failed: {}", exc)
+        return 0
+
 
 class _MSLLHOOKSTRUCT(ctypes.Structure):
     _fields_ = [
