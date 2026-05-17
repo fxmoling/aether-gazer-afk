@@ -576,6 +576,13 @@ class DeviceAdapter:
     ) -> None:
         """Perform a pointer swipe between two fractional coordinates.
 
+        Under the plain ``SendMessage`` mouse method MaaFw does not move
+        the cursor.  To make swipes work for Unity (which reads
+        ``GetCursorPos()`` during drag), we run a parallel interpolation
+        thread that linearly walks the cursor from start to end over the
+        swipe ``duration``.  The InputGuard absorbs any user mouse input
+        during that window so the user cannot deflect the swipe.
+
         Args:
             fx1: Start X as fraction [0.0, 1.0].
             fy1: Start Y as fraction [0.0, 1.0].
@@ -595,11 +602,82 @@ class DeviceAdapter:
         ax2 = int(fx2 * self._actual.width)
         ay2 = int(fy2 * self._actual.height)
 
-        self._controller.post_swipe(ax1, ay1, ax2, ay2, duration).wait()
+        start_screen = self._client_to_screen(ax1, ay1)
+        end_screen = self._client_to_screen(ax2, ay2)
+        orig_cursor = self._get_cursor_pos()
+
+        with self._input_lock:
+            with self._input_guard.locked():
+                stop_evt = threading.Event()
+                mover: threading.Thread | None = None
+                if start_screen is not None and end_screen is not None:
+                    mover = threading.Thread(
+                        target=self._cursor_walk,
+                        args=(start_screen, end_screen,
+                              duration / 1000.0, stop_evt),
+                        name="CursorWalk",
+                        daemon=True,
+                    )
+                    mover.start()
+                    # Brief settle so the start position is visible to
+                    # the game before MaaFw sends WM_LBUTTONDOWN.
+                    time.sleep(0.008)
+                try:
+                    self._controller.post_swipe(
+                        ax1, ay1, ax2, ay2, duration,
+                    ).wait()
+                finally:
+                    stop_evt.set()
+                    if mover is not None:
+                        mover.join(timeout=0.5)
+                    # Park cursor at end before restore so the game's
+                    # mouse-up handler sees the final position.
+                    if end_screen is not None:
+                        self._set_cursor_pos(*end_screen)
+                        time.sleep(0.008)
+                    if orig_cursor is not None:
+                        self._set_cursor_pos(*orig_cursor)
         logger.debug(
-            "swipe ({:.3f},{:.3f})->({:.3f},{:.3f}) duration={}ms -> pixel ({},{})->({},{})",
+            "swipe ({:.3f},{:.3f})->({:.3f},{:.3f}) duration={}ms -> "
+            "pixel ({},{})->({},{}) screen={}->{}",
             fx1, fy1, fx2, fy2, duration, ax1, ay1, ax2, ay2,
+            start_screen, end_screen,
         )
+
+    def _cursor_walk(
+        self,
+        start: tuple[int, int],
+        end: tuple[int, int],
+        duration_s: float,
+        stop_evt: threading.Event,
+    ) -> None:
+        """Linearly interpolate the cursor from ``start`` to ``end``.
+
+        Runs on a dedicated thread so it can race MaaFw's WM_MOUSEMOVE
+        sequence.  Each interpolation step calls SetCursorPos so the
+        game's ``GetCursorPos()`` reads the right intermediate position.
+        """
+        # Ensure this thread is DPI-aware too.
+        self._ensure_thread_dpi_aware()
+        x1, y1 = start
+        x2, y2 = end
+        # 120Hz step rate (≥ display refresh) keeps the path smooth.
+        step_dt = 0.008
+        t0 = time.perf_counter()
+        while not stop_evt.is_set():
+            elapsed = time.perf_counter() - t0
+            t = elapsed / duration_s if duration_s > 0 else 1.0
+            if t >= 1.0:
+                self._set_cursor_pos(x2, y2)
+                return
+            x = int(x1 + (x2 - x1) * t)
+            y = int(y1 + (y2 - y1) * t)
+            self._set_cursor_pos(x, y)
+            # Use the stop_evt as a wakeable sleep so we exit promptly
+            # when MaaFw's post_swipe returns early.
+            if stop_evt.wait(step_dt):
+                self._set_cursor_pos(x2, y2)
+                return
 
     def press_key(self, vk_code: int) -> None:
         """Send a single key press (press + release cycle).
