@@ -381,21 +381,14 @@ class DeviceAdapter:
     def click(self, fx: float, fy: float) -> None:
         """Send a mouse click at fractional coordinates.
 
-        Uses MaaFw's ``SendMessageWithCursorPos`` mouse method: the library
-        moves the OS cursor + posts WM_LBUTTONDOWN/UP itself.  To prevent
-        the user's concurrent mouse motion from turning the click into a
-        drag (the cursor would otherwise drift between DOWN and UP), we
-        run a tight ``SetCursorPos(target)`` loop on a parallel thread
-        for the duration of the click — no input hook, no event blocking,
-        we just overwrite the cursor position faster than the OS can
-        process user mouse-move events.
-
-        Args:
-            fx: Horizontal position as fraction [0.0, 1.0].
-            fy: Vertical position as fraction [0.0, 1.0].
-
-        Raises:
-            DeviceConnectionError: Not connected.
+        ``mouse_method`` is plain ``SendMessage`` (MaaFw doesn't touch the
+        cursor).  To keep the cursor at the target across WM_LBUTTONDOWN
+        and WM_LBUTTONUP — even if the user is dragging the mouse — we
+        ``SetCursorPos(target)`` then ``ClipCursor`` to a 1x1 rectangle
+        at the target for the click window.  Windows physically refuses
+        to move the cursor outside the clip rect, so the user's hand
+        motion is hard-blocked at the OS level — no hook, no Python in
+        the input path, no other side-effects.
         """
         self._ensure_connected()
         assert self._controller is not None
@@ -407,51 +400,56 @@ class DeviceAdapter:
         orig_cursor = self._get_cursor_pos()
 
         with self._input_lock:
-            stop_evt = threading.Event()
-            pinner: threading.Thread | None = None
+            clipped = False
             if target_screen is not None:
-                pinner = threading.Thread(
-                    target=self._cursor_pin,
-                    args=(target_screen, stop_evt),
-                    name="CursorPin",
-                    daemon=True,
-                )
-                pinner.start()
+                self._set_cursor_pos(*target_screen)
+                clipped = self._clip_cursor_to(*target_screen)
             try:
                 self._controller.post_click(ax, ay).wait()
             finally:
-                # Hold the pin a tiny bit longer than the click itself so
+                # Hold the clip a tiny bit longer than the click itself so
                 # the game's WM_LBUTTONUP handler sees a stable cursor.
                 time.sleep(0.02)
-                stop_evt.set()
-                if pinner is not None:
-                    pinner.join(timeout=0.2)
+                if clipped:
+                    self._clip_cursor_release()
                 if orig_cursor is not None:
                     self._set_cursor_pos(*orig_cursor)
         logger.debug("click ({:.3f}, {:.3f}) -> actual ({}, {})", fx, fy, ax, ay)
 
-    def _cursor_pin(
-        self,
-        target: tuple[int, int],
-        stop_evt: threading.Event,
-    ) -> None:
-        """Spam SetCursorPos at ~200Hz to dominate the cursor position.
+    # ------------------------------------------------------------------
+    # ClipCursor helpers
+    # ------------------------------------------------------------------
 
-        This is the "soft" alternative to a WH_MOUSE_LL hook: we don't
-        intercept any input, we simply overwrite the cursor position
-        faster than the OS processes user mouse-move events, so during
-        the click window the click target wins.  Cost: brief visible
-        cursor snap (~30–50ms) when user happens to be moving the mouse.
-        """
+    class _RECT(ctypes.Structure):
+        _fields_ = [
+            ("left", ctypes.c_long),
+            ("top", ctypes.c_long),
+            ("right", ctypes.c_long),
+            ("bottom", ctypes.c_long),
+        ]
+
+    def _clip_cursor_to(self, x: int, y: int) -> bool:
+        """Confine the OS cursor to a 1x1 rect at (x, y). Returns True on success."""
+        return self._clip_cursor_rect(int(x), int(y), int(x) + 1, int(y) + 1)
+
+    def _clip_cursor_rect(self, left: int, top: int, right: int, bottom: int) -> bool:
+        """Confine the OS cursor to the given rect. Returns True on success."""
         self._ensure_thread_dpi_aware()
-        # ~200Hz pinning; sleep_ms=5 keeps CPU negligible while still
-        # faster than the typical 125Hz/250Hz mouse polling rate.
-        while not stop_evt.is_set():
-            try:
-                ctypes.windll.user32.SetCursorPos(int(target[0]), int(target[1]))
-            except (AttributeError, OSError):
-                return
-            time.sleep(0.005)
+        try:
+            rect = DeviceAdapter._RECT(int(left), int(top), int(right), int(bottom))
+            return bool(
+                ctypes.windll.user32.ClipCursor(ctypes.byref(rect))
+            )
+        except (AttributeError, OSError) as exc:
+            logger.debug("ClipCursor set failed: {}", exc)
+            return False
+
+    def _clip_cursor_release(self) -> None:
+        """Release any active cursor clip."""
+        try:
+            ctypes.windll.user32.ClipCursor(None)
+        except (AttributeError, OSError) as exc:
+            logger.debug("ClipCursor release failed: {}", exc)
 
     # ------------------------------------------------------------------
     # Win32 cursor helpers (used by click() to pin cursor on target)
@@ -594,9 +592,11 @@ class DeviceAdapter:
     ) -> None:
         """Linearly interpolate the cursor from ``start`` to ``end``.
 
-        Runs on a dedicated thread so it can race MaaFw's WM_MOUSEMOVE
-        sequence.  Each interpolation step calls SetCursorPos so the
-        game's ``GetCursorPos()`` reads the right intermediate position.
+        Plain ``SetCursorPos`` each step.  The outer ``swipe()`` method
+        installs a single ``ClipCursor`` to the swipe-path bounding box
+        before spawning this thread, so user mouse motion is kernel-
+        constrained to that rect while we drive the path with
+        ``SetCursorPos``.
         """
         # Ensure this thread is DPI-aware too.
         self._ensure_thread_dpi_aware()
@@ -614,8 +614,6 @@ class DeviceAdapter:
             x = int(x1 + (x2 - x1) * t)
             y = int(y1 + (y2 - y1) * t)
             self._set_cursor_pos(x, y)
-            # Use the stop_evt as a wakeable sleep so we exit promptly
-            # when MaaFw's post_swipe returns early.
             if stop_evt.wait(step_dt):
                 self._set_cursor_pos(x2, y2)
                 return
