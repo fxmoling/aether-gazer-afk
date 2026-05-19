@@ -29,6 +29,7 @@ from anime_game_afk.games.aether_gazer.ops.navigate.smart_return import (
 from anime_game_afk.games.aether_gazer.ops.navigate.wake_hub_ui import WakeHubUiAction
 from anime_game_afk.games.aether_gazer.ops.primitives import (
     ClickOp,
+    ClickPxOp,
     PressKeyOp,
     ScreenshotOp,
     SleepOp,
@@ -61,6 +62,7 @@ class MediumSeizureCombat:
     _START_CHALLENGE = (0.797, 0.911)  # "开始挑战"
     _REWARD_CLAIM = (0.104, 0.913)   # "奖励领取"
     _ONE_KEY_CLAIM = (0.811, 0.924)  # "一键领取"
+    _BATTLE_START_LABELS = ("开始作战", "作战开始", "准备作战", "出击")
 
     # Battle wait config
     _BATTLE_CHECK_INTERVAL = 10  # seconds between OCR checks
@@ -117,9 +119,14 @@ class MediumSeizureCombat:
             ctx.logger.info("[medium_seizure] Clicking 开始挑战")
             await ClickOp(*self._START_CHALLENGE, wait=1.5).run(ctx)
 
-            # Step 4: Enter battle (press Enter on team/stage detail)
-            ctx.logger.info("[Step 4] Enter battle — pressing Enter")
-            await PressKeyOp(VK_ENTER, wait=3.0).run(ctx)
+            # Step 4: Enter battle from the team/stage edit page
+            ctx.logger.info("[Step 4] Enter battle from edit page")
+            entered = await self._enter_battle_from_edit_page(ctx)
+            if not entered:
+                ctx.logger.error("[Step 4] FAILED: cannot start battle from edit page")
+                return TaskResult(
+                    status="failed", message="Cannot start battle from edit page"
+                )
 
             # Step 5: Passive battle wait
             ctx.logger.info("[Step 5] Waiting for battle to end")
@@ -265,6 +272,41 @@ class MediumSeizureCombat:
         await PressKeyOp(VK_ESCAPE, wait=1.0).run(ctx)
         return has_incomplete
 
+    def _find_battle_start_button(self, ocr: OcrResult):
+        for label in self._BATTLE_START_LABELS:
+            match = ocr.find(label)
+            if match:
+                return match
+        return None
+
+    async def _enter_battle_from_edit_page(self, ctx: TaskContext) -> bool:
+        """Click the battle start button on the team/stage edit page."""
+        for attempt in range(1, 4):
+            scan = await self._ocr(ctx)
+            start_button = self._find_battle_start_button(scan.result)
+            if start_button:
+                region = start_button.region
+                center_x = region.x + region.w // 2
+                center_y = region.y + region.h // 2
+                ctx.logger.info(
+                    f"[medium_seizure] Clicking '{start_button.text}' on edit page "
+                    f"(attempt {attempt})"
+                )
+                await ClickPxOp(center_x, center_y, wait=3.0).run(ctx)
+                return True
+
+            ctx.logger.debug(
+                f"[medium_seizure] Edit-page start button not found "
+                f"(attempt {attempt}/3)"
+            )
+            if attempt == 1:
+                ctx.logger.info("[medium_seizure] Pressing Enter fallback")
+                await PressKeyOp(VK_ENTER, wait=1.5).run(ctx)
+            else:
+                await SleepOp(1.0).run(ctx)
+
+        return False
+
     async def _wait_for_battle_end(self, ctx: TaskContext) -> str:
         """Passively wait in battle until "任务完成" detected or timeout.
 
@@ -286,6 +328,18 @@ class MediumSeizureCombat:
 
             scan = await self._ocr(ctx)
             ocr = scan.result
+
+            start_button = self._find_battle_start_button(ocr)
+            if start_button:
+                region = start_button.region
+                center_x = region.x + region.w // 2
+                center_y = region.y + region.h // 2
+                ctx.logger.warning(
+                    f"[medium_seizure] Still on edit page after {elapsed}s; "
+                    f"clicking '{start_button.text}'"
+                )
+                await ClickPxOp(center_x, center_y, wait=3.0).run(ctx)
+                continue
 
             if ocr.has("任务完成"):
                 ctx.logger.info(

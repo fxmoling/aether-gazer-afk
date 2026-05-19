@@ -492,7 +492,8 @@ class TaskManager:
 
         self._process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, env=env, creationflags=creationflags,
+            text=True, encoding="utf-8", errors="replace",
+            env=env, creationflags=creationflags,
         )
         # Bind worker to job so it dies if the parent dies for any reason.
         # Best-effort: failure logged inside; worker still works manually

@@ -18,6 +18,16 @@ import sys
 import traceback
 from typing import Any
 
+# Force UTF-8 on stdout/stderr so JSON lines containing Chinese characters
+# don't crash on systems whose default codec is cp936/cp950/etc.
+for _stream_name in ("stdout", "stderr"):
+    _s = getattr(sys, _stream_name, None)
+    if _s is not None and hasattr(_s, "reconfigure"):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 
 # ---------------------------------------------------------------------------
 # JSON-line helpers
@@ -25,7 +35,13 @@ from typing import Any
 
 def _emit(obj: dict[str, Any]) -> None:
     """Write a single JSON object as one line to stdout and flush."""
-    print(json.dumps(obj, ensure_ascii=False), flush=True)
+    line = json.dumps(obj, ensure_ascii=False)
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        # Fallback if stdout reconfigure failed (e.g. exotic locale).
+        sys.stdout.buffer.write((line + "\n").encode("utf-8", errors="replace"))
+        sys.stdout.flush()
 
 
 # ---------------------------------------------------------------------------
