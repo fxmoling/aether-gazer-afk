@@ -63,6 +63,10 @@ class GuildSupplyClaim:
         run_log: RunLog | None = getattr(ctx, "run_log", None)
         ctx.logger.info("=== GuildSupplyClaim: starting ===")
 
+        # Step 0: Ensure standalone runs start from the hub before using hub coords.
+        ctx.logger.info("[Step 0] Ensure at hub")
+        await ReturnToHubAction().run(ctx)
+
         # Step 1: Click 公会
         ctx.logger.info(f"[Step 1] Click 公会 at ({_GUILD_X},{_GUILD_Y})")
         await ClickOp(x=_GUILD_X, y=_GUILD_Y, wait=1.5).run(ctx)

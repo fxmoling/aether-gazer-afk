@@ -552,7 +552,7 @@ def build(skip_spec: bool = False) -> None:
 
         # Generate start.bat — checks VC++ runtime before launching exe
         start_bat = dist_app / "start.bat"
-        start_bat.write_text(
+        start_bat.write_bytes((
             '@echo off\r\n'
             'chcp 65001 >nul 2>&1\r\n'
             'where /Q msvcp140.dll\r\n'
@@ -568,9 +568,8 @@ def build(skip_spec: bool = False) -> None:
             '    pause\r\n'
             '    exit /b 1\r\n'
             ')\r\n'
-            'start "" "%~dp0anime-game-afk.exe"\r\n',
-            encoding='utf-8',
-        )
+            'start "" "%~dp0anime-game-afk.exe"\r\n'
+        ).encode('utf-8'))
         print(f"Generated {start_bat}")
 
         # Print final size

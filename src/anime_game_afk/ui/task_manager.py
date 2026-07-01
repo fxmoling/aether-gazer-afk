@@ -445,6 +445,9 @@ class TaskManager:
         DLL loading issues with PyInstaller subprocess.
         In dev mode, uses subprocess for easy kill support.
         """
+        if self._exiting:
+            return {"ok": False, "error": "应用正在退出，无法启动任务"}
+
         if self._running:
             return {"ok": False, "error": "已有任务在运行中"}
 
@@ -495,6 +498,20 @@ class TaskManager:
             text=True, encoding="utf-8", errors="replace",
             env=env, creationflags=creationflags,
         )
+
+        if self._stop_requested or self._exiting:
+            reason = "app exit" if self._exiting else "stop requested"
+            self._logger.info(
+                "Start aborted after worker spawn: {} (pid={})",
+                reason, self._process.pid,
+            )
+            try:
+                self._process.kill()
+            except Exception as exc:
+                self._logger.warning("Worker kill after start abort failed: {}", exc)
+            self._running = False
+            return {"ok": False, "error": f"启动被中止: {reason}"}
+
         # Bind worker to job so it dies if the parent dies for any reason.
         # Best-effort: failure logged inside; worker still works manually
         # via Stop button — we just lose the auto-cleanup-on-parent-crash.
@@ -520,11 +537,15 @@ class TaskManager:
         normal completion / crash, so all termination scenarios are
         covered uniformly.
         """
+        proc = self._process
+        if not self._running and (proc is None or proc.poll() is not None):
+            self._logger.info("已请求停止（当前没有运行任务，忽略）")
+            return {"ok": True}
+
         self._stop_requested = True
         self._running = False
 
         # Subprocess mode
-        proc = self._process
         if proc and proc.poll() is None:
             try:
                 proc.kill()
